@@ -20,8 +20,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
             views.setTextViewText(R.id.widget_rank_badge, "#3 Movie")
             views.setTextViewText(R.id.widget_title, "The Shawshank Redemption")
-            views.setTextViewText(R.id.widget_rating, "IMDb 9.3")
-            views.setTextViewText(R.id.widget_year, "1994")
+            // rating and year removed — not in this test layout
             appWidgetManager.updateAppWidget(id, views)
         }
     }
