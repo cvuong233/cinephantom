@@ -6,13 +6,10 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.widget.RemoteViews
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
 import com.cvuong233.cinephantom.ui.search.SearchActivity
-import java.net.URL
 
 /**
  * Big widget: shows a random featured movie/TV show + search bar.
@@ -95,21 +92,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_year, GONE)
         }
 
-        // Poster thumbnail
-        if (!item.posterUrl.isNullOrBlank()) {
-            try {
-                val conn = URL(item.posterUrl).openConnection()
-                conn.connectTimeout = 4000
-                conn.readTimeout = 4000
-                val bmp = BitmapFactory.decodeStream(conn.getInputStream())
-                (conn as? java.net.HttpURLConnection)?.disconnect()
-                if (bmp != null) {
-                    views.setImageViewBitmap(R.id.widget_poster, bmp)
-                    views.setViewVisibility(R.id.widget_poster, VISIBLE)
-                    views.setViewVisibility(R.id.widget_poster_label, GONE)
-                }
-            } catch (_: Exception) { /* keep placeholder */ }
-        }
+        // Poster URL fetched but not set as bitmap yet (simplified for inflation compat)
 
         // Featured tap → open detail
         val detailPi = PendingIntent.getActivity(

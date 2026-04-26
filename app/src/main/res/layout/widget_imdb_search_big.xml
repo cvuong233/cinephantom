@@ -1,52 +1,43 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- MINIMAL big widget: root background only, no per-view backgrounds, no clickable. -->
+<!-- TEST B: Remove layout_weight. Use fixed heights instead.
+     Root bg only. No FrameLayout, no ImageView, no scaleType. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FF0A0F1E"
-    android:padding="10dp">
+    android:paddingLeft="10dp"
+    android:paddingTop="10dp"
+    android:paddingRight="10dp"
+    android:paddingBottom="10dp">
 
-    <!-- Featured card (click handler set in code) -->
+    <!-- Featured row: fixed 110dp -->
     <LinearLayout
         android:id="@+id/widget_featured"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="110dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:padding="8dp">
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp">
 
-        <!-- Poster frame: no background -->
-        <FrameLayout
-            android:id="@+id/widget_poster_frame"
-            android:layout_width="70dp"
-            android:layout_height="100dp">
-
-            <ImageView
-                android:id="@+id/widget_poster"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="centerCrop"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/widget_poster_label"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="M"
-                android:textColor="#FF7C8AAF"
-                android:textSize="24sp"
-                android:textStyle="bold" />
-        </FrameLayout>
+        <!-- Poster placeholder: just a TextView -->
+        <TextView
+            android:id="@+id/widget_poster_label"
+            android:layout_width="60dp"
+            android:layout_height="90dp"
+            android:gravity="center"
+            android:text="M"
+            android:textColor="#FF7C8AAF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:layout_marginStart="12dp">
+            android:layout_marginLeft="12dp">
 
             <TextView
                 android:id="@+id/widget_rank_badge"
@@ -65,8 +56,7 @@
                 android:text=""
                 android:textColor="#FFF5F7FF"
                 android:textSize="14sp"
-                android:textStyle="bold"
-                android:maxLines="2" />
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/widget_rating"
@@ -76,8 +66,7 @@
                 android:text=""
                 android:textColor="#FFFFA000"
                 android:textSize="12sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/widget_year"
@@ -86,28 +75,26 @@
                 android:layout_marginTop="2dp"
                 android:text=""
                 android:textColor="#FF7C8AAF"
-                android:textSize="11sp"
-                android:visibility="gone" />
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Divider: thin line via root background color trick (1px View) -->
+    <!-- Divider -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:background="#FF24304C" />
 
-    <!-- Search bar -->
+    <!-- Search bar: fixed 48dp -->
     <LinearLayout
         android:id="@+id/widget_search_bar"
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp">
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp">
 
-        <!-- Brand dot: just text, no background -->
         <TextView
             android:id="@+id/widget_brand"
             android:layout_width="wrap_content"
@@ -121,9 +108,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="10dp"
-            android:maxLines="1"
-            android:text="Search movies &amp; shows"
+            android:layout_marginLeft="10dp"
+            android:text="@string/widget_hint"
             android:textColor="#FF7C8AAF"
             android:textSize="11sp" />
 
