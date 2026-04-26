@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- DIAGNOSTIC STEP 1: Bright green initial layout with huge text.
-     NO RemoteViews update. If this doesn't show, the widget registration is broken. -->
+<!-- DIAGNOSTIC STEP 2: Same green layout, but with android:id on the main text.
+     onUpdate() will change this text. If user sees the changed text, the update path works. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -10,6 +10,7 @@
     android:padding="12dp">
 
     <TextView
+        android:id="@+id/widget_debug_header"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="BIG WIDGET"
@@ -18,6 +19,7 @@
         android:textStyle="bold" />
 
     <TextView
+        android:id="@+id/widget_debug_subtitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
