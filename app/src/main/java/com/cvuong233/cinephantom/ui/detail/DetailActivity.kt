@@ -21,6 +21,7 @@ class DetailActivity : AppCompatActivity() {
         const val EXTRA_CAST = "extra_cast"
         const val EXTRA_YEAR = "extra_year"
         const val EXTRA_TYPE = "extra_type"
+        const val EXTRA_RATING = "extra_rating"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,6 +34,7 @@ class DetailActivity : AppCompatActivity() {
         val year = intent?.getStringExtra(EXTRA_YEAR)
         val cast = intent?.getStringExtra(EXTRA_CAST)
         val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL)
+        val passedRating = intent?.getFloatExtra(EXTRA_RATING, -1f)?.takeIf { it > 0f }
 
         // Back
         findViewById<View>(R.id.detail_back).setOnClickListener { finish() }
@@ -43,18 +45,22 @@ class DetailActivity : AppCompatActivity() {
         // Meta chip
         findViewById<TextView>(R.id.detail_meta).text = listOfNotNull(type, year).joinToString(" • ").ifBlank { "No info" }
 
-        // Rating
+        // Rating — use passed value (in sync with search card) or fetch
         val ratingText = findViewById<TextView>(R.id.detail_rating)
-        thread {
-            try {
-                val rating = RatingFetcher().fetchRating(imdbId)
-                if (rating != null && rating > 0) {
-                    runOnUiThread { ratingText.text = "IMDb %.1f".format(rating) }
-                } else {
+        if (passedRating != null) {
+            ratingText.text = "IMDb %.1f".format(passedRating)
+        } else {
+            thread {
+                try {
+                    val rating = RatingFetcher().fetchRating(imdbId)
+                    if (rating != null && rating > 0) {
+                        runOnUiThread { ratingText.text = "IMDb %.1f".format(rating) }
+                    } else {
+                        runOnUiThread { ratingText.visibility = View.GONE }
+                    }
+                } catch (_: Exception) {
                     runOnUiThread { ratingText.visibility = View.GONE }
                 }
-            } catch (_: Exception) {
-                runOnUiThread { ratingText.visibility = View.GONE }
             }
         }
 

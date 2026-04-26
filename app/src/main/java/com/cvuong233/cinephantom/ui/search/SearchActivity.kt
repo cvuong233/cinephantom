@@ -203,6 +203,9 @@ class SearchActivity : AppCompatActivity() {
             putExtra(DetailActivity.EXTRA_CAST, title.cast)
             putExtra(DetailActivity.EXTRA_YEAR, title.year)
             putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
+            if (title.rating != null && title.rating > 0f) {
+                putExtra(DetailActivity.EXTRA_RATING, title.rating)
+            }
         }
         startActivity(intent)
     }

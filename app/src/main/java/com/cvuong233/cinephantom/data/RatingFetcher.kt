@@ -16,7 +16,11 @@ class RatingFetcher {
         .readTimeout(5, TimeUnit.SECONDS)
         .build()
 
-    private val cache = ConcurrentHashMap<String, Float>()
+    companion object {
+        private val sharedCache = ConcurrentHashMap<String, Float>()
+    }
+
+    private val cache get() = sharedCache
 
     /**
      * Fetch rating for an IMDb ID. Returns the numeric rating, or null on failure.
