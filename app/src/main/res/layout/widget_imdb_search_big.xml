@@ -1,162 +1,84 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Big widget: featured item + search bar. Keep simple for RemoteViews compat. -->
+<!-- ULTRA-SIMPLE debug layout — no poster frame, no weights, no gradients -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_search_background"
-    android:clickable="true"
-    android:focusable="true"
-    android:gravity="center_vertical"
     android:orientation="vertical"
-    android:padding="8dp">
+    android:background="#FF1A237E"
+    android:padding="16dp">
 
-    <!-- Featured section -->
-    <LinearLayout
-        android:id="@+id/widget_featured_section"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="10dp">
+    <TextView
+        android:id="@+id/widget_debug_header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="CinePhantom BIG"
+        android:textColor="#FFFFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
 
-        <!-- Poster placeholder -->
-        <FrameLayout
-            android:id="@+id/widget_poster_frame"
-            android:layout_width="70dp"
-            android:layout_height="100dp"
-            android:background="@drawable/widget_preview_placeholder">
-
-            <ImageView
-                android:id="@+id/widget_poster"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:contentDescription="@null"
-                android:scaleType="centerCrop"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/widget_poster_label"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:text="M"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="24sp"
-                android:textStyle="bold" />
-        </FrameLayout>
-
-        <!-- Info -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/widget_rank_badge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Loading..."
-                android:textColor="@color/widget_accent"
-                android:textSize="10sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:maxLines="2"
-                android:text=""
-                android:textColor="@color/widget_text_primary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_rating"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:text=""
-                android:textColor="@color/widget_accent"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/widget_year"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text=""
-                android:textColor="@color/widget_text_secondary"
-                android:textSize="11sp"
-                android:visibility="gone" />
-        </LinearLayout>
-
-    </LinearLayout>
-
-    <!-- Divider -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/widget_divider" />
+        android:layout_marginTop="8dp"
+        android:background="#FFFFFFFF" />
 
-    <!-- Search bar -->
-    <LinearLayout
-        android:id="@+id/widget_search_section"
+    <TextView
+        android:id="@+id/widget_rank_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="#1 DEBUG MOVIE"
+        android:textColor="#FFFFEB3B"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_title"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp">
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Debug Title v53"
+        android:textColor="#FFFFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold" />
 
-        <FrameLayout
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:background="@drawable/widget_brand_dot">
+    <TextView
+        android:id="@+id/widget_rating"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="IMDb 9.3"
+        android:textColor="#FFFF9800"
+        android:textSize="14sp"
+        android:textStyle="bold" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="C"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:textStyle="bold" />
-        </FrameLayout>
+    <TextView
+        android:id="@+id/widget_year"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="2026"
+        android:textColor="#FF90CAF9"
+        android:textSize="12sp" />
+
+    <!-- Search pill row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp"
+        android:background="#FF283593"
+        android:gravity="center"
+        android:orientation="horizontal">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
             android:layout_weight="1"
-            android:maxLines="1"
-            android:text="@string/widget_hint"
-            android:textColor="@color/widget_text_secondary"
-            android:textSize="11sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@color/widget_blue_dim"
             android:gravity="center"
-            android:paddingLeft="10dp"
-            android:paddingTop="4dp"
-            android:paddingRight="10dp"
-            android:paddingBottom="4dp"
-            android:text="Search"
-            android:textColor="@color/widget_blue"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:text="Search movies &amp; shows"
+            android:textColor="#FF90CAF9"
+            android:textSize="12sp" />
 
     </LinearLayout>
 
