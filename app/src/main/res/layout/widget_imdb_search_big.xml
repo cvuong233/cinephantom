@@ -1,85 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- ULTRA-SIMPLE debug layout — no poster frame, no weights, no gradients -->
+<!-- DIAGNOSTIC STEP 1: Bright green initial layout with huge text.
+     NO RemoteViews update. If this doesn't show, the widget registration is broken. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#FF1A237E"
-    android:padding="16dp">
+    android:gravity="center"
+    android:background="#FF00C853"
+    android:padding="12dp">
 
     <TextView
-        android:id="@+id/widget_debug_header"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="CinePhantom BIG"
+        android:text="BIG WIDGET"
         android:textColor="#FFFFFFFF"
-        android:textSize="16sp"
+        android:textSize="28sp"
         android:textStyle="bold" />
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="8dp"
-        android:background="#FFFFFFFF" />
-
     <TextView
-        android:id="@+id/widget_rank_badge"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="#1 DEBUG MOVIE"
-        android:textColor="#FFFFEB3B"
-        android:textSize="12sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/widget_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text="Debug Title v53"
+        android:text="TEST MODE"
         android:textColor="#FFFFFFFF"
-        android:textSize="18sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/widget_rating"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="IMDb 9.3"
-        android:textColor="#FFFF9800"
-        android:textSize="14sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/widget_year"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="2026"
-        android:textColor="#FF90CAF9"
-        android:textSize="12sp" />
-
-    <!-- Search pill row -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_marginTop="8dp"
-        android:background="#FF283593"
-        android:gravity="center"
-        android:orientation="horizontal">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="Search movies &amp; shows"
-            android:textColor="#FF90CAF9"
-            android:textSize="12sp" />
-
-    </LinearLayout>
+        android:textSize="16sp" />
 
 </LinearLayout>
