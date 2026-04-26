@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import android.widget.RemoteViews
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
@@ -17,79 +18,90 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Handles data fetching for both small and big widgets.
- * The big widget uses AlarmManager exact timers so the fetch
- * always has a guaranteed broadcast lifecycle (no daemon-thread race).
+ * Data fetch & RemoteViews builder for both small and big widgets.
  */
 class WidgetRefreshReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent?) {
-        // Use goAsync so the network call has up to 20s instead of 10s
         val result = goAsync()
-
         Thread {
             try {
                 val action = intent?.action
-                when (action) {
-                    ImdbSearchWidgetBigProvider.ACTION_IMMEDIATE_REFRESH -> {
-                        val ids = pendingBigWidgetIds
-                        if (ids != null) {
-                            pendingBigWidgetIds = null
-                            doBigWidgetRefresh(context, ids)
-                        }
+                Log.d(TAG, "onReceive action=$action")
+
+                if (ImdbSearchWidgetBigProvider.ACTION_IMMEDIATE_REFRESH == action) {
+                    val ids = pendingBigWidgetIds
+                    if (ids != null) {
+                        pendingBigWidgetIds = null
+                        updateBigWidgetsWithData(context, ids)
                     }
-                    else -> {
-                        val manager = AppWidgetManager.getInstance(context)
+                } else {
+                    // Hourly alarm – refresh ALL widget types
+                    val manager = AppWidgetManager.getInstance(context)
 
-                        // Small widgets: static search bar
-                        val smallIds = manager.getAppWidgetIds(
-                            ComponentName(context, ImdbSearchWidgetProvider::class.java)
-                        )
-                        if (smallIds.isNotEmpty()) {
-                            val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_small)
-                            views.setOnClickPendingIntent(R.id.widget_root, searchPi(context))
-                            for (id in smallIds) manager.updateAppWidget(id, views)
-                        }
+                    // Small widgets: static search bar
+                    val smallIds = manager.getAppWidgetIds(
+                        ComponentName(context, ImdbSearchWidgetProvider::class.java)
+                    )
+                    for (id in smallIds) {
+                        val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_small)
+                        views.setOnClickPendingIntent(R.id.widget_root, searchPi(context))
+                        manager.updateAppWidget(id, views)
+                    }
 
-                        // Big widgets: fresh data
-                        val bigIds = manager.getAppWidgetIds(
-                            ComponentName(context, ImdbSearchWidgetBigProvider::class.java)
-                        )
-                        doBigWidgetRefresh(context, bigIds)
+                    // Big widgets: fetch fresh data
+                    val bigIds = manager.getAppWidgetIds(
+                        ComponentName(context, ImdbSearchWidgetBigProvider::class.java)
+                    )
+                    if (bigIds.isNotEmpty()) {
+                        pendingBigWidgetIds = bigIds
+                        updateBigWidgetsWithData(context, bigIds)
                     }
                 }
             } finally {
                 result.finish()
             }
-        }
+        }.apply { isDaemon = false; start() }
     }
 
     companion object {
 
-        /** Widget IDs from the most recent big-widget onUpdate() call. */
+        private const val TAG = "WidgetRefresh"
+        private const val ALARM_REQ = 2001
+
+        /** Widgets waiting for their first data fetch. */
         var pendingBigWidgetIds: IntArray? = null
 
-        private const val ALARM_REQUEST_CODE = 2001
+        /** Called directly from ImdbSearchWidgetBigProvider.onUpdate() with a non-daemon thread. */
+        fun doImmediateBigRefresh(context: Context, ids: IntArray) {
+            if (ids.isEmpty()) return
+            pendingBigWidgetIds = null // alarm path will have its own if needed
+            Thread {
+                try {
+                    updateBigWidgetsWithData(context, ids)
+                } catch (e: Exception) {
+                    Log.e(TAG, "immediate refresh failed", e)
+                }
+            }.apply { isDaemon = false; start() }
+        }
 
         fun scheduleRefresh(context: Context) {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val pi = PendingIntent.getBroadcast(
-                context, ALARM_REQUEST_CODE,
+                context, ALARM_REQ,
                 Intent(context, WidgetRefreshReceiver::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             alarm.setInexactRepeating(
-                AlarmManager.ELAPSED_REALTIME,
-                AlarmManager.INTERVAL_HOUR,
-                AlarmManager.INTERVAL_HOUR,
-                pi,
+                AlarmManager.ELAPSED_REALTIME, AlarmManager.INTERVAL_HOUR,
+                AlarmManager.INTERVAL_HOUR, pi,
             )
         }
 
         fun cancelRefresh(context: Context) {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val pi = PendingIntent.getBroadcast(
-                context, ALARM_REQUEST_CODE,
+                context, ALARM_REQ,
                 Intent(context, WidgetRefreshReceiver::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
@@ -98,12 +110,17 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
 
         // ── internal ──
 
-        private fun doBigWidgetRefresh(context: Context, ids: IntArray) {
-            if (ids.isEmpty()) return
+        private fun updateBigWidgetsWithData(context: Context, ids: IntArray) {
+            Log.d(TAG, "fetching featured item for ${ids.size} widget(s)")
             val item = WidgetDataFetcher.fetchRandomFeatured()
+            Log.d(TAG, "fetched: ${item?.title ?: "null"}")
             for (id in ids) {
-                val views = buildBigViews(context, item)
-                AppWidgetManager.getInstance(context).updateAppWidget(id, views)
+                try {
+                    val views = buildBigViews(context, item)
+                    AppWidgetManager.getInstance(context).updateAppWidget(id, views)
+                } catch (e: Exception) {
+                    Log.e(TAG, "update widget $id failed", e)
+                }
             }
         }
 
@@ -112,7 +129,9 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
             views.setOnClickPendingIntent(R.id.widget_search_section, searchPi(context))
 
             if (item == null) {
-                views.setTextViewText(R.id.widget_title, "Tap to search")
+                // Show failure state so user can see the fetch ran
+                views.setTextViewText(R.id.widget_title, "Retry later")
+                views.setTextViewText(R.id.widget_rank_badge, "Failed")
                 return views
             }
 
@@ -125,7 +144,6 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
             } else {
                 views.setViewVisibility(R.id.widget_rating, GONE)
             }
-
             if (!item.year.isNullOrBlank()) {
                 views.setTextViewText(R.id.widget_year, item.year)
                 views.setViewVisibility(R.id.widget_year, VISIBLE)
@@ -133,13 +151,11 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
                 views.setViewVisibility(R.id.widget_year, GONE)
             }
 
-            // Poster thumbnail
+            // Download poster thumbnail
             if (!item.posterUrl.isNullOrBlank()) {
                 try {
-                    val url = URL(item.posterUrl)
-                    val conn = url.openConnection() as HttpURLConnection
-                    conn.connectTimeout = 5000
-                    conn.readTimeout = 5000
+                    val conn = URL(item.posterUrl).openConnection() as HttpURLConnection
+                    conn.connectTimeout = 5000; conn.readTimeout = 5000
                     val bmp = BitmapFactory.decodeStream(conn.inputStream)
                     conn.disconnect()
                     if (bmp != null) {
@@ -150,7 +166,7 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
                 } catch (_: Exception) { /* keep placeholder */ }
             }
 
-            // Featured tap → detail
+            // Tap featured → detail
             val detail = Intent(context, DetailActivity::class.java).apply {
                 putExtra(DetailActivity.EXTRA_IMDB_ID, item.id)
                 putExtra(DetailActivity.EXTRA_TITLE, item.title)
@@ -179,7 +195,7 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
             )
         }
 
-        private const val GONE = 8
         private const val VISIBLE = 0
+        private const val GONE = 8
     }
 }
