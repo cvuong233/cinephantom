@@ -93,12 +93,11 @@
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
-                <LinearLayout
+                <com.cvuong233.cinephantom.ui.detail.FlowLayout
                     android:id="@+id/detail_genres_container"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal" />
+                    android:layout_marginTop="8dp" />
             </LinearLayout>
         </LinearLayout>
 

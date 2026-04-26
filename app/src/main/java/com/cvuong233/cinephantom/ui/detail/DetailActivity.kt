@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.cvuong233.cinephantom.R
@@ -109,7 +108,7 @@ class DetailActivity : AppCompatActivity() {
         handler.postDelayed({ loadingNotice.visibility = View.VISIBLE }, 3000)
 
         // Fetch extra metadata from Cinemeta (description + genres)
-        val genresContainer = findViewById<LinearLayout>(R.id.detail_genres_container)
+        val genresContainer = findViewById<FlowLayout>(R.id.detail_genres_container)
         val descText = findViewById<TextView>(R.id.detail_description)
         thread {
             try {
@@ -155,7 +154,7 @@ class DetailActivity : AppCompatActivity() {
         } else null
     }
 
-    private fun showExtraInfo(data: ExtraInfo?, descText: TextView, genresContainer: LinearLayout) {
+    private fun showExtraInfo(data: ExtraInfo?, descText: TextView, genresContainer: FlowLayout) {
         if (data == null) return
 
         if (!data.description.isNullOrBlank()) {
