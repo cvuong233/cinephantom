@@ -26,7 +26,7 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
         private const val ARG_CAST = "cast"
         private const val ARG_IMAGE_URL = "image_url"
         private const val ARG_IMDB_ID = "imdb_id"
-        private const val ARG_GENRES = "genres"
+        private const val ARG_RATING = "rating"
 
         fun newInstance(
             title: String,
@@ -35,14 +35,16 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
             cast: String?,
             imageUrl: String?,
             imdbId: String,
-        ): DetailSheetFragment {
-            val args = Bundle().apply {
+            rating: Float = -1f,
+): DetailSheetFragment {
+        val args = Bundle().apply {
                 putString(ARG_TITLE, title)
                 putString(ARG_TYPE, type)
                 putString(ARG_YEAR, year)
                 putString(ARG_CAST, cast)
                 putString(ARG_IMAGE_URL, imageUrl)
                 putString(ARG_IMDB_ID, imdbId)
+                putFloat(ARG_RATING, rating)
             }
             return DetailSheetFragment().apply { arguments = args }
         }
@@ -74,23 +76,13 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
         // Meta chip
         view.findViewById<TextView>(R.id.detail_meta).text = listOfNotNull(type, year).joinToString(" • ").ifBlank { "No info" }
 
-        // Rating skeleton — show placeholder initially, fetch asynchronously
+        // Rating — only from caller (no independent fetch, stays in sync)
         val ratingText = view.findViewById<TextView>(R.id.detail_rating)
-        ratingText.text = "IMDb --"
-        thread {
-            try {
-                val fetcher = com.cvuong233.cinephantom.data.RatingFetcher()
-                val rating = fetcher.fetchRating(imdbId)
-                if (rating != null && rating > 0) {
-                    view.post {
-                        ratingText.text = "IMDb %.1f".format(rating)
-                    }
-                } else {
-                    view.post { ratingText.visibility = View.GONE }
-                }
-            } catch (_: Exception) {
-                view.post { ratingText.visibility = View.GONE }
-            }
+        val passedRating = args.getFloat(ARG_RATING, -1f)
+        if (passedRating > 0) {
+            ratingText.text = "IMDb %.1f".format(passedRating)
+        } else {
+            ratingText.visibility = View.GONE
         }
 
         // Poster with shimmer
