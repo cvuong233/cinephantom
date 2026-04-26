@@ -2,7 +2,6 @@ package com.cvuong233.cinephantom.ui.search
 
 import android.animation.ValueAnimator
 import android.widget.TextView
-import kotlin.math.roundToInt
 
 /**
  * Animates a numeric rating value with a rolling digit effect.
@@ -49,7 +48,8 @@ object RatingAnimation {
     }
 
     /** Start the rolling animation on a TextView from 0 to target rating.
-     * Stops any running continuous roll first, then animates to the final value. */
+     * Stops any running continuous roll first, then animates to the final value.
+     * Uses floor-based math to avoid rounding up (e.g. 8.8 → "8.8", not "9.0"). */
     fun animateRolling(view: TextView, targetRating: Float) {
         stop(view)
 
@@ -57,9 +57,9 @@ object RatingAnimation {
             duration = 500
             addUpdateListener { animation ->
                 val currentValue = animation.animatedValue as Float
-                val currentWhole = currentValue.roundToInt()
-                val currentDecimal = ((currentValue - currentWhole) * 10).roundToInt().coerceIn(0, 9)
-                view.text = "IMDb $currentWhole.$currentDecimal"
+                val whole = currentValue.toInt()
+                val decimal = ((currentValue - whole) * 10).toInt().coerceIn(0, 9)
+                view.text = "IMDb $whole.$decimal"
             }
         }
         animator.start()
