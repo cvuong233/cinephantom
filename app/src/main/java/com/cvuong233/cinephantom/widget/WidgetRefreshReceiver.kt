@@ -11,166 +11,171 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.widget.RemoteViews
 import com.cvuong233.cinephantom.R
+import com.cvuong233.cinephantom.ui.detail.DetailActivity
+import com.cvuong233.cinephantom.ui.search.SearchActivity
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Periodic refresh handler for the home screen widget.
- * Fetch top catalog, pick random item, update RemoteViews.
- *
- * Also exposes a static helper used by ImdbSearchWidgetProvider.onUpdate()
- * so both initial render and periodic refresh share the same logic.
+ * Periodic refresh handler for both small and big home screen widgets.
+ * Fetches Cinemeta catalog top-10 movies/tv-shows and picks a random featured item.
  */
 class WidgetRefreshReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent?) {
-        updateAllWidgets(context)
+        // Refresh all widget instances (both small and big)
+        val manager = AppWidgetManager.getInstance(context)
+
+        // Small widgets — just re-render the static search bar layout
+        val smallIds = manager.getAppWidgetIds(
+            ComponentName(context, ImdbSearchWidgetProvider::class.java)
+        )
+        if (smallIds.isNotEmpty()) {
+            val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_small)
+            val searchPi = buildSearchPendingIntent(context)
+            views.setOnClickPendingIntent(R.id.widget_root, searchPi)
+            for (id in smallIds) {
+                manager.updateAppWidget(id, views)
+            }
+        }
+
+        // Big widgets — fetch data and update with featured item
+        val bigIds = manager.getAppWidgetIds(
+            ComponentName(context, ImdbSearchWidgetBigProvider::class.java)
+        )
+        updateBigWidgetsWithData(context, bigIds, manager)
     }
 
     companion object {
 
         private const val ALARM_REQUEST_CODE = 2001
-        private const val ACTION_REFRESH = "com.cvuong233.cinephantom.REFRESH_WIDGET"
 
         /** Schedule hourly refresh via AlarmManager. */
         fun scheduleRefresh(context: Context) {
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-            val intent = Intent(context, WidgetRefreshReceiver::class.java).apply { action = ACTION_REFRESH }
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                ALARM_REQUEST_CODE,
-                intent,
+            val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val pi = PendingIntent.getBroadcast(
+                context, ALARM_REQUEST_CODE,
+                Intent(context, WidgetRefreshReceiver::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            alarmManager.setInexactRepeating(
+            alarm.setInexactRepeating(
                 AlarmManager.ELAPSED_REALTIME,
                 AlarmManager.INTERVAL_HOUR,
                 AlarmManager.INTERVAL_HOUR,
-                pendingIntent,
+                pi,
             )
         }
 
-        /** Cancel any previously scheduled refresh. */
+        /** Cancel hourly refresh. */
         fun cancelRefresh(context: Context) {
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-            val intent = Intent(context, WidgetRefreshReceiver::class.java).apply { action = ACTION_REFRESH }
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                ALARM_REQUEST_CODE,
-                intent,
+            val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val pi = PendingIntent.getBroadcast(
+                context, ALARM_REQUEST_CODE,
+                Intent(context, WidgetRefreshReceiver::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            alarmManager.cancel(pendingIntent)
+            alarm.cancel(pi)
         }
 
-        /** Update all widget instances. Called from onUpdate() and the receiver. */
-        fun updateAllWidgets(context: Context) {
+        /** Called by ImdbSearchWidgetBigProvider.onUpdate() — fetch data, build big widget views. */
+        fun updateBigWidgets(context: Context, appWidgetIds: IntArray) {
             val manager = AppWidgetManager.getInstance(context)
-            val component = ComponentName(context, ImdbSearchWidgetProvider::class.java)
-            val ids = manager.getAppWidgetIds(component)
-            if (ids.isEmpty()) return
+            updateBigWidgetsWithData(context, appWidgetIds, manager)
+        }
 
-            // Fetch featured item in background
+        // ── internal ──
+
+        private fun updateBigWidgetsWithData(context: Context, ids: IntArray, manager: AppWidgetManager) {
+            if (ids.isEmpty()) return
             thread {
                 val item = WidgetDataFetcher.fetchRandomFeatured()
-                for (appWidgetId in ids) {
-                    val views = buildViews(context, item)
-                    manager.updateAppWidget(appWidgetId, views)
+                for (id in ids) {
+                    val views = buildBigViews(context, item)
+                    manager.updateAppWidget(id, views)
                 }
             }
         }
 
-        private fun thread(action: () -> Unit) {
-            Thread(action).apply { isDaemon = true; start() }
-        }
+        private fun buildBigViews(context: Context, item: WidgetFeaturedItem?): RemoteViews {
+            val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
 
-        private fun buildViews(context: Context, item: WidgetFeaturedItem?): RemoteViews {
-            val views = RemoteViews(context.packageName, R.layout.widget_imdb_search)
+            // Search bar click → SearchActivity
+            val searchPi = buildSearchPendingIntent(context)
+            views.setOnClickPendingIntent(R.id.widget_search_section, searchPi)
 
             if (item == null) {
-                views.setTextViewText(R.id.widget_title, "No data")
+                views.setTextViewText(R.id.widget_title, "Tap to search")
                 return views
             }
 
-            // Rank badge: "#3 Movie" or "#2 TV Show"
-            val rankLabel = "#${item.rank} ${item.type}"
-            views.setTextViewText(R.id.widget_rank_badge, rankLabel)
-
-            // Title
+            views.setTextViewText(R.id.widget_rank_badge, "#${item.rank} ${item.type}")
             views.setTextViewText(R.id.widget_title, item.title)
 
-            // Rating
             if (!item.imdbRating.isNullOrBlank()) {
                 views.setTextViewText(R.id.widget_rating, "IMDb ${item.imdbRating}")
-                views.setViewVisibility(R.id.widget_rating, View.VISIBLE)
+                views.setViewVisibility(R.id.widget_rating, VISIBLE)
             } else {
-                views.setViewVisibility(R.id.widget_rating, View.GONE)
+                views.setViewVisibility(R.id.widget_rating, GONE)
             }
 
-            // Year
             if (!item.year.isNullOrBlank()) {
                 views.setTextViewText(R.id.widget_year, item.year)
-                views.setViewVisibility(R.id.widget_year, View.VISIBLE)
+                views.setViewVisibility(R.id.widget_year, VISIBLE)
             } else {
-                views.setViewVisibility(R.id.widget_year, View.GONE)
+                views.setViewVisibility(R.id.widget_year, GONE)
             }
 
-            // Poster
+            // Poster thumbnail
             if (!item.posterUrl.isNullOrBlank()) {
                 try {
                     val url = URL(item.posterUrl)
                     val conn = url.openConnection() as HttpURLConnection
                     conn.connectTimeout = 5000
                     conn.readTimeout = 5000
-                    val bitmap = BitmapFactory.decodeStream(conn.inputStream)
+                    val bmp = BitmapFactory.decodeStream(conn.inputStream)
                     conn.disconnect()
-                    if (bitmap != null) {
-                        views.setImageViewBitmap(R.id.widget_poster, bitmap)
-                        views.setViewVisibility(R.id.widget_poster, View.VISIBLE)
-                        views.setViewVisibility(R.id.widget_poster_label, View.GONE)
+                    if (bmp != null) {
+                        views.setImageViewBitmap(R.id.widget_poster, bmp)
+                        views.setViewVisibility(R.id.widget_poster, VISIBLE)
+                        views.setViewVisibility(R.id.widget_poster_label, GONE)
                     }
-                } catch (_: Exception) {
-                    // Keep placeholder
-                }
+                } catch (_: Exception) { /* keep placeholder */ }
             }
 
-            // Click handlers
-            val searchIntent = Intent(context, com.cvuong233.cinephantom.ui.search.SearchActivity::class.java).apply {
-                action = Intent.ACTION_SEARCH
+            // Featured section click → DetailActivity
+            val detail = Intent(context, DetailActivity::class.java).apply {
+                putExtra(DetailActivity.EXTRA_IMDB_ID, item.id)
+                putExtra(DetailActivity.EXTRA_TITLE, item.title)
+                putExtra(DetailActivity.EXTRA_IMAGE_URL, item.posterUrl)
+                putExtra(DetailActivity.EXTRA_YEAR, item.year)
+                putExtra(DetailActivity.EXTRA_TYPE, item.type)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
-            val searchPendingIntent = PendingIntent.getActivity(
-                context,
-                1001,
-                searchIntent,
+            val detailPi = PendingIntent.getActivity(
+                context, 1002, detail,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            views.setOnClickPendingIntent(R.id.widget_search_section, searchPendingIntent)
-
-            // Featured section tap → DetailActivity
-            val detailIntent = Intent(context, com.cvuong233.cinephantom.ui.detail.DetailActivity::class.java).apply {
-                putExtra(com.cvuong233.cinephantom.ui.detail.DetailActivity.EXTRA_IMDB_ID, item.id)
-                putExtra(com.cvuong233.cinephantom.ui.detail.DetailActivity.EXTRA_TITLE, item.title)
-                putExtra(com.cvuong233.cinephantom.ui.detail.DetailActivity.EXTRA_IMAGE_URL, item.posterUrl)
-                putExtra(com.cvuong233.cinephantom.ui.detail.DetailActivity.EXTRA_YEAR, item.year)
-                putExtra(com.cvuong233.cinephantom.ui.detail.DetailActivity.EXTRA_TYPE, item.type)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val detailPendingIntent = PendingIntent.getActivity(
-                context,
-                1002,
-                detailIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-            views.setOnClickPendingIntent(R.id.widget_featured_section, detailPendingIntent)
+            views.setOnClickPendingIntent(R.id.widget_featured_section, detailPi)
 
             return views
         }
 
-        // Need View.GONE/VISIBLE constants
-        private object View {
-            const val GONE = 8
-            const val VISIBLE = 0
+        private fun buildSearchPendingIntent(context: Context): PendingIntent {
+            val intent = Intent(context, SearchActivity::class.java).apply {
+                action = Intent.ACTION_SEARCH
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            return PendingIntent.getActivity(
+                context, 1001, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
         }
+
+        private fun thread(action: () -> Unit) {
+            Thread(action).apply { isDaemon = true; start() }
+        }
+
+        private const val GONE = 8
+        private const val VISIBLE = 0
     }
 }

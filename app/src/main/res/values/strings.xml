@@ -14,6 +14,7 @@
     <string name="widget_hint">Search movies &amp; shows</string>
     <string name="detail_loading_extra">Fetching additional info…</string>
     <string name="search_empty_subtitle">Search movies, TV shows &amp; more</string>
+    <string name="widget_big_description">Featured movie or TV show with search</string>
     <string name="search_no_results_title">No results found</string>
     <string name="search_no_results_subtitle">Try a different search term</string>
 </resources>

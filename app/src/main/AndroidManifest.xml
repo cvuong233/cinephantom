@@ -31,6 +31,7 @@
             android:name=".ui.detail.DetailActivity"
             android:exported="false" />
 
+        <!-- Small widget: search bar only -->
         <receiver
             android:name=".widget.ImdbSearchWidgetProvider"
             android:exported="true">
@@ -39,7 +40,19 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/imdb_search_widget_info" />
+                android:resource="@xml/widget_info_small" />
+        </receiver>
+
+        <!-- Big widget: featured item + search -->
+        <receiver
+            android:name=".widget.ImdbSearchWidgetBigProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_big" />
         </receiver>
 
         <receiver
