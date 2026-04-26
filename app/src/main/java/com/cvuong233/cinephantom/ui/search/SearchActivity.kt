@@ -22,6 +22,7 @@ import com.cvuong233.cinephantom.databinding.ActivitySearchBinding
 import com.cvuong233.cinephantom.data.ImdbSuggestionApi
 import com.cvuong233.cinephantom.data.SearchRatingLoader
 import com.cvuong233.cinephantom.model.ImdbTitle
+import com.cvuong233.cinephantom.data.RatingFetcher
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
 import kotlin.concurrent.thread
 
@@ -196,6 +197,15 @@ class SearchActivity : AppCompatActivity() {
 
 
     private fun openImdbTitle(title: ImdbTitle) {
+        // Use rating from the item (already visible on search card), or from
+        // the shared RatingFetcher cache if the item hasn't been re-bound yet.
+        // This guarantees search card and detail page always show the same value.
+        val effectiveRating = if (title.rating != null && title.rating > 0f) {
+            title.rating
+        } else {
+            RatingFetcher().fetchRating(title.id)?.takeIf { it > 0f }
+        }
+
         val intent = Intent(this, DetailActivity::class.java).apply {
             putExtra(DetailActivity.EXTRA_IMDB_ID, title.id)
             putExtra(DetailActivity.EXTRA_TITLE, title.title)
@@ -203,8 +213,8 @@ class SearchActivity : AppCompatActivity() {
             putExtra(DetailActivity.EXTRA_CAST, title.cast)
             putExtra(DetailActivity.EXTRA_YEAR, title.year)
             putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
-            if (title.rating != null && title.rating > 0f) {
-                putExtra(DetailActivity.EXTRA_RATING, title.rating)
+            if (effectiveRating != null && effectiveRating > 0f) {
+                putExtra(DetailActivity.EXTRA_RATING, effectiveRating)
             }
         }
         startActivity(intent)
