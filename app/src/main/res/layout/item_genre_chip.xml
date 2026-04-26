@@ -3,6 +3,7 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_marginEnd="6dp"
+    android:layout_marginBottom="6dp"
     android:background="@drawable/search_meta_chip_bg"
     android:paddingLeft="10dp"
     android:paddingTop="4dp"

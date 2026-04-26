@@ -89,7 +89,6 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
 
             if (item == null) {
                 views.setTextViewText(R.id.widget_title, "No data")
-                views.setViewVisibility(R.id.widget_loading, View.GONE)
                 return views
             }
 
@@ -134,9 +133,6 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
                     // Keep placeholder
                 }
             }
-
-            // Hide loading overlay
-            views.setViewVisibility(R.id.widget_loading, View.GONE)
 
             // Click handlers
             val searchIntent = Intent(context, com.cvuong233.cinephantom.ui.search.SearchActivity::class.java).apply {
