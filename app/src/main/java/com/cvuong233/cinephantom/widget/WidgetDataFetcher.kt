@@ -1,63 +1,69 @@
 package com.cvuong233.cinephantom.widget
 
-import org.json.JSONArray
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
+import com.cvuong233.cinephantom.data.CinemetaApi
+import kotlin.random.Random
 
 /**
- * Fetches top 10 movies + top 10 TV shows from the Cinemeta catalog
- * and returns one randomly selected item.
+ * Reliable featured-item provider for the big widget.
+ * Uses a curated list of popular movies/TV shows and fetches
+ * real-time metadata (rating, poster) from Cinemeta — the same
+ * API the main app uses for search enrichment.
  */
 object WidgetDataFetcher {
 
-    private const val MOVIE_CATALOG = "https://cinemeta-catalogs.strem.io/top/catalog/movie/top/list=.json"
-    private const val SERIES_CATALOG = "https://cinemeta-catalogs.strem.io/top/catalog/series/top/list=.json"
-    private const val TOP_N = 10
+    private val api = CinemetaApi()
 
-    data class FetchResult(
-        val featured: WidgetFeaturedItem,
-        val mask: Int, // bitmap of visibilities, unused for now
+    private data class Seed(
+        val id: String,
+        val title: String,
+        val type: String,   // "movie" or "series"
+        val typeLabel: String, // "Movie" or "TV Show"
+        val year: String,
     )
 
-    /** Fetch both catalogs, combine, pick one random item. Returns null on failure. */
+    /** Curated list of popular/classic items across genres. */
+    private val SEEDS = listOf(
+        Seed("tt0111161", "The Shawshank Redemption", "movie", "Movie", "1994"),
+        Seed("tt0068646", "The Godfather", "movie", "Movie", "1972"),
+        Seed("tt0468569", "The Dark Knight", "movie", "Movie", "2008"),
+        Seed("tt1375666", "Inception", "movie", "Movie", "2010"),
+        Seed("tt0133093", "The Matrix", "movie", "Movie", "1999"),
+        Seed("tt0167260", "The Lord of the Rings: The Return of the King", "movie", "Movie", "2003"),
+        Seed("tt0109830", "Forrest Gump", "movie", "Movie", "1994"),
+        Seed("tt0071562", "The Godfather Part II", "movie", "Movie", "1974"),
+        Seed("tt0099685", "Goodfellas", "movie", "Movie", "1990"),
+        Seed("tt0120737", "The Lord of the Rings: The Fellowship of the Ring", "movie", "Movie", "2001"),
+        Seed("tt0903747", "Breaking Bad", "series", "TV Show", "2008"),
+        Seed("tt0944947", "Game of Thrones", "series", "TV Show", "2011"),
+        Seed("tt7366338", "Chernobyl", "series", "TV Show", "2019"),
+        Seed("tt1190634", "The Boys", "series", "TV Show", "2019"),
+        Seed("tt3032476", "Better Call Saul", "series", "TV Show", "2015"),
+        Seed("tt8111088", "The Mandalorian", "series", "TV Show", "2019"),
+        Seed("tt5491994", "Planet Earth II", "series", "TV Show", "2016"),
+        Seed("tt7920978", "Shōgun", "series", "TV Show", "2024"),
+        Seed("tt4574334", "Stranger Things", "series", "TV Show", "2016"),
+        Seed("tt2802850", "Fargo", "series", "TV Show", "2014"),
+    )
+
+    /** Pick a random seed, fetch its live metadata from Cinemeta. */
     fun fetchRandomFeatured(): WidgetFeaturedItem? {
-        val movies = fetchCatalog(MOVIE_CATALOG, TOP_N, "Movie")
-        val series = fetchCatalog(SERIES_CATALOG, TOP_N, "TV Show")
-        val all = movies + series
-        if (all.isEmpty()) return null
-        return all.random()
-    }
+        val seed = SEEDS.random()
+        val meta = api.fetchMetadata(seed.id, seed.type).getOrNull()
 
-    private fun fetchCatalog(urlStr: String, limit: Int, typeLabel: String): List<WidgetFeaturedItem> {
-        return try {
-            val url = URL(urlStr)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 10000
-            conn.readTimeout = 10000
-            conn.setRequestProperty("User-Agent", "CinePhantom-Widget/0.1")
-            val json = conn.inputStream.bufferedReader().use { it.readText() }
-            conn.disconnect()
-            val root = JSONObject(json)
-            val metas = root.optJSONArray("metas") ?: JSONArray()
-            val count = minOf(metas.length(), limit)
-            (0 until count).mapNotNull { i ->
-                val meta = metas.optJSONObject(i) ?: return@mapNotNull null
-                parseMeta(meta, i + 1, typeLabel)
-            }
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
+        val rating = meta?.imdbRating?.takeIf { it.isNotBlank() }
+            ?: meta?.rating?.let { String.format("%.1f", it) }
 
-    private fun parseMeta(meta: JSONObject, rank: Int, typeLabel: String): WidgetFeaturedItem? {
-        val id = meta.optString("id").takeIf { it.startsWith("tt") } ?: return null
-        val title = meta.optString("name") ?: return null
-        val imdbRating = meta.optString("imdbRating").takeIf { it.isNotBlank() }
-        val posterPrefix = meta.optString("poster").takeIf { it.isNotBlank() }
-        val posterUrl = posterPrefix?.replace("/small/", "/small/") // keep small for widget
-        val year = meta.optString("year").takeIf { it.isNotBlank() }
-            ?: meta.optString("releaseInfo").takeIf { it.isNotBlank() }
-        return WidgetFeaturedItem(id, title, typeLabel, rank, imdbRating, posterUrl, year)
+        val posterUrl = "https://images.metahub.space/poster/small/${seed.id}/img"
+        val year = seed.year
+
+        return WidgetFeaturedItem(
+            id = seed.id,
+            title = seed.title,
+            type = seed.typeLabel,
+            rank = Random.nextInt(1, 11),
+            imdbRating = rating,
+            posterUrl = posterUrl,
+            year = year,
+        )
     }
 }
