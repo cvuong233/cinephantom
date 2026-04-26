@@ -1,20 +1,15 @@
 package com.cvuong233.cinephantom.data
 
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 
 /**
- * Lightweight IMDb rating fetcher using Cinemeta.
- * Returns raw numeric rating for proper rolling digit animation.
+ * IMDb rating fetcher using Cinemeta.
+ * Tries movie endpoint first, falls back to series if no rating found.
+ * Cache is shared globally across all instances.
  */
 class RatingFetcher {
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(5, TimeUnit.SECONDS)
-        .build()
+    private val api = CinemetaApi()
 
     companion object {
         private val sharedCache = ConcurrentHashMap<String, Float>()
@@ -24,67 +19,36 @@ class RatingFetcher {
 
     /**
      * Fetch rating for an IMDb ID. Returns the numeric rating, or null on failure.
+     * Tries movie endpoint first, then series if movie returns no rating.
      */
     fun fetchRating(imdbId: String): Float? {
-        cache[imdbId]?.let { return it.takeIf { it > 0f } }
+        // Check cache first
+        sharedCache[imdbId]?.let { return it.takeIf { v -> v > 0f } }
 
-        return try {
-            val url = "https://v3-cinemeta.strem.io/meta/movie/$imdbId.json"
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", "CinePhantom/0.1")
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    // Try series type
-                    val seriesUrl = "https://v3-cinemeta.strem.io/meta/series/$imdbId.json"
-                    val seriesRequest = Request.Builder()
-                        .url(seriesUrl)
-                        .header("User-Agent", "CinePhantom/0.1")
-                        .build()
-
-                    client.newCall(seriesRequest).execute().use { seriesResponse ->
-                        if (!seriesResponse.isSuccessful) {
-                            cache[imdbId] = -1f
-                            return null
-                        }
-                        parseRating(seriesResponse.body?.string().orEmpty())
-                    }
-                } else {
-                    parseRating(response.body?.string().orEmpty())
-                }
-            }
-        } catch (e: Exception) {
-            cache[imdbId] = -1f
-            null
+        // Try movie
+        val movieRating = fetchWithType(imdbId, "movie")
+        if (movieRating != null) {
+            sharedCache[imdbId] = movieRating
+            return movieRating
         }
+
+        // Try series
+        val seriesRating = fetchWithType(imdbId, "series")
+        if (seriesRating != null) {
+            sharedCache[imdbId] = seriesRating
+            return seriesRating
+        }
+
+        sharedCache[imdbId] = -1f
+        return null
     }
 
-    private fun parseRating(json: String): Float? {
-        // Find "rating" : number field
-        val ratingPattern = """"rating"\s*:\s*([\d.]+)""".toRegex()
-        val match = ratingPattern.find(json)
-        val ratingValue = match?.groupValues?.getOrNull(1)
-
-        if (ratingValue != null) {
-            val rating = ratingValue.toFloatOrNull()
-            if (rating != null && rating > 0) {
-                return rating
-            }
+    private fun fetchWithType(imdbId: String, contentType: String): Float? {
+        return try {
+            val result = api.fetchMetadata(imdbId, contentType)
+            result.getOrNull()?.rating?.takeIf { it > 0 }
+        } catch (_: Exception) {
+            null
         }
-
-        // Try imdbRating string field
-        val imdbPattern = """"imdbRating"\s*:\s*"([\d.]+)"""".toRegex()
-        val imdbMatch = imdbPattern.find(json)
-        val imdbValue = imdbMatch?.groupValues?.getOrNull(1)
-        if (imdbValue != null) {
-            val rating = imdbValue.toFloatOrNull()
-            if (rating != null && rating > 0) {
-                return rating
-            }
-        }
-
-        return null
     }
 }
