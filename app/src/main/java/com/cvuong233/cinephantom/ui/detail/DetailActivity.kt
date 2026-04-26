@@ -8,7 +8,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.data.RatingFetcher
 import com.cvuong233.cinephantom.ui.search.ShimmerView
 import kotlin.concurrent.thread
 
@@ -45,23 +44,12 @@ class DetailActivity : AppCompatActivity() {
         // Meta chip
         findViewById<TextView>(R.id.detail_meta).text = listOfNotNull(type, year).joinToString(" • ").ifBlank { "No info" }
 
-        // Rating — use passed value (in sync with search card) or fetch
+        // Rating — only from search card (no independent fetch, stays in sync)
         val ratingText = findViewById<TextView>(R.id.detail_rating)
         if (passedRating != null) {
             ratingText.text = "IMDb %.1f".format(passedRating)
         } else {
-            thread {
-                try {
-                    val rating = RatingFetcher().fetchRating(imdbId)
-                    if (rating != null && rating > 0) {
-                        runOnUiThread { ratingText.text = "IMDb %.1f".format(rating) }
-                    } else {
-                        runOnUiThread { ratingText.visibility = View.GONE }
-                    }
-                } catch (_: Exception) {
-                    runOnUiThread { ratingText.visibility = View.GONE }
-                }
-            }
+            ratingText.visibility = View.GONE
         }
 
         // Poster with shimmer
