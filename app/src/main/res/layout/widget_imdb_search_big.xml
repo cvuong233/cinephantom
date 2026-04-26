@@ -1,32 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TEST C: EXACT same structure as green diagnostic (flat, 2 TextView, no nesting).
-     Different: dark root bg, more text fields, below divider + search bar.
-     If this fails, the issue is colors/attributes. If it works, nesting causes the break. -->
+<!-- TEST D: All components at ROOT level. No nested LinearLayouts. No layout_weight.
+     Poster/text side-by-side done inline. Divider as View. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center"
     android:background="#FF0A0F1E"
-    android:padding="10dp">
+    android:paddingLeft="12dp"
+    android:paddingTop="10dp"
+    android:paddingRight="12dp"
+    android:paddingBottom="10dp">
+
+    <TextView
+        android:id="@+id/widget_poster_label"
+        android:layout_width="60dp"
+        android:layout_height="90dp"
+        android:gravity="center"
+        android:text="M"
+        android:textColor="#FF7C8AAF"
+        android:textSize="20sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_rank_badge"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="#3 Movie"
+        android:layout_marginTop="6dp"
+        android:text="Loading..."
         android:textColor="#FF6B7CFF"
-        android:textSize="12sp"
+        android:textSize="10sp"
         android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text=""
+        android:textColor="#FFF5F7FF"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_rating"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:text=""
+        android:textColor="#FFFFA000"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_year"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text=""
+        android:textColor="#FF7C8AAF"
+        android:textSize="11sp" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:background="#FF24304C" />
+
+    <!-- Search bar (flat row items) -->
+    <TextView
+        android:id="@+id/widget_brand"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="The Shawshank Redemption"
-        android:textColor="#FFF5F7FF"
-        android:textSize="18sp"
+        android:text="C"
+        android:textColor="#FF6B7CFF"
+        android:textSize="16sp"
         android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Search movies and shows"
+        android:textColor="#FF7C8AAF"
+        android:textSize="11sp" />
 
 </LinearLayout>
