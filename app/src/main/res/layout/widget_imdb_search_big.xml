@@ -1,98 +1,137 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TEST G: All content elements flat at root level. No nested layouts.
-     Poster as TextView placeholder, divider as TextView, all text elements. -->
+<!-- FINAL WIDGET LAYOUT — side-by-side poster+text, horizontal search bar.
+     Divider uses TextView (1dp) instead of View. ImageView without scaleType. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FF0A0F1E"
-    android:paddingLeft="12dp"
-    android:paddingTop="10dp"
-    android:paddingRight="12dp"
-    android:paddingBottom="10dp">
+    android:padding="10dp">
 
-    <!-- Poster: ImageView without scaleType (default FIT_CENTER) -->
-    <ImageView
-        android:id="@+id/widget_poster"
-        android:layout_width="60dp"
-        android:layout_height="90dp"
-        android:background="#FF0D1526" />
-
-    <!-- Poster placeholder text (shown when no image loaded) -->
-    <TextView
-        android:id="@+id/widget_poster_label"
-        android:layout_width="60dp"
-        android:layout_height="90dp"
-        android:gravity="center"
-        android:visibility="gone"
-        android:text="M"
-        android:textColor="#FF7C8AAF"
-        android:textSize="20sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/widget_rank_badge"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text="Loading..."
-        android:textColor="#FF6B7CFF"
-        android:textSize="10sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/widget_title"
+    <!-- Featured row: poster + text side by side -->
+    <LinearLayout
+        android:id="@+id/widget_featured"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text=""
-        android:textColor="#FFF5F7FF"
-        android:textSize="14sp"
-        android:textStyle="bold" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp">
 
-    <TextView
-        android:id="@+id/widget_rating"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:text=""
-        android:textColor="#FFFFA000"
-        android:textSize="12sp"
-        android:textStyle="bold" />
+        <!-- Poster -->
+        <ImageView
+            android:id="@+id/widget_poster"
+            android:layout_width="60dp"
+            android:layout_height="90dp"
+            android:background="#FF0D1526"
+            android:contentDescription="Poster" />
 
-    <TextView
-        android:id="@+id/widget_year"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text=""
-        android:textColor="#FF7C8AAF"
-        android:textSize="11sp" />
+        <!-- Poster placeholder (hidden when image loads) -->
+        <TextView
+            android:id="@+id/widget_poster_label"
+            android:layout_width="60dp"
+            android:layout_height="90dp"
+            android:gravity="center"
+            android:visibility="gone"
+            android:text="M"
+            android:textColor="#FF7C8AAF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
-    <!-- Divider (TextView with 1dp height) -->
+        <!-- Text column -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginLeft="12dp">
+
+            <TextView
+                android:id="@+id/widget_rank_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:textColor="#FF6B7CFF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text=""
+                android:textColor="#FFF5F7FF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:maxLines="2"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/widget_rating"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text=""
+                android:textColor="#FFFFA000"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_year"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text=""
+                android:textColor="#FF7C8AAF"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Divider (TextView, not View) -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:layout_marginTop="8dp"
         android:background="#FF24304C" />
 
-    <!-- Search bar elements -->
-    <TextView
-        android:id="@+id/widget_brand"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="C"
-        android:textColor="#FF6B7CFF"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-
-    <TextView
+    <!-- Search bar row -->
+    <LinearLayout
+        android:id="@+id/widget_search_bar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="Search movies and shows"
-        android:textColor="#FF7C8AAF"
-        android:textSize="11sp" />
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp">
 
+        <TextView
+            android:id="@+id/widget_brand"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="C"
+            android:textColor="#FF6B7CFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginLeft="10dp"
+            android:text="Search movies and shows"
+            android:textColor="#FF7C8AAF"
+            android:textSize="11sp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/widget_search_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Search"
+            android:textColor="#FF6B7CFF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 </LinearLayout>
