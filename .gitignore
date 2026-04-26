@@ -14,3 +14,4 @@ local.properties
 .cxx
 app/build/
 deliveries/
+.github/
