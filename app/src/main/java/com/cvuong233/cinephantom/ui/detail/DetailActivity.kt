@@ -8,6 +8,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.cvuong233.cinephantom.R
+import com.cvuong233.cinephantom.data.RatingFetcher
 import com.cvuong233.cinephantom.ui.search.ShimmerView
 import kotlin.concurrent.thread
 
@@ -20,7 +21,6 @@ class DetailActivity : AppCompatActivity() {
         const val EXTRA_CAST = "extra_cast"
         const val EXTRA_YEAR = "extra_year"
         const val EXTRA_TYPE = "extra_type"
-        const val EXTRA_RATING = "extra_rating"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,7 +33,6 @@ class DetailActivity : AppCompatActivity() {
         val year = intent?.getStringExtra(EXTRA_YEAR)
         val cast = intent?.getStringExtra(EXTRA_CAST)
         val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL)
-        val passedRating = intent?.getFloatExtra(EXTRA_RATING, -1f)?.takeIf { it > 0f }
 
         // Back
         findViewById<View>(R.id.detail_back).setOnClickListener { finish() }
@@ -44,10 +43,11 @@ class DetailActivity : AppCompatActivity() {
         // Meta chip
         findViewById<TextView>(R.id.detail_meta).text = listOfNotNull(type, year).joinToString(" • ").ifBlank { "No info" }
 
-        // Rating — only from search card (no independent fetch, stays in sync)
+        // Rating — reads from the same shared RatingFetcher cache as the search card
         val ratingText = findViewById<TextView>(R.id.detail_rating)
-        if (passedRating != null) {
-            ratingText.text = "IMDb %.1f".format(passedRating)
+        val cachedRating = RatingFetcher().fetchRating(imdbId)?.takeIf { it > 0f }
+        if (cachedRating != null) {
+            ratingText.text = "IMDb %.1f".format(cachedRating)
         } else {
             ratingText.visibility = View.GONE
         }

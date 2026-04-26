@@ -14,6 +14,7 @@ import coil.load
 import coil.size.ViewSizeResolver
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.cvuong233.cinephantom.R
+import com.cvuong233.cinephantom.data.RatingFetcher
 import com.cvuong233.cinephantom.ui.search.ShimmerView
 import kotlin.concurrent.thread
 
@@ -26,7 +27,6 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
         private const val ARG_CAST = "cast"
         private const val ARG_IMAGE_URL = "image_url"
         private const val ARG_IMDB_ID = "imdb_id"
-        private const val ARG_RATING = "rating"
 
         fun newInstance(
             title: String,
@@ -35,7 +35,6 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
             cast: String?,
             imageUrl: String?,
             imdbId: String,
-            rating: Float = -1f,
 ): DetailSheetFragment {
         val args = Bundle().apply {
                 putString(ARG_TITLE, title)
@@ -44,7 +43,6 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
                 putString(ARG_CAST, cast)
                 putString(ARG_IMAGE_URL, imageUrl)
                 putString(ARG_IMDB_ID, imdbId)
-                putFloat(ARG_RATING, rating)
             }
             return DetailSheetFragment().apply { arguments = args }
         }
@@ -76,11 +74,11 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
         // Meta chip
         view.findViewById<TextView>(R.id.detail_meta).text = listOfNotNull(type, year).joinToString(" • ").ifBlank { "No info" }
 
-        // Rating — only from caller (no independent fetch, stays in sync)
+        // Rating — reads from the same shared RatingFetcher cache as the search card
         val ratingText = view.findViewById<TextView>(R.id.detail_rating)
-        val passedRating = args.getFloat(ARG_RATING, -1f)
-        if (passedRating > 0) {
-            ratingText.text = "IMDb %.1f".format(passedRating)
+        val cachedRating = RatingFetcher().fetchRating(imdbId)?.takeIf { it > 0f }
+        if (cachedRating != null) {
+            ratingText.text = "IMDb %.1f".format(cachedRating)
         } else {
             ratingText.visibility = View.GONE
         }
