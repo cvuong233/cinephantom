@@ -3,39 +3,33 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_search_background"
+    android:background="#0A0F1E"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="16dp">
+    android:paddingStart="16dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="8dp">
 
     <TextView
-        android:id="@+id/widget_logo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="12dp"
-        android:text="◉"
-        android:textColor="@android:color/white"
-        android:textSize="18sp"
-        android:textStyle="bold" />
+        android:id="@+id/widget_icon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:gravity="center"
+        android:text="🔍"
+        android:textSize="20sp" />
 
     <TextView
         android:id="@+id/widget_hint"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
         android:layout_weight="1"
         android:ellipsize="end"
+        android:gravity="center_vertical"
         android:maxLines="1"
-        android:text="Search IMDb movies & shows"
-        android:textColor="#B8C4FF"
-        android:textSize="15sp" />
-
-    <TextView
-        android:id="@+id/widget_action"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:text="⌕"
-        android:textColor="@android:color/white"
-        android:textSize="18sp" />
+        android:text="@string/widget_hint"
+        android:textColor="#6B7280"
+        android:textSize="16sp" />
 
 </LinearLayout>

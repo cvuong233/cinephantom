@@ -6,9 +6,9 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.widget.RemoteViews
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.widget.WidgetSearchActivity
 
 class ImdbSearchWidgetProvider : AppWidgetProvider() {
 
@@ -35,7 +35,8 @@ class ImdbSearchWidgetProvider : AppWidgetProvider() {
         }
 
         private fun buildLaunchPendingIntent(context: Context): PendingIntent {
-            val intent = Intent(context, WidgetSearchActivity::class.java).apply {
+            val intent = Intent(context, com.cvuong233.cinephantom.ui.search.SearchActivity::class.java).apply {
+                action = Intent.ACTION_SEARCH
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             return PendingIntent.getActivity(

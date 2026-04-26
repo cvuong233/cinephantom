@@ -7,6 +7,7 @@ data class ImdbTitle(
     val year: String?,
     val cast: String?,
     val imageUrl: String?,
+    val rating: Float? = null,
 ) {
     val imdbUrl: String
         get() = "https://www.imdb.com/title/$id/"

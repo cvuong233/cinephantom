@@ -1,4 +1,15 @@
 <resources>
     <string name="app_name">CinePhantom</string>
-    <string name="widget_description">Movie and TV search widget</string>
+    <string name="search_hint">Search movie or TV show</string>
+    <string name="search_button_label">Search</string>
+    <string name="search_guidance">Type a title to search</string>
+    <string name="search_cast_label">Cast</string>
+    <string name="search_cast_unavailable">Cast info not available</string>
+    <string name="search_status_loading">Searching…</string>
+    <string name="search_no_results">No results for "%s"</string>
+    <string name="search_failed_toast">Search failed</string>
+    <string name="stremio_open_button">Open in Stremio</string>
+    <string name="stremio_not_installed">Stremio is not installed on this device</string>
+    <string name="widget_description">Quick search CinePhantom</string>
+    <string name="widget_hint">Search movies &amp; shows</string>
 </resources>

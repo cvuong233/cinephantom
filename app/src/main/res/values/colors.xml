@@ -1,5 +1,11 @@
 <resources>
     <color name="screen_bg">#090E19</color>
-    <color name="surface_dark">#111729</color>
-    <color name="electric_blue">#5B6EFF</color>
+    <color name="surface_dark">#121B2D</color>
+    <color name="surface_raised">#10192A</color>
+    <color name="input_surface">#0D1526</color>
+    <color name="surface_border">#24304C</color>
+    <color name="electric_blue">#6B7CFF</color>
+    <color name="text_primary">#F5F7FF</color>
+    <color name="text_secondary">#B0BDDF</color>
+    <color name="text_muted">#7C8AAF</color>
 </resources>
