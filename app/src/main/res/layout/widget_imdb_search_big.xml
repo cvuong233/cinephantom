@@ -1,30 +1,151 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- DIAGNOSTIC STEP 2: Same green layout, but with android:id on the main text.
-     onUpdate() will change this text. If user sees the changed text, the update path works. -->
+<!-- CinePhantom big widget: featured card + search bar. All flat hex colors, no drawables. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center"
-    android:background="#FF00C853"
-    android:padding="12dp">
+    android:background="#FF0A0F1E"
+    android:padding="10dp">
 
-    <TextView
-        android:id="@+id/widget_debug_header"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="BIG WIDGET"
-        android:textColor="#FFFFFFFF"
-        android:textSize="28sp"
-        android:textStyle="bold" />
+    <!-- Featured card -->
+    <LinearLayout
+        android:id="@+id/widget_featured"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:clickable="true"
+        android:focusable="true"
+        android:padding="8dp">
 
-    <TextView
-        android:id="@+id/widget_debug_subtitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="TEST MODE"
-        android:textColor="#FFFFFFFF"
-        android:textSize="16sp" />
+        <!-- Poster frame -->
+        <FrameLayout
+            android:id="@+id/widget_poster_frame"
+            android:layout_width="70dp"
+            android:layout_height="100dp"
+            android:background="#FF0D1526">
 
+            <ImageView
+                android:id="@+id/widget_poster"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:contentDescription="@null"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/widget_poster_label"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="M"
+                android:textColor="#FF7C8AAF"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+        </FrameLayout>
+
+        <!-- Info column -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:id="@+id/widget_rank_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Loading..."
+                android:textColor="#FF6B7CFF"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text=""
+                android:textColor="#FFF5F7FF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:maxLines="2" />
+
+            <TextView
+                android:id="@+id/widget_rating"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text=""
+                android:textColor="#FFFFA000"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/widget_year"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text=""
+                android:textColor="#FF7C8AAF"
+                android:textSize="11sp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#FF24304C" />
+
+    <!-- Search bar -->
+    <LinearLayout
+        android:id="@+id/widget_search_bar"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:id="@+id/widget_brand"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:text="C"
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:background="#FF6B7CFF" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:maxLines="1"
+            android:text="Search movies &amp; shows"
+            android:textColor="#FF7C8AAF"
+            android:textSize="11sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingLeft="10dp"
+            android:paddingTop="4dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="4dp"
+            android:text="Search"
+            android:textColor="#FF6B7CFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:background="#141B2D" />
+    </LinearLayout>
 </LinearLayout>
