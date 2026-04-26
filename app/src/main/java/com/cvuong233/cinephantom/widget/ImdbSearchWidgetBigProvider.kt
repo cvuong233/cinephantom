@@ -5,10 +5,12 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.widget.RemoteViews
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
 import com.cvuong233.cinephantom.ui.search.SearchActivity
+import java.net.URL
 
 /**
  * TEST H: Click handlers + real data fetch from Cinemeta.
@@ -88,7 +90,10 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        views.setOnClickPendingIntent(R.id.widget_poster_label, detailPi)
+        views.setOnClickPendingIntent(R.id.widget_poster, detailPi)
+
+        // Load poster
+        loadPoster(views, item.posterUrl)
 
         return views
     }
@@ -96,5 +101,25 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
     companion object {
         private const val VISIBLE = 0
         private const val GONE = 8
+    }
+
+    private fun loadPoster(views: RemoteViews, posterUrl: String?) {
+        if (posterUrl.isNullOrBlank()) return
+        try {
+            val conn = URL(posterUrl).openConnection()
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            val bmp = BitmapFactory.decodeStream(conn.getInputStream())
+            (conn as? java.net.HttpURLConnection)?.disconnect()
+            if (bmp != null) {
+                views.setImageViewBitmap(R.id.widget_poster, bmp)
+                views.setViewVisibility(R.id.widget_poster, VISIBLE)
+                views.setViewVisibility(R.id.widget_poster_label, GONE)
+            }
+        } catch (_: Exception) {
+            // Show placeholder "M"
+            views.setViewVisibility(R.id.widget_poster, GONE)
+            views.setViewVisibility(R.id.widget_poster_label, VISIBLE)
+        }
     }
 }

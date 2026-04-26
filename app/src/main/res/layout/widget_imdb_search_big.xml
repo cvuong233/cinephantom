@@ -11,12 +11,20 @@
     android:paddingRight="12dp"
     android:paddingBottom="10dp">
 
-    <!-- Poster placeholder -->
+    <!-- Poster: ImageView without scaleType (default FIT_CENTER) -->
+    <ImageView
+        android:id="@+id/widget_poster"
+        android:layout_width="60dp"
+        android:layout_height="90dp"
+        android:background="#FF0D1526" />
+
+    <!-- Poster placeholder text (shown when no image loaded) -->
     <TextView
         android:id="@+id/widget_poster_label"
         android:layout_width="60dp"
         android:layout_height="90dp"
         android:gravity="center"
+        android:visibility="gone"
         android:text="M"
         android:textColor="#FF7C8AAF"
         android:textSize="20sp"
