@@ -4,46 +4,98 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.databinding.ItemSearchResultBinding
 import com.cvuong233.cinephantom.model.ImdbTitle
 
 class SearchResultsAdapter(
     private val onClick: (ImdbTitle) -> Unit,
-) : RecyclerView.Adapter<SearchResultsAdapter.ResultViewHolder>() {
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+
+    companion object {
+        private const val VIEW_TYPE_SKELETON = 0
+        private const val VIEW_TYPE_RESULT = 1
+    }
 
     private val items = mutableListOf<ImdbTitle>()
+    private val pendingRatings = mutableSetOf<String>()
     private var isLoading = false
+    private val skeletonCount = 5
 
     var onStremioClick: ((ImdbTitle) -> Unit)? = null
 
     fun showLoading() { isLoading = true; notifyDataSetChanged() }
     fun hideLoading() { isLoading = false; notifyDataSetChanged() }
 
+    fun isLoading(): Boolean = isLoading
+
     fun submitList(newList: List<ImdbTitle>) {
         items.clear()
         items.addAll(newList)
+        pendingRatings.clear()
+        pendingRatings.addAll(newList.map { it.id })
         notifyDataSetChanged()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ResultViewHolder {
-        val inflater = LayoutInflater.from(parent.context)
-        val binding = ItemSearchResultBinding.inflate(inflater, parent, false)
-        return ResultViewHolder(binding)
-    }
-
-    override fun getItemCount(): Int = if (isLoading) 5 else items.size
-
-    override fun getItemViewType(position: Int): Int = if (isLoading) 0 else 1
-
-    override fun onBindViewHolder(holder: ResultViewHolder, position: Int) {
-        if (!isLoading) {
-            holder.bind(items[position], position)
+    /**
+     * Update a single item's rating when fetched asynchronously.
+     */
+    fun updateRating(updated: ImdbTitle) {
+        val index = items.indexOfFirst { it.id == updated.id }
+        if (index >= 0) {
+            items[index] = updated
+            notifyItemChanged(index, "rating")
+            pendingRatings.remove(updated.id)
         }
     }
 
-    override fun onViewRecycled(holder: ResultViewHolder) {
-        super.onViewRecycled(holder)
-        holder.binding.posterPlaceholder.stopAndHide()
+    /**
+     * Called when all pending rating fetches are done.
+     * Finalizes any remaining "---" badges to show nothing instead of rolling forever.
+     */
+    fun onRatingFetchDone() {
+        pendingRatings.clear()
+        notifyItemRangeChanged(0, items.size, "rating_done")
+    }
+
+    override fun getItemCount(): Int = if (isLoading) skeletonCount else items.size
+
+    override fun getItemViewType(position: Int): Int =
+        if (isLoading) VIEW_TYPE_SKELETON else VIEW_TYPE_RESULT
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return when (viewType) {
+            VIEW_TYPE_SKELETON -> {
+                val view = inflater.inflate(R.layout.item_search_skeleton, parent, false)
+                SkeletonViewHolder(view)
+            }
+            else -> {
+                val binding = ItemSearchResultBinding.inflate(inflater, parent, false)
+                ResultViewHolder(binding)
+            }
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (holder) {
+            is SkeletonViewHolder -> holder.bind()
+            is ResultViewHolder -> holder.bind(items[position], position)
+        }
+    }
+
+    override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
+        if (holder is ResultViewHolder) {
+            holder.binding.posterPlaceholder.stopAndHide()
+        }
+    }
+
+    class SkeletonViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val shimmerPoster = itemView.findViewById<com.cvuong233.cinephantom.ui.search.ShimmerView>(R.id.skeleton_poster)
+
+        fun bind() {
+            shimmerPoster?.startShimmer()
+        }
     }
 
     inner class ResultViewHolder(
@@ -67,10 +119,15 @@ class SearchResultsAdapter(
                 binding.ratingBadge.visibility = View.VISIBLE
                 binding.ratingBadge.text = "IMDb "
                 RatingAnimation.animateRolling(binding.ratingBadge, rating)
-            } else {
+            } else if (pendingRatings.contains(item.id)) {
+                // Still waiting for rating — show rolling placeholder
                 binding.ratingBadge.visibility = View.VISIBLE
                 binding.ratingBadge.text = "IMDb --"
                 RatingAnimation.startContinuousRoll(binding.ratingBadge)
+            } else {
+                // Rating fetch completed with no result — hide badge
+                binding.ratingBadge.visibility = View.GONE
+                RatingAnimation.stop(binding.ratingBadge)
             }
 
             // Genres — hidden by default
@@ -93,7 +150,7 @@ class SearchResultsAdapter(
                 binding.posterPlaceholder.visibility = View.VISIBLE
                 binding.posterPlaceholder.startShimmer()
                 binding.posterImage.visibility = View.GONE
-                binding.posterImage.setImageDrawable(null) // clear
+                binding.posterImage.setImageDrawable(null)
                 SimpleImageLoader.load(
                     url = item.imageUrl,
                     imageView = binding.posterImage,
@@ -112,8 +169,6 @@ class SearchResultsAdapter(
             binding.stremioButton.setOnClickListener {
                 onStremioClick?.invoke(item)
             }
-
-
         }
     }
 }

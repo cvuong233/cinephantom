@@ -3,14 +3,18 @@ package com.cvuong233.cinephantom.ui.detail
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import coil.load
+import coil.size.ViewSizeResolver
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.cvuong233.cinephantom.R
+import com.cvuong233.cinephantom.ui.search.ShimmerView
 import kotlin.concurrent.thread
 
 class DetailSheetFragment : BottomSheetDialogFragment() {
@@ -70,7 +74,7 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
         // Meta chip
         view.findViewById<TextView>(R.id.detail_meta).text = listOfNotNull(type, year).joinToString(" • ").ifBlank { "No info" }
 
-        // Rating — fetch asynchronously
+        // Rating skeleton — show placeholder initially, fetch asynchronously
         val ratingText = view.findViewById<TextView>(R.id.detail_rating)
         ratingText.text = "IMDb --"
         thread {
@@ -89,24 +93,44 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
             }
         }
 
-        // Poster
+        // Poster with shimmer
         val posterImage = view.findViewById<android.widget.ImageView>(R.id.detail_poster)
-        val posterPlaceholder = view.findViewById<View>(R.id.detail_poster_frame)
+        val posterShimmer = view.findViewById<ShimmerView>(R.id.sheet_poster_shimmer)
+        posterShimmer.startShimmer()
         if (!imageUrl.isNullOrBlank()) {
-            posterImage.visibility = View.VISIBLE
             posterImage.load(imageUrl) {
                 crossfade(true)
                 placeholder(android.R.color.transparent)
                 error(android.R.color.transparent)
+                listener(
+                    onStart = { posterShimmer.startShimmer() },
+                    onSuccess = { _, _ -> posterShimmer.stopAndHide() },
+                    onError = { _, _ -> posterShimmer.stopAndHide() },
+                )
+            }
+        }
+
+        // Genres skeleton
+        val genresContainer = view.findViewById<LinearLayout>(R.id.detail_genres_container)
+        val genresSkeleton = view.findViewById<View>(R.id.detail_genres_skeleton)
+
+        // Start shimmer on skeleton
+        val genresSkeletonGroup = genresSkeleton as? ViewGroup
+        genresSkeleton.post {
+            genresSkeletonGroup?.let { g ->
+                for (i in 0 until g.childCount) {
+                    val child = g.getChildAt(i)
+                    if (child is ShimmerView) {
+                        child.startShimmer()
+                    }
+                }
             }
         }
 
         // Genres — fetch from Cinemeta
-        val genresContainer = view.findViewById<LinearLayout>(R.id.detail_genres_container)
         thread {
             try {
                 val json = java.net.URL("https://v3-cinemeta.strem.io/meta/movie/$imdbId.json").readText()
-                // Try series if movie fails
                 var genres: List<String>? = parseGenres(json)
                 if (genres == null) {
                     val seriesJson = java.net.URL("https://v3-cinemeta.strem.io/meta/series/$imdbId.json").readText()
@@ -115,6 +139,7 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
                 val finalGenres = genres
                 if (finalGenres != null && finalGenres.isNotEmpty()) {
                     view.post {
+                        genresSkeleton.visibility = View.GONE
                         for (g in finalGenres) {
                             val chip = layoutInflater.inflate(
                                 R.layout.item_genre_chip, genresContainer, false
@@ -123,8 +148,12 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
                             genresContainer.addView(chip)
                         }
                     }
+                } else {
+                    view.post { genresSkeleton.visibility = View.GONE }
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                view.post { genresSkeleton.visibility = View.GONE }
+            }
         }
 
         // Cast

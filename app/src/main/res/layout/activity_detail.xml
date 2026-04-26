@@ -102,6 +102,31 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- Description skeleton -->
+        <LinearLayout
+            android:id="@+id/detail_desc_skeleton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:visibility="visible">
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:layout_width="match_parent"
+                android:layout_height="14dp" />
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:layout_width="match_parent"
+                android:layout_height="14dp"
+                android:layout_marginTop="8dp" />
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:layout_width="250dp"
+                android:layout_height="14dp"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
         <!-- Description -->
         <TextView
             android:id="@+id/detail_description"
@@ -111,7 +136,33 @@
             android:lineSpacingExtra="4dp"
             android:paddingHorizontal="24dp"
             android:textColor="@color/text_muted"
-            android:textSize="14sp" />
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+        <!-- Genres skeleton -->
+        <LinearLayout
+            android:id="@+id/detail_genres_skeleton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_marginStart="24dp"
+            android:orientation="horizontal"
+            android:visibility="visible">
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:layout_width="60dp"
+                android:layout_height="24dp" />
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:layout_width="70dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="8dp" />
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:layout_width="50dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
 
         <!-- Cast label -->
         <TextView
@@ -134,6 +185,19 @@
             android:paddingHorizontal="24dp"
             android:textColor="@color/text_muted"
             android:textSize="13sp" />
+
+        <!-- Loading error / offline notice -->
+        <TextView
+            android:id="@+id/detail_loading_notice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:paddingHorizontal="24dp"
+            android:text="@string/detail_loading_extra"
+            android:textColor="@color/text_muted"
+            android:textSize="12sp"
+            android:visibility="gone" />
 
         <!-- Bottom spacing -->
         <View

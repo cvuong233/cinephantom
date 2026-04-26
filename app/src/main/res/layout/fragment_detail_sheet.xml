@@ -25,6 +25,11 @@
                 android:contentDescription="@null"
                 android:scaleType="centerCrop"
                 android:visibility="gone" />
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:id="@+id/sheet_poster_shimmer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
         </FrameLayout>
 
         <!-- Title -->
@@ -69,6 +74,31 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Genres skeleton -->
+        <LinearLayout
+            android:id="@+id/detail_genres_skeleton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:visibility="visible">
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:layout_width="60dp"
+                android:layout_height="24dp" />
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:layout_width="70dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="8dp" />
+
+            <com.cvuong233.cinephantom.ui.search.ShimmerView
+                android:layout_width="50dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
         <!-- Genres -->
         <LinearLayout
             android:id="@+id/detail_genres_container"
@@ -99,6 +129,18 @@
             android:lineSpacingExtra="3dp"
             android:textColor="@color/text_muted"
             android:textSize="14sp" />
+
+        <!-- Loading notice -->
+        <TextView
+            android:id="@+id/detail_loading_notice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:text="@string/detail_loading_extra"
+            android:textColor="@color/text_muted"
+            android:textSize="12sp"
+            android:visibility="gone" />
 
         <!-- IMDb link -->
         <TextView

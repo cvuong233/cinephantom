@@ -11,13 +11,16 @@ import android.os.Handler
 import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.databinding.ActivitySearchBinding
 import com.cvuong233.cinephantom.data.ImdbSuggestionApi
+import com.cvuong233.cinephantom.data.SearchRatingLoader
 import com.cvuong233.cinephantom.model.ImdbTitle
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
 import kotlin.concurrent.thread
@@ -30,6 +33,8 @@ class SearchActivity : AppCompatActivity() {
 
     private val debounceHandler = Handler(Looper.getMainLooper())
     private val debounceDelayMs = 400L
+    private var searchJob: Thread? = null
+    private var ratingLoader: SearchRatingLoader? = null
     private var latestQuery = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,6 +46,22 @@ class SearchActivity : AppCompatActivity() {
         binding.resultsRecyclerView.adapter = adapter
 
         adapter.onStremioClick = { openInStremio(it) }
+
+        // Register adapter data observer for empty state
+        adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
+            override fun onChanged() {
+                updateEmptyState()
+            }
+            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                updateEmptyState()
+            }
+            override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) {
+                updateEmptyState()
+            }
+        })
+
+        // Initial empty state
+        updateEmptyState()
 
         binding.searchEditText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -100,22 +121,68 @@ class SearchActivity : AppCompatActivity() {
         performSearch()
     }
 
+    private fun updateEmptyState() {
+        val query = binding.searchEditText.text?.toString().orEmpty().trim()
+        val hasResults = adapter.itemCount > 0 && !adapter.isLoading()
+
+        if (query.isEmpty()) {
+            // No query entered yet — show guidance
+            binding.emptyStateContainer.visibility = View.VISIBLE
+            binding.emptyStateIcon.text = "🎬"
+            binding.emptyStateTitle.text = getString(R.string.search_guidance)
+            binding.emptyStateSubtitle.text = getString(R.string.search_empty_subtitle)
+        } else if (!hasResults && !adapter.isLoading()) {
+            // Search returned no results
+            binding.emptyStateContainer.visibility = View.VISIBLE
+            binding.emptyStateIcon.text = "🔍"
+            binding.emptyStateTitle.text = getString(R.string.search_no_results_title)
+            binding.emptyStateSubtitle.text = getString(R.string.search_no_results_subtitle)
+        } else {
+            // Has results or loading
+            binding.emptyStateContainer.visibility = View.GONE
+        }
+    }
+
     private fun performSearch() {
         val query = binding.searchEditText.text?.toString().orEmpty().trim()
-        if (query.isEmpty()) return
+        if (query.isEmpty()) {
+            latestQuery = ""
+            adapter.submitList(emptyList())
+            return
+        }
         if (query == latestQuery) return
         latestQuery = query
 
+        // Cancel previous search + rating loader
+        searchJob?.interrupt()
+        ratingLoader?.cancel()
         adapter.showLoading()
-        thread {
+        updateEmptyState()
+
+        searchJob = thread {
             val result = api.search(query)
+            if (Thread.currentThread().isInterrupted) return@thread
             runOnUiThread {
                 if (latestQuery != query) return@runOnUiThread
-                adapter.hideLoading()
                 result.onSuccess { titles ->
                     adapter.submitList(titles)
+                    adapter.hideLoading()
+                    updateEmptyState()
+
+                    // Kick off rating fetch for visible results
+                    if (titles.isNotEmpty()) {
+                        ratingLoader = SearchRatingLoader(
+                            onRatingFetched = { updatedTitle ->
+                                runOnUiThread { adapter.updateRating(updatedTitle) }
+                            },
+                            onComplete = { runOnUiThread { adapter.onRatingFetchDone() } },
+                        ).apply { load(titles) }
+                    }
+
                 }.onFailure { error ->
                     adapter.submitList(emptyList())
+                    adapter.hideLoading()
+                    updateEmptyState()
                     Toast.makeText(
                         this,
                         error.message ?: "Search failed",
@@ -125,6 +192,8 @@ class SearchActivity : AppCompatActivity() {
             }
         }
     }
+
+
 
     private fun openImdbTitle(title: ImdbTitle) {
         val intent = Intent(this, DetailActivity::class.java).apply {

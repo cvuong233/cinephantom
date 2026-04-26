@@ -2,6 +2,7 @@ package com.cvuong233.cinephantom.ui.detail
 
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -82,6 +83,37 @@ class DetailActivity : AppCompatActivity() {
         val castText = findViewById<TextView>(R.id.detail_cast)
         castText.text = cast ?: "Cast info not available"
 
+        // Skeleton views
+        val descSkeleton = findViewById<View>(R.id.detail_desc_skeleton)
+        val genresSkeleton = findViewById<View>(R.id.detail_genres_skeleton)
+        val loadingNotice = findViewById<TextView>(R.id.detail_loading_notice)
+
+        // Start shimmers on skeletons
+        val descSkeletonGroup = descSkeleton as? ViewGroup
+        val genresSkeletonGroup = genresSkeleton as? ViewGroup
+        descSkeleton.post {
+            descSkeletonGroup?.let { g ->
+                for (i in 0 until g.childCount) {
+                    val child = g.getChildAt(i)
+                    if (child is com.cvuong233.cinephantom.ui.search.ShimmerView) {
+                        child.startShimmer()
+                    }
+                }
+            }
+            genresSkeletonGroup?.let { g ->
+                for (i in 0 until g.childCount) {
+                    val child = g.getChildAt(i)
+                    if (child is com.cvuong233.cinephantom.ui.search.ShimmerView) {
+                        child.startShimmer()
+                    }
+                }
+            }
+        }
+
+        // Show loading notice after a delay
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        handler.postDelayed({ loadingNotice.visibility = View.VISIBLE }, 3000)
+
         // Fetch extra metadata from Cinemeta (description + genres)
         val genresContainer = findViewById<LinearLayout>(R.id.detail_genres_container)
         val descText = findViewById<TextView>(R.id.detail_description)
@@ -89,14 +121,29 @@ class DetailActivity : AppCompatActivity() {
             try {
                 val json = java.net.URL("https://v3-cinemeta.strem.io/meta/movie/$imdbId.json").readText()
                 val data = parseFields(json)
-                if (data == null) {
+                val finalData = if (data == null) {
                     val seriesJson = java.net.URL("https://v3-cinemeta.strem.io/meta/series/$imdbId.json").readText()
-                    val seriesData = parseFields(seriesJson)
-                    runOnUiThread { showExtraInfo(seriesData, descText, genresContainer) }
-                } else {
-                    runOnUiThread { showExtraInfo(data, descText, genresContainer) }
+                    parseFields(seriesJson)
+                } else data
+                runOnUiThread {
+                    handler.removeCallbacksAndMessages(null)
+                    loadingNotice.visibility = View.GONE
+                    showExtraInfo(finalData, descText, genresContainer)
+                    // Hide skeletons, show real content
+                    descSkeleton.visibility = View.GONE
+                    if (finalData?.description != null) descText.visibility = View.VISIBLE
+                    if (finalData?.genres != null && finalData.genres!!.isNotEmpty()) {
+                        genresSkeleton.visibility = View.GONE
+                    }
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) {
+                runOnUiThread {
+                    handler.removeCallbacksAndMessages(null)
+                    descSkeleton.visibility = View.GONE
+                    genresSkeleton.visibility = View.GONE
+                    loadingNotice.visibility = View.GONE
+                }
+            }
         }
     }
 
@@ -123,6 +170,7 @@ class DetailActivity : AppCompatActivity() {
         }
 
         if (data.genres != null && data.genres.isNotEmpty()) {
+            genresContainer.removeAllViews()
             for (g in data.genres) {
                 val chip = layoutInflater.inflate(R.layout.item_genre_chip, genresContainer, false) as TextView
                 chip.text = g
