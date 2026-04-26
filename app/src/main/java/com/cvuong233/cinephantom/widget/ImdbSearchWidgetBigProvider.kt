@@ -14,9 +14,8 @@ import com.cvuong233.cinephantom.ui.search.SearchActivity
 import java.net.URL
 
 /**
- * Big widget: featured movie/TV show with poster, rating, year + search bar.
- * Refreshes hourly via AlarmManager.
- * Layout: nested LinearLayouts with divider as TextView (avoid View element).
+ * Big widget v2: hero poster fills area, rank badge overlaid, search bar below.
+ * Hourly refresh via AlarmManager.
  */
 class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
 
@@ -41,10 +40,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     appWidgetManager.updateAppWidget(id, views)
                 }
             } catch (_: Exception) {
-                for (id in appWidgetIds) {
-                    val views = buildViews(context, null)
-                    appWidgetManager.updateAppWidget(id, views)
-                }
+                // On error, show nothing
             }
         }.apply { isDaemon = false; start() }
     }
@@ -52,7 +48,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
     private fun buildViews(context: Context, item: WidgetFeaturedItem?): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
 
-        // Search: tap on search bar or brand
+        // Search bar → search activity
         val searchPi = PendingIntent.getActivity(
             context, 1001,
             Intent(context, SearchActivity::class.java).apply {
@@ -61,38 +57,22 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        views.setOnClickPendingIntent(R.id.widget_search_bar, searchPi)
         views.setOnClickPendingIntent(R.id.widget_brand, searchPi)
 
         if (item == null) {
             views.setTextViewText(R.id.widget_rank_badge, "")
-            views.setTextViewText(R.id.widget_title, "Tap to search")
-            views.setTextViewText(R.id.widget_rating, "")
-            views.setTextViewText(R.id.widget_year, "")
             return views
         }
 
-        // ── Featured content ──
-
+        // ── Rank badge ──
         val typeLabel = if (item.type == "Movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${item.rank} $typeLabel")
-        views.setTextViewText(R.id.widget_title, item.title)
 
-        if (!item.imdbRating.isNullOrBlank()) {
-            views.setTextViewText(R.id.widget_rating, "IMDb ${item.imdbRating}")
-        } else {
-            views.setTextViewText(R.id.widget_rating, "")
-        }
-
-        if (!item.year.isNullOrBlank()) {
-            views.setTextViewText(R.id.widget_year, item.year)
-        } else {
-            views.setTextViewText(R.id.widget_year, "")
-        }
-
-        // Poster
+        // ── Poster ──
         loadPoster(views, item.posterUrl)
 
-        // Featured tap → detail page
+        // ── Featured tap → detail ──
         val detailPi = PendingIntent.getActivity(
             context, 1002,
             Intent(context, DetailActivity::class.java).apply {
@@ -120,21 +100,14 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             (conn as? java.net.HttpURLConnection)?.disconnect()
             if (bmp != null) {
                 views.setImageViewBitmap(R.id.widget_poster, bmp)
-                views.setViewVisibility(R.id.widget_poster, VISIBLE)
-                views.setViewVisibility(R.id.widget_poster_label, GONE)
             }
         } catch (_: Exception) {
-            views.setViewVisibility(R.id.widget_poster, GONE)
-            views.setViewVisibility(R.id.widget_poster_label, VISIBLE)
+            // Poster stays dark background
         }
     }
 
-    // ── Hourly refresh ──
-
     companion object {
         private const val ALARM_REQ = 2003
-        private const val VISIBLE = 0
-        private const val GONE = 8
 
         private fun scheduleHourlyRefresh(context: Context) {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
