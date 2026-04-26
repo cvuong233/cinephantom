@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- CinePhantom big widget: featured card + search bar. All flat hex colors, no drawables. -->
+<!-- MINIMAL big widget: root background only, no per-view backgrounds, no clickable. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -7,7 +7,7 @@
     android:background="#FF0A0F1E"
     android:padding="10dp">
 
-    <!-- Featured card -->
+    <!-- Featured card (click handler set in code) -->
     <LinearLayout
         android:id="@+id/widget_featured"
         android:layout_width="match_parent"
@@ -15,23 +15,19 @@
         android:layout_weight="1"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:clickable="true"
-        android:focusable="true"
         android:padding="8dp">
 
-        <!-- Poster frame -->
+        <!-- Poster frame: no background -->
         <FrameLayout
             android:id="@+id/widget_poster_frame"
             android:layout_width="70dp"
-            android:layout_height="100dp"
-            android:background="#FF0D1526">
+            android:layout_height="100dp">
 
             <ImageView
                 android:id="@+id/widget_poster"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="centerCrop"
-                android:contentDescription="@null"
                 android:visibility="gone" />
 
             <TextView
@@ -45,7 +41,6 @@
                 android:textStyle="bold" />
         </FrameLayout>
 
-        <!-- Info column -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -96,7 +91,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Divider -->
+    <!-- Divider: thin line via root background color trick (1px View) -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
@@ -109,21 +104,18 @@
         android:layout_height="48dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:clickable="true"
-        android:focusable="true"
         android:paddingStart="8dp"
         android:paddingEnd="8dp">
 
+        <!-- Brand dot: just text, no background -->
         <TextView
             android:id="@+id/widget_brand"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:gravity="center"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:text="C"
-            android:textColor="#FFFFFFFF"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:background="#FF6B7CFF" />
+            android:textColor="#FF6B7CFF"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
         <TextView
             android:layout_width="0dp"
@@ -138,14 +130,9 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingLeft="10dp"
-            android:paddingTop="4dp"
-            android:paddingRight="10dp"
-            android:paddingBottom="4dp"
             android:text="Search"
             android:textColor="#FF6B7CFF"
             android:textSize="11sp"
-            android:textStyle="bold"
-            android:background="#141B2D" />
+            android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>
