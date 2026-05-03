@@ -30,8 +30,9 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
     ) {
-        // Alarm-triggered broadcasts have no EXTRA_APPWIDGET_IDS — resolve ourselves.
-        val ids = if (appWidgetIds.isNotEmpty()) appWidgetIds.toList()
+        // Alarm-triggered broadcasts have no EXTRA_APPWIDGET_IDS → extras.getIntArray returns null.
+        // Using isNotEmpty() on null throws NPE and kills the broadcast silently.
+        val ids = if (appWidgetIds != null && appWidgetIds.isNotEmpty()) appWidgetIds.toList()
             else appWidgetManager.getAppWidgetIds(
                 android.content.ComponentName(context, ImdbSearchWidgetBigProvider::class.java)
             ).toList()
