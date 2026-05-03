@@ -4,14 +4,13 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.net.Uri
 import android.widget.RemoteViews
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
 import com.cvuong233.cinephantom.ui.search.SearchActivity
+import java.net.HttpURLConnection
 import java.net.URL
 
 class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
@@ -21,7 +20,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
     ) {
-        val ids = if (appWidgetIds != null && appWidgetIds.isNotEmpty()) appWidgetIds.toList()
+        val ids = if (appWidgetIds.isNotEmpty()) appWidgetIds.toList()
             else appWidgetManager.getAppWidgetIds(
                 android.content.ComponentName(context, ImdbSearchWidgetBigProvider::class.java)
             ).toList()
@@ -31,55 +30,38 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         val counter = prefs.getInt(PREF_COUNTER, 0) + 1
         prefs.edit().putInt(PREF_COUNTER, counter).apply()
 
-        // Phase 1: instant — title, rank, poster URI, counter. No network.
         val seed = WidgetDataFetcher.randomSeed()
-        val views1 = buildImmediateViews(context, seed, counter)
+        val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
+
+        // Phase 1: instant — show text immediately, no poster yet
+        val views1 = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
+        setupClicks(context, views1, seed)
+        views1.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
+        views1.setTextViewText(R.id.widget_counter, "Refresh #$counter")
         for (id in ids) appWidgetManager.updateAppWidget(id, views1)
 
-        // Phase 2: background — fetch rating + poster bitmap
-        // MUST use goAsync() — AppWidgetProvider is a BroadcastReceiver.
-        // Without goAsync(), the process may be killed before the thread completes,
-        // causing blank posters on auto-refresh (works on first placement only).
+        // Phase 2: download poster on background thread.
+        // goAsync() is CRITICAL — AppWidgetProvider is a BroadcastReceiver.
+        // Without it Android kills the process before the download completes.
         val pendingResult = goAsync()
         Thread {
             try {
-                val item = WidgetDataFetcher.fetchFeatured(seed)
-                val views2 = buildFullViews(context, item, counter)
+                val posterUrl = seed.posterUrlComputed
+                val bmp = downloadBitmap(posterUrl)
+                val views2 = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
+                setupClicks(context, views2, seed)
+                views2.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
+                views2.setTextViewText(R.id.widget_counter, "Refresh #$counter")
+                if (bmp != null) {
+                    views2.setImageViewBitmap(R.id.widget_poster, bmp)
+                }
                 for (id in ids) appWidgetManager.updateAppWidget(id, views2)
             } catch (_: Exception) {
-                // Phase 1 already showed title + poster URI
+                // Phase 1 already shows text; poster download failed but widget is usable
             } finally {
                 pendingResult.finish()
             }
         }.start()
-    }
-
-    private fun buildImmediateViews(context: Context, seed: WidgetDataFetcher.Seed, counter: Int): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
-        setupClicks(context, views, seed)
-        val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
-        views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
-        views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
-        // Use computed URL (seeds have empty posterUrl, real URL is posterUrlComputed)
-        if (seed.posterUrlComputed.isNotBlank()) {
-            views.setImageViewUri(R.id.widget_poster, Uri.parse(seed.posterUrlComputed))
-        }
-        return views
-    }
-
-    private fun buildFullViews(context: Context, item: WidgetFeaturedItem, counter: Int): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
-        setupClicks(context, views, item.toSeed())
-        val typeLabel = if (item.type == "Movie") "Movie" else "TV Show"
-        views.setTextViewText(R.id.widget_rank_badge, "#${item.rank} $typeLabel")
-        views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
-        // Set URI as fallback first (instant), then overlay with downloaded bitmap
-        if (!item.posterUrl.isNullOrBlank()) {
-            views.setImageViewUri(R.id.widget_poster, Uri.parse(item.posterUrl))
-            val bmp = downloadPoster(item.posterUrl)
-            if (bmp != null) views.setImageViewBitmap(R.id.widget_poster, bmp)
-        }
-        return views
     }
 
     private fun setupClicks(context: Context, views: RemoteViews, seed: WidgetDataFetcher.Seed) {
@@ -109,14 +91,15 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_featured, detailPi)
     }
 
-    private fun downloadPoster(url: String): Bitmap? {
+    private fun downloadBitmap(url: String): Bitmap? {
         return try {
-            val conn = URL(url).openConnection()
-            conn.connectTimeout = 4000
-            conn.readTimeout = 4000
-            val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
-            val bmp = BitmapFactory.decodeStream(conn.getInputStream(), null, opts)
-            (conn as? java.net.HttpURLConnection)?.disconnect()
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.instanceFollowRedirects = true
+            conn.setRequestProperty("User-Agent", "CinePhantom/1.0")
+            val bmp = BitmapFactory.decodeStream(conn.inputStream)
+            conn.disconnect()
             bmp
         } catch (_: Exception) { null }
     }
