@@ -37,6 +37,10 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         for (id in ids) appWidgetManager.updateAppWidget(id, views1)
 
         // Phase 2: background — fetch rating + poster bitmap
+        // MUST use goAsync() — AppWidgetProvider is a BroadcastReceiver.
+        // Without goAsync(), the process may be killed before the thread completes,
+        // causing blank posters on auto-refresh (works on first placement only).
+        val pendingResult = goAsync()
         Thread {
             try {
                 val item = WidgetDataFetcher.fetchFeatured(seed)
@@ -44,6 +48,8 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                 for (id in ids) appWidgetManager.updateAppWidget(id, views2)
             } catch (_: Exception) {
                 // Phase 1 already showed title + poster URI
+            } finally {
+                pendingResult.finish()
             }
         }.start()
     }
