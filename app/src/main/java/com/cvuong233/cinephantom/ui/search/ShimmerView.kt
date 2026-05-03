@@ -65,5 +65,6 @@ class ShimmerView @JvmOverloads constructor(
         canvas.drawRoundRect(baseRect, 12f, 12f, paint)
     }
 
+    override fun onAttachedToWindow() { super.onAttachedToWindow(); startShimmer() }
     override fun onDetachedFromWindow() { stopShimmer(); super.onDetachedFromWindow() }
 }
