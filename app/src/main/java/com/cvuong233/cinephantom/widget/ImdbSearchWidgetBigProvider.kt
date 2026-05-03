@@ -30,11 +30,17 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
     ) {
+        // Alarm-triggered broadcasts have no EXTRA_APPWIDGET_IDS — resolve ourselves.
+        val ids = if (appWidgetIds.isNotEmpty()) appWidgetIds.toList()
+            else appWidgetManager.getAppWidgetIds(
+                android.content.ComponentName(context, ImdbSearchWidgetBigProvider::class.java)
+            ).toList()
+        if (ids.isEmpty()) return
+
         // Phase 1: pick a random seed and show title + rank immediately.
-        // This guarantees something appears even if network fails.
         val seed = WidgetDataFetcher.randomSeed()
         val views = buildImmediateViews(context, seed)
-        for (id in appWidgetIds) {
+        for (id in ids) {
             appWidgetManager.updateAppWidget(id, views)
         }
 
@@ -43,12 +49,12 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         Thread {
             try {
                 val item = WidgetDataFetcher.fetchFeatured(seed)
-                for (id in appWidgetIds) {
+                for (id in ids) {
                     val updated = buildFullViews(context, item)
                     appWidgetManager.updateAppWidget(id, updated)
                 }
             } catch (_: Exception) {
-                // Phase 1 already showed title — user sees something
+                // Phase 1 already showed title
             } finally {
                 pendingResult.finish()
             }
