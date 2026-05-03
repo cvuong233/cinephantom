@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/screen_bg"
@@ -197,6 +198,26 @@
             android:textColor="@color/text_muted"
             android:textSize="12sp"
             android:visibility="gone" />
+
+        <!-- Stremio button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/detail_stremio_button"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginStart="24dp"
+            android:gravity="center"
+            android:text="@string/stremio_open_button"
+            android:textAllCaps="false"
+            android:textColor="@color/electric_blue"
+            android:textSize="13sp"
+            app:cornerRadius="20dp"
+            app:icon="@drawable/ic_stremio_icon"
+            app:iconGravity="textStart"
+            app:iconSize="18dp"
+            app:strokeColor="@color/electric_blue"
+            app:strokeWidth="1dp"
+            app:backgroundTint="@color/surface_raised" />
 
         <!-- Bottom spacing -->
         <View

@@ -1,10 +1,14 @@
 package com.cvuong233.cinephantom.ui.detail
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.data.RatingFetcher
@@ -42,13 +46,19 @@ class DetailActivity : AppCompatActivity() {
         // Meta chip
         findViewById<TextView>(R.id.detail_meta).text = listOfNotNull(type, year).joinToString(" • ").ifBlank { "No info" }
 
-        // Rating — reads from the same shared RatingFetcher cache as the search card
+        // Rating — fetch in background (works from widget or search)
         val ratingText = findViewById<TextView>(R.id.detail_rating)
-        val cachedRating = RatingFetcher().fetchRating(imdbId)?.takeIf { it > 0f }
-        if (cachedRating != null) {
-            ratingText.text = "IMDb %.1f".format(cachedRating)
-        } else {
-            ratingText.visibility = View.GONE
+        ratingText.text = "IMDb --"
+        ratingText.visibility = View.VISIBLE
+        thread {
+            val rating = RatingFetcher().fetchRating(imdbId)?.takeIf { it > 0f }
+            runOnUiThread {
+                if (rating != null) {
+                    ratingText.text = "IMDb %.1f".format(rating)
+                } else {
+                    ratingText.visibility = View.GONE
+                }
+            }
         }
 
         // Poster with shimmer
@@ -75,6 +85,11 @@ class DetailActivity : AppCompatActivity() {
         // Cast
         val castText = findViewById<TextView>(R.id.detail_cast)
         castText.text = cast ?: "Cast info not available"
+
+        // Stremio button
+        findViewById<View>(R.id.detail_stremio_button).setOnClickListener {
+            openStremio(type, imdbId)
+        }
 
         // Skeleton views
         val descSkeleton = findViewById<View>(R.id.detail_desc_skeleton)
@@ -169,6 +184,21 @@ class DetailActivity : AppCompatActivity() {
                 chip.text = g
                 genresContainer.addView(chip)
             }
+        }
+    }
+
+    private fun openStremio(type: String?, imdbId: String?) {
+        if (imdbId.isNullOrBlank()) return
+        val stremioType = when (type) {
+            "TV Series", "TV Mini Series", "TV Series (mini)", "TV Show" -> "series"
+            "TV Episode" -> "episode"
+            else -> "movie"
+        }
+        val stremioUri = Uri.parse("stremio://detail/$stremioType/$imdbId")
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, stremioUri))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.stremio_not_installed, Toast.LENGTH_SHORT).show()
         }
     }
 }
