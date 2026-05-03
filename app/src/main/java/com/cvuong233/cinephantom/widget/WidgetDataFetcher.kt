@@ -37,31 +37,28 @@ object WidgetDataFetcher {
         Seed("tt4574334", "Stranger Things", "series", "2016"),
     )
 
-    fun fetchRandomFeatured(): WidgetFeaturedItem? {
-        return try {
-            val seed = SEEDS.random()
-            val imdbRating = fetchImdbRating(seed.id, seed.type)
+    fun fetchRandomFeatured(): WidgetFeaturedItem {
+        val seed = SEEDS.random()
+        // Rating is best-effort — don't block widget loading on it
+        val imdbRating = fetchImdbRating(seed.id, seed.type)
 
-            WidgetFeaturedItem(
-                id = seed.id,
-                title = seed.title,
-                type = if (seed.type == "movie") "Movie" else "TV Show",
-                rank = Random.nextInt(1, 11),
-                imdbRating = imdbRating,
-                posterUrl = "https://images.metahub.space/poster/small/${seed.id}/img",
-                year = seed.year,
-            )
-        } catch (e: Exception) {
-            null
-        }
+        return WidgetFeaturedItem(
+            id = seed.id,
+            title = seed.title,
+            type = if (seed.type == "movie") "Movie" else "TV Show",
+            rank = Random.nextInt(1, 11),
+            imdbRating = imdbRating,
+            posterUrl = "https://images.metahub.space/poster/small/${seed.id}/img",
+            year = seed.year,
+        )
     }
 
     private fun fetchImdbRating(imdbId: String, contentType: String): String? {
         return try {
             val url = URL("https://v3-cinemeta.strem.io/meta/$contentType/$imdbId.json")
             val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
+            conn.connectTimeout = 2000
+            conn.readTimeout = 2000
             conn.instanceFollowRedirects = false
             val text = conn.inputStream.bufferedReader().readText()
             conn.disconnect()
