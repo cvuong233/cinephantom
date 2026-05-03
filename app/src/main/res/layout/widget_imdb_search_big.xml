@@ -45,6 +45,17 @@
         android:layout_height="1dp"
         android:background="#FF24304C" />
 
+    <!-- Debug counter — shows refresh # to prove updates are happening -->
+    <TextView
+        android:id="@+id/widget_counter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text=""
+        android:textColor="#FF6B7CFF"
+        android:textSize="9sp"
+        android:alpha="0.7" />
+
     <!-- Search bar -->
     <LinearLayout
         android:id="@+id/widget_search_bar"

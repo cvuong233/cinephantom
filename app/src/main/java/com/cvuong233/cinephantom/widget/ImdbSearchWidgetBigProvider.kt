@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -37,9 +38,14 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             ).toList()
         if (ids.isEmpty()) return
 
-        // Phase 1: show new title + poster URI instantly
+        // Debug: increment refresh counter and show toast
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val counter = prefs.getInt(PREF_COUNTER, 0) + 1
+        prefs.edit().putInt(PREF_COUNTER, counter).apply()
+
+        // Phase 1: show new title + counter instantly
         val seed = WidgetDataFetcher.randomSeed()
-        val views = buildImmediateViews(context, seed)
+        val views = buildImmediateViews(context, seed, counter)
         for (id in ids) appWidgetManager.updateAppWidget(id, views)
 
         // Phase 2: fetch rating + poster bitmap, then schedule next rotation
@@ -48,34 +54,35 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             try {
                 val item = WidgetDataFetcher.fetchFeatured(seed)
                 for (id in ids) {
-                    val updated = buildFullViews(context, item)
+                    val updated = buildFullViews(context, item, counter)
                     appWidgetManager.updateAppWidget(id, updated)
                 }
             } catch (_: Exception) {
             } finally {
                 pendingResult.finish()
-                // Schedule next rotation AFTER this update completes (always, even if failed)
                 scheduleNext(context)
             }
         }.start()
     }
 
-    private fun buildImmediateViews(context: Context, seed: WidgetDataFetcher.Seed): RemoteViews {
+    private fun buildImmediateViews(context: Context, seed: WidgetDataFetcher.Seed, counter: Int): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, seed)
         val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
+        views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
         if (seed.posterUrl.isNotBlank()) {
             views.setImageViewUri(R.id.widget_poster, Uri.parse(seed.posterUrl))
         }
         return views
     }
 
-    private fun buildFullViews(context: Context, item: WidgetFeaturedItem): RemoteViews {
+    private fun buildFullViews(context: Context, item: WidgetFeaturedItem, counter: Int): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, item.toSeed())
         val typeLabel = if (item.type == "Movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${item.rank} $typeLabel")
+        views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
         if (!item.posterUrl.isNullOrBlank()) {
             val bmp = downloadPoster(item.posterUrl)
             if (bmp != null) views.setImageViewBitmap(R.id.widget_poster, bmp)
@@ -124,7 +131,9 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
 
     companion object {
         private const val ALARM_REQ = 2003
-        private const val INTERVAL_MS = 15_000L  // 15-second rotation
+        private const val INTERVAL_MS = 15_000L
+        private const val PREFS_NAME = "cinephantom_widget"
+        private const val PREF_COUNTER = "refresh_counter"
 
         /** Schedule the next refresh exactly INTERVAL_MS from now (self-chaining). */
         fun scheduleNext(context: Context) {
