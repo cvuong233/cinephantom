@@ -9,6 +9,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.SystemClock
 import android.widget.RemoteViews
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
@@ -18,11 +19,11 @@ import java.net.URL
 class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
-        scheduleHourlyRefresh(context)
+        scheduleNext(context)
     }
 
     override fun onDisabled(context: Context) {
-        cancelHourlyRefresh(context)
+        cancelRefresh(context)
     }
 
     override fun onUpdate(
@@ -30,22 +31,18 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
     ) {
-        // Alarm-triggered broadcasts have no EXTRA_APPWIDGET_IDS → extras.getIntArray returns null.
-        // Using isNotEmpty() on null throws NPE and kills the broadcast silently.
         val ids = if (appWidgetIds != null && appWidgetIds.isNotEmpty()) appWidgetIds.toList()
             else appWidgetManager.getAppWidgetIds(
                 android.content.ComponentName(context, ImdbSearchWidgetBigProvider::class.java)
             ).toList()
         if (ids.isEmpty()) return
 
-        // Phase 1: pick a random seed and show title + rank immediately.
+        // Phase 1: show new title + poster URI instantly
         val seed = WidgetDataFetcher.randomSeed()
         val views = buildImmediateViews(context, seed)
-        for (id in ids) {
-            appWidgetManager.updateAppWidget(id, views)
-        }
+        for (id in ids) appWidgetManager.updateAppWidget(id, views)
 
-        // Phase 2: fetch rating + poster in background, then update.
+        // Phase 2: fetch rating + poster bitmap, then schedule next rotation
         val pendingResult = goAsync()
         Thread {
             try {
@@ -55,45 +52,33 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     appWidgetManager.updateAppWidget(id, updated)
                 }
             } catch (_: Exception) {
-                // Phase 1 already showed title
             } finally {
                 pendingResult.finish()
+                // Schedule next rotation AFTER this update completes (always, even if failed)
+                scheduleNext(context)
             }
         }.start()
     }
 
-    /** Immediate: title + rank, no network needed */
     private fun buildImmediateViews(context: Context, seed: WidgetDataFetcher.Seed): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, seed)
-
         val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
-
-        // Try to set poster URI — launcher may or may not load it,
-        // but it costs nothing to try
         if (seed.posterUrl.isNotBlank()) {
             views.setImageViewUri(R.id.widget_poster, Uri.parse(seed.posterUrl))
         }
         return views
     }
 
-    /** Full: rating populated, poster bitmap loaded ourselves if URI didn't work */
     private fun buildFullViews(context: Context, item: WidgetFeaturedItem): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, item.toSeed())
-
         val typeLabel = if (item.type == "Movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${item.rank} $typeLabel")
-
-        // Poster: try loading the bitmap ourselves as a fallback
-        // (URI approach in phase 1 may not work on all launchers)
         if (!item.posterUrl.isNullOrBlank()) {
             val bmp = downloadPoster(item.posterUrl)
-            if (bmp != null) {
-                views.setImageViewBitmap(R.id.widget_poster, bmp)
-            }
-            // If bitmap load also fails, the URI from phase 1 is still set
+            if (bmp != null) views.setImageViewBitmap(R.id.widget_poster, bmp)
         }
         return views
     }
@@ -130,20 +115,19 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             val conn = URL(url).openConnection()
             conn.connectTimeout = 4000
             conn.readTimeout = 4000
-            // Downsample to widget size (~400px wide max) to stay under IPC limit
             val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
             val bmp = BitmapFactory.decodeStream(conn.getInputStream(), null, opts)
             (conn as? java.net.HttpURLConnection)?.disconnect()
             bmp
-        } catch (_: Exception) {
-            null
-        }
+        } catch (_: Exception) { null }
     }
 
     companion object {
         private const val ALARM_REQ = 2003
+        private const val INTERVAL_MS = 15_000L  // 15-second rotation
 
-        private fun scheduleHourlyRefresh(context: Context) {
+        /** Schedule the next refresh exactly INTERVAL_MS from now (self-chaining). */
+        fun scheduleNext(context: Context) {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val pi = PendingIntent.getBroadcast(
                 context, ALARM_REQ,
@@ -152,13 +136,24 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            alarm.setInexactRepeating(
-                AlarmManager.ELAPSED_REALTIME, AlarmManager.INTERVAL_HOUR,
-                AlarmManager.INTERVAL_HOUR, pi,
-            )
+            try {
+                alarm.setExact(
+                    AlarmManager.ELAPSED_REALTIME,
+                    SystemClock.elapsedRealtime() + INTERVAL_MS,
+                    pi,
+                )
+            } catch (_: SecurityException) {
+                // Fallback if exact alarm permission is denied
+                alarm.set(
+                    AlarmManager.ELAPSED_REALTIME,
+                    SystemClock.elapsedRealtime() + INTERVAL_MS,
+                    pi,
+                )
+            }
         }
 
-        private fun cancelHourlyRefresh(context: Context) {
+        /** Cancel the refresh chain (called when widget is removed). */
+        fun cancelRefresh(context: Context) {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val pi = PendingIntent.getBroadcast(
                 context, ALARM_REQ,
