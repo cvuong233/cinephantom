@@ -38,52 +38,39 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             ).toList()
         if (ids.isEmpty()) return
 
-        // Debug: increment refresh counter and show toast
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val counter = prefs.getInt(PREF_COUNTER, 0) + 1
         prefs.edit().putInt(PREF_COUNTER, counter).apply()
 
-        // Phase 1: show new title + counter instantly
+        // Do everything synchronously. Network takes ~2-4s, well within the
+        // 10-second broadcast timeout. No threading, no goAsync complexity.
         val seed = WidgetDataFetcher.randomSeed()
-        val views = buildImmediateViews(context, seed, counter)
+        val item = try {
+            WidgetDataFetcher.fetchFeatured(seed)
+        } catch (_: Exception) {
+            null
+        }
+
+        val views = if (item != null) buildViews(context, item, counter)
+            else buildViews(context, WidgetFeaturedItem.fromSeed(seed), counter)
+
         for (id in ids) appWidgetManager.updateAppWidget(id, views)
 
-        // Phase 2: fetch rating + poster bitmap, then schedule next rotation
-        val pendingResult = goAsync()
-        Thread {
-            try {
-                val item = WidgetDataFetcher.fetchFeatured(seed)
-                for (id in ids) {
-                    val updated = buildFullViews(context, item, counter)
-                    appWidgetManager.updateAppWidget(id, updated)
-                }
-            } catch (_: Exception) {
-            } finally {
-                pendingResult.finish()
-                scheduleNext(context)
-            }
-        }.start()
+        // Schedule next rotation 15s from now
+        scheduleNext(context)
     }
 
-    private fun buildImmediateViews(context: Context, seed: WidgetDataFetcher.Seed, counter: Int): RemoteViews {
-        val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
-        setupClicks(context, views, seed)
-        val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
-        views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
-        views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
-        if (seed.posterUrl.isNotBlank()) {
-            views.setImageViewUri(R.id.widget_poster, Uri.parse(seed.posterUrl))
-        }
-        return views
-    }
-
-    private fun buildFullViews(context: Context, item: WidgetFeaturedItem, counter: Int): RemoteViews {
+    private fun buildViews(context: Context, item: WidgetFeaturedItem, counter: Int): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, item.toSeed())
+
         val typeLabel = if (item.type == "Movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${item.rank} $typeLabel")
         views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
+
+        // Poster: try URI first (launcher may load it), then bitmap fallback
         if (!item.posterUrl.isNullOrBlank()) {
+            views.setImageViewUri(R.id.widget_poster, Uri.parse(item.posterUrl))
             val bmp = downloadPoster(item.posterUrl)
             if (bmp != null) views.setImageViewBitmap(R.id.widget_poster, bmp)
         }
@@ -135,7 +122,6 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         private const val PREFS_NAME = "cinephantom_widget"
         private const val PREF_COUNTER = "refresh_counter"
 
-        /** Schedule the next refresh exactly INTERVAL_MS from now (self-chaining). */
         fun scheduleNext(context: Context) {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val pi = PendingIntent.getBroadcast(
@@ -145,6 +131,8 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
+            // setAndAllowWhileIdle: fires even during Doze, no special permission needed.
+            // Falls back to setExact if permission is granted (more precise timing).
             try {
                 alarm.setExact(
                     AlarmManager.ELAPSED_REALTIME,
@@ -152,8 +140,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     pi,
                 )
             } catch (_: SecurityException) {
-                // Fallback if exact alarm permission is denied
-                alarm.set(
+                alarm.setAndAllowWhileIdle(
                     AlarmManager.ELAPSED_REALTIME,
                     SystemClock.elapsedRealtime() + INTERVAL_MS,
                     pi,
@@ -161,7 +148,6 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             }
         }
 
-        /** Cancel the refresh chain (called when widget is removed). */
         fun cancelRefresh(context: Context) {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val pi = PendingIntent.getBroadcast(

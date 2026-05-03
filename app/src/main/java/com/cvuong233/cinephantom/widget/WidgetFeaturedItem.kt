@@ -18,4 +18,16 @@ data class WidgetFeaturedItem(
         rank = rank,
         posterUrl = posterUrl ?: "",
     )
+
+    companion object {
+        fun fromSeed(seed: WidgetDataFetcher.Seed) = WidgetFeaturedItem(
+            id = seed.id,
+            title = seed.title,
+            type = if (seed.type == "movie") "Movie" else "TV Show",
+            rank = seed.rank,
+            imdbRating = null,
+            posterUrl = seed.posterUrlComputed,
+            year = seed.year,
+        )
+    }
 }
