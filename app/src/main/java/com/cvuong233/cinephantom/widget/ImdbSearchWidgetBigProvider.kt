@@ -14,8 +14,8 @@ import com.cvuong233.cinephantom.ui.search.SearchActivity
 import java.net.URL
 
 /**
- * Big widget: compact side-by-side (60x90dp poster + title/rating/year) with search bar.
- * Hourly refresh via AlarmManager.
+ * Big widget: hero poster with rank overlay + compact search bar.
+ * Hourly refresh via AlarmManager. Poster always shows (rating fetch is best-effort).
  */
 class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
 
@@ -40,18 +40,15 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     appWidgetManager.updateAppWidget(id, views)
                 }
             } catch (_: Exception) {
-                for (id in appWidgetIds) {
-                    val views = buildViews(context, null)
-                    appWidgetManager.updateAppWidget(id, views)
-                }
+                // Silently retry on next refresh
             }
         }.apply { isDaemon = false; start() }
     }
 
-    private fun buildViews(context: Context, item: WidgetFeaturedItem?): RemoteViews {
+    private fun buildViews(context: Context, item: WidgetFeaturedItem): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
 
-        // Search: tap on search bar or brand
+        // Search bar → search activity
         val searchPi = PendingIntent.getActivity(
             context, 1001,
             Intent(context, SearchActivity::class.java).apply {
@@ -63,31 +60,9 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_search_bar, searchPi)
         views.setOnClickPendingIntent(R.id.widget_brand, searchPi)
 
-        if (item == null) {
-            views.setTextViewText(R.id.widget_rank_badge, "")
-            views.setTextViewText(R.id.widget_title, "Tap to search")
-            views.setTextViewText(R.id.widget_rating, "")
-            views.setTextViewText(R.id.widget_year, "")
-            hidePosterFallback(views)
-            return views
-        }
-
-        // ── Featured content ──
+        // Rank badge
         val typeLabel = if (item.type == "Movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${item.rank} $typeLabel")
-        views.setTextViewText(R.id.widget_title, item.title)
-
-        if (!item.imdbRating.isNullOrBlank()) {
-            views.setTextViewText(R.id.widget_rating, "IMDb ${item.imdbRating}")
-        } else {
-            views.setTextViewText(R.id.widget_rating, "")
-        }
-
-        if (!item.year.isNullOrBlank()) {
-            views.setTextViewText(R.id.widget_year, item.year)
-        } else {
-            views.setTextViewText(R.id.widget_year, "")
-        }
 
         // Poster
         loadPoster(views, item.posterUrl)
@@ -111,10 +86,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
     }
 
     private fun loadPoster(views: RemoteViews, posterUrl: String?) {
-        if (posterUrl.isNullOrBlank()) {
-            hidePosterFallback(views)
-            return
-        }
+        if (posterUrl.isNullOrBlank()) return
         try {
             val conn = URL(posterUrl).openConnection()
             conn.connectTimeout = 4000
@@ -123,26 +95,14 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             (conn as? java.net.HttpURLConnection)?.disconnect()
             if (bmp != null) {
                 views.setImageViewBitmap(R.id.widget_poster, bmp)
-                views.setViewVisibility(R.id.widget_poster, VISIBLE)
-                views.setViewVisibility(R.id.widget_poster_label, GONE)
-            } else {
-                hidePosterFallback(views)
             }
         } catch (_: Exception) {
-            hidePosterFallback(views)
+            // Poster stays dark background
         }
-    }
-
-    /** Show fallback when poster fails — hide ImageView, show label */
-    private fun hidePosterFallback(views: RemoteViews) {
-        views.setViewVisibility(R.id.widget_poster, GONE)
-        views.setViewVisibility(R.id.widget_poster_label, VISIBLE)
     }
 
     companion object {
         private const val ALARM_REQ = 2003
-        private const val VISIBLE = 0
-        private const val GONE = 8
 
         private fun scheduleHourlyRefresh(context: Context) {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
