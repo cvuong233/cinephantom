@@ -54,8 +54,9 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
         views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
-        if (seed.posterUrl.isNotBlank()) {
-            views.setImageViewUri(R.id.widget_poster, Uri.parse(seed.posterUrl))
+        // Use computed URL (seeds have empty posterUrl, real URL is posterUrlComputed)
+        if (seed.posterUrlComputed.isNotBlank()) {
+            views.setImageViewUri(R.id.widget_poster, Uri.parse(seed.posterUrlComputed))
         }
         return views
     }
@@ -66,7 +67,9 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         val typeLabel = if (item.type == "Movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${item.rank} $typeLabel")
         views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
+        // Set URI as fallback first (instant), then overlay with downloaded bitmap
         if (!item.posterUrl.isNullOrBlank()) {
+            views.setImageViewUri(R.id.widget_poster, Uri.parse(item.posterUrl))
             val bmp = downloadPoster(item.posterUrl)
             if (bmp != null) views.setImageViewBitmap(R.id.widget_poster, bmp)
         }
