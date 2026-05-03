@@ -12,74 +12,32 @@ import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.ui.search.SearchActivity
 
 /**
- * Handles async refreshes for both small and big widgets.
- * BIG: called by ImdbSearchWidgetBigProvider.onUpdate() → fetches data on background
- *      thread with goAsync(), then updates widget when ready.
- * SMALL: hourly alarm pings that refresh the search bar layout.
+ * Handles hourly refresh for the small search-bar widget only.
+ * Big widget handles updates directly in its onUpdate().
  */
 class WidgetRefreshReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent?) {
-        val action = intent?.action ?: return
         val manager = AppWidgetManager.getInstance(context)
 
-        when (action) {
-            ACTION_REFRESH_BIG -> {
-                // Called from ImdbSearchWidgetBigProvider.onUpdate()
-                // goAsync keeps this broadcast alive past the 10s timeout
-                val pendingResult = goAsync()
-                Thread {
-                    try {
-                        val item = WidgetDataFetcher.fetchRandomFeatured()
-                        val ids = manager.getAppWidgetIds(
-                            ComponentName(context, ImdbSearchWidgetBigProvider::class.java)
-                        )
-                        for (id in ids) {
-                            val views = ImdbSearchWidgetBigProvider.buildBigViews(context, item)
-                            manager.updateAppWidget(id, views)
-                        }
-                    } catch (_: Exception) {
-                        // Retry on next placement/hourly refresh
-                    } finally {
-                        pendingResult.finish()
-                    }
-                }.start()
-            }
-
-            ALARM_SMALL -> {
-                // Hourly: refresh the small search-bar widget
-                val ids = manager.getAppWidgetIds(
-                    ComponentName(context, ImdbSearchWidgetProvider::class.java)
-                )
-                for (id in ids) {
-                    val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_small)
-                    views.setOnClickPendingIntent(R.id.widget_root, searchPi(context))
-                    manager.updateAppWidget(id, views)
-                }
-            }
+        val smallIds = manager.getAppWidgetIds(
+            ComponentName(context, ImdbSearchWidgetProvider::class.java)
+        )
+        for (id in smallIds) {
+            val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_small)
+            views.setOnClickPendingIntent(R.id.widget_root, searchPi(context))
+            manager.updateAppWidget(id, views)
         }
     }
 
     companion object {
-        const val ACTION_REFRESH_BIG = "com.cvuong233.cinephantom.REFRESH_BIG"
-        private const val ALARM_SMALL = "com.cvuong233.cinephantom.ALARM_SMALL"
         private const val ALARM_REQ = 2001
-
-        /** Called from ImdbSearchWidgetBigProvider.onUpdate() to trigger async refresh */
-        fun refreshBigWidgets(context: Context) {
-            val intent = Intent(context, WidgetRefreshReceiver::class.java).apply {
-                action = ACTION_REFRESH_BIG
-            }
-            context.sendBroadcast(intent)
-        }
 
         fun scheduleRefresh(context: Context) {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val pi = PendingIntent.getBroadcast(
                 context, ALARM_REQ,
-                Intent(context, WidgetRefreshReceiver::class.java).apply {
-                    action = ALARM_SMALL
-                },
+                Intent(context, WidgetRefreshReceiver::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             alarm.setInexactRepeating(
@@ -92,9 +50,7 @@ class WidgetRefreshReceiver : BroadcastReceiver() {
             val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val pi = PendingIntent.getBroadcast(
                 context, ALARM_REQ,
-                Intent(context, WidgetRefreshReceiver::class.java).apply {
-                    action = ALARM_SMALL
-                },
+                Intent(context, WidgetRefreshReceiver::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             alarm.cancel(pi)

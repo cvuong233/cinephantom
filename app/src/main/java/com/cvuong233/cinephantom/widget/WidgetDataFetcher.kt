@@ -11,12 +11,18 @@ import kotlin.random.Random
  */
 object WidgetDataFetcher {
 
-    private data class Seed(
+    data class Seed(
         val id: String,
         val title: String,
-        val type: String,
+        val type: String,   // "movie" or "series"
         val year: String,
-    )
+        val rank: Int = Random.nextInt(1, 11),
+        val posterUrl: String = "",
+    ) {
+        val posterUrlComputed: String get() =
+            if (posterUrl.isNotBlank()) posterUrl
+            else "https://images.metahub.space/poster/small/${id}/img"
+    }
 
     private val SEEDS = listOf(
         Seed("tt0111161", "The Shawshank Redemption", "movie", "1994"),
@@ -37,21 +43,25 @@ object WidgetDataFetcher {
         Seed("tt4574334", "Stranger Things", "series", "2016"),
     )
 
-    fun fetchRandomFeatured(): WidgetFeaturedItem {
-        val seed = SEEDS.random()
-        // Rating is best-effort — don't block widget loading on it
-        val imdbRating = fetchImdbRating(seed.id, seed.type)
+    /** Pick a random seed — no network, instant. Used for phase-1 immediate display. */
+    fun randomSeed(): Seed = SEEDS.random()
 
+    /** Fetch rating for a pre-chosen seed. Returns full WidgetFeaturedItem. */
+    fun fetchFeatured(seed: Seed): WidgetFeaturedItem {
+        val imdbRating = fetchImdbRating(seed.id, seed.type)
         return WidgetFeaturedItem(
             id = seed.id,
             title = seed.title,
             type = if (seed.type == "movie") "Movie" else "TV Show",
-            rank = Random.nextInt(1, 11),
+            rank = seed.rank,
             imdbRating = imdbRating,
-            posterUrl = "https://images.metahub.space/poster/small/${seed.id}/img",
+            posterUrl = seed.posterUrlComputed,
             year = seed.year,
         )
     }
+
+    /** Convenience: pick + fetch in one call (for simple use cases). */
+    fun fetchRandomFeatured(): WidgetFeaturedItem = fetchFeatured(randomSeed())
 
     private fun fetchImdbRating(imdbId: String, contentType: String): String? {
         return try {

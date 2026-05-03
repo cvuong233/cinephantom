@@ -9,4 +9,13 @@ data class WidgetFeaturedItem(
     val imdbRating: String?,
     val posterUrl: String?,
     val year: String?,
-)
+) {
+    fun toSeed() = WidgetDataFetcher.Seed(
+        id = id,
+        title = title,
+        type = if (type == "TV Show") "series" else "movie",
+        year = year ?: "",
+        rank = rank,
+        posterUrl = posterUrl ?: "",
+    )
+}
