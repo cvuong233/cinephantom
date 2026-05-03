@@ -31,27 +31,42 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         val counter = prefs.getInt(PREF_COUNTER, 0) + 1
         prefs.edit().putInt(PREF_COUNTER, counter).apply()
 
+        // Phase 1: instant — title, rank, poster URI, counter. No network.
         val seed = WidgetDataFetcher.randomSeed()
-        val item = try {
-            WidgetDataFetcher.fetchFeatured(seed)
-        } catch (_: Exception) {
-            null
-        }
+        val views1 = buildImmediateViews(context, seed, counter)
+        for (id in ids) appWidgetManager.updateAppWidget(id, views1)
 
-        val views = buildViews(context, item ?: WidgetFeaturedItem.fromSeed(seed), counter)
-        for (id in ids) appWidgetManager.updateAppWidget(id, views)
+        // Phase 2: background — fetch rating + poster bitmap
+        Thread {
+            try {
+                val item = WidgetDataFetcher.fetchFeatured(seed)
+                val views2 = buildFullViews(context, item, counter)
+                for (id in ids) appWidgetManager.updateAppWidget(id, views2)
+            } catch (_: Exception) {
+                // Phase 1 already showed title + poster URI
+            }
+        }.start()
     }
 
-    private fun buildViews(context: Context, item: WidgetFeaturedItem, counter: Int): RemoteViews {
+    private fun buildImmediateViews(context: Context, seed: WidgetDataFetcher.Seed, counter: Int): RemoteViews {
+        val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
+        setupClicks(context, views, seed)
+        val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
+        views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
+        views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
+        if (seed.posterUrl.isNotBlank()) {
+            views.setImageViewUri(R.id.widget_poster, Uri.parse(seed.posterUrl))
+        }
+        return views
+    }
+
+    private fun buildFullViews(context: Context, item: WidgetFeaturedItem, counter: Int): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, item.toSeed())
-
         val typeLabel = if (item.type == "Movie") "Movie" else "TV Show"
         views.setTextViewText(R.id.widget_rank_badge, "#${item.rank} $typeLabel")
         views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
-
         if (!item.posterUrl.isNullOrBlank()) {
-            views.setImageViewUri(R.id.widget_poster, Uri.parse(item.posterUrl))
             val bmp = downloadPoster(item.posterUrl)
             if (bmp != null) views.setImageViewBitmap(R.id.widget_poster, bmp)
         }
