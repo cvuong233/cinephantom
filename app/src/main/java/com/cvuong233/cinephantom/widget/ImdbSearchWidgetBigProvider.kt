@@ -32,6 +32,9 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
     ) {
+        // goAsync keeps the broadcast alive while we fetch data on a background thread.
+        // Without this, Android kills the broadcast after ~10s and the poster never loads.
+        val pendingResult = goAsync()
         Thread {
             try {
                 val item = WidgetDataFetcher.fetchRandomFeatured()
@@ -41,8 +44,10 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                 }
             } catch (_: Exception) {
                 // Silently retry on next refresh
+            } finally {
+                pendingResult.finish()
             }
-        }.apply { isDaemon = false; start() }
+        }.start()
     }
 
     private fun buildViews(context: Context, item: WidgetFeaturedItem): RemoteViews {
