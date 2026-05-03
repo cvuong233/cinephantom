@@ -2,17 +2,20 @@ package com.cvuong233.cinephantom.ui.detail
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.view.ViewGroup
+import android.view.animation.AnimationUtils
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.data.RatingFetcher
-import com.cvuong233.cinephantom.ui.search.ShimmerView
+import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
+import org.json.JSONObject
+import java.net.URL
 import kotlin.concurrent.thread
 
 class DetailActivity : AppCompatActivity() {
@@ -32,173 +35,141 @@ class DetailActivity : AppCompatActivity() {
 
         val imdbId = intent?.getStringExtra(EXTRA_IMDB_ID) ?: run { finish(); return }
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Unknown"
-        val type = intent?.getStringExtra(EXTRA_TYPE)
-        val year = intent?.getStringExtra(EXTRA_YEAR)
-        val cast = intent?.getStringExtra(EXTRA_CAST)
-        val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL)
+        val type = intent?.getStringExtra(EXTRA_TYPE) ?: "Movie"
+        val year = intent?.getStringExtra(EXTRA_YEAR) ?: ""
+        val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
 
-        // Back
+        // Back button
         findViewById<View>(R.id.detail_back).setOnClickListener { finish() }
 
-        // Title
-        findViewById<TextView>(R.id.detail_title).text = title
+        // Show initial title with animation
+        val titleView = findViewById<TextView>(R.id.detail_title)
+        titleView.text = title
+        titleView.startAnimation(AnimationUtils.loadAnimation(this, R.anim.slide_up_fade))
 
-        // Meta chip
-        findViewById<TextView>(R.id.detail_meta).text = listOfNotNull(type, year).joinToString(" • ").ifBlank { "No info" }
+        // Meta row from intent extras (instant)
+        val metaView = findViewById<TextView>(R.id.detail_meta)
+        metaView.text = if (year.isNotBlank()) "$type · $year" else type
 
-        // Rating — fetch in background (works from widget or search)
-        val ratingText = findViewById<TextView>(R.id.detail_rating)
-        ratingText.text = "IMDb --"
-        ratingText.visibility = View.VISIBLE
-        thread {
-            val rating = RatingFetcher().fetchRating(imdbId)?.takeIf { it > 0f }
-            runOnUiThread {
-                if (rating != null) {
-                    ratingText.text = "IMDb %.1f".format(rating)
-                } else {
-                    ratingText.visibility = View.GONE
-                }
-            }
+        // Load hero image (try the provided URL first)
+        val heroImage = findViewById<ImageView>(R.id.detail_hero)
+        if (imageUrl.isNotBlank()) {
+            SimpleImageLoader.load(imageUrl, heroImage)
         }
 
-        // Poster with shimmer
-        val posterPlaceholder = findViewById<ShimmerView>(R.id.detail_poster_placeholder)
-        if (!imageUrl.isNullOrBlank()) {
-            posterPlaceholder.visibility = View.VISIBLE
-            findViewById<ImageView>(R.id.detail_poster).apply {
-                visibility = View.GONE
-                setImageDrawable(null)
-                com.cvuong233.cinephantom.ui.search.SimpleImageLoader.load(
-                    url = imageUrl,
-                    imageView = this,
-                    onSuccess = {
-                        visibility = View.VISIBLE
-                        posterPlaceholder.visibility = View.GONE
-                    },
-                    onError = {
-                        posterPlaceholder.visibility = View.VISIBLE
-                    },
-                )
-            }
-        }
+        // Start rating placeholder
+        val ratingView = findViewById<TextView>(R.id.detail_rating)
+        ratingView.text = "IMDb --"
+        ratingView.visibility = View.VISIBLE
 
-        // Cast
-        val castText = findViewById<TextView>(R.id.detail_cast)
-        castText.text = cast ?: "Cast info not available"
-
-        // Stremio button
-        findViewById<View>(R.id.detail_stremio_button).setOnClickListener {
-            openStremio(type, imdbId)
-        }
-
-        // Skeleton views
-        val descSkeleton = findViewById<View>(R.id.detail_desc_skeleton)
-        val genresSkeleton = findViewById<View>(R.id.detail_genres_skeleton)
-        val loadingNotice = findViewById<TextView>(R.id.detail_loading_notice)
-
-        // Start shimmers on skeletons
-        val descSkeletonGroup = descSkeleton as? ViewGroup
-        val genresSkeletonGroup = genresSkeleton as? ViewGroup
-        descSkeleton.post {
-            descSkeletonGroup?.let { g ->
-                for (i in 0 until g.childCount) {
-                    val child = g.getChildAt(i)
-                    if (child is com.cvuong233.cinephantom.ui.search.ShimmerView) {
-                        child.startShimmer()
-                    }
-                }
-            }
-            genresSkeletonGroup?.let { g ->
-                for (i in 0 until g.childCount) {
-                    val child = g.getChildAt(i)
-                    if (child is com.cvuong233.cinephantom.ui.search.ShimmerView) {
-                        child.startShimmer()
-                    }
-                }
-            }
-        }
-
-        // Show loading notice after a delay
-        val handler = android.os.Handler(android.os.Looper.getMainLooper())
-        handler.postDelayed({ loadingNotice.visibility = View.VISIBLE }, 3000)
-
-        // Fetch extra metadata from Cinemeta (description + genres)
+        // Fetch full metadata from Cinemeta
+        val descView = findViewById<TextView>(R.id.detail_description)
         val genresContainer = findViewById<FlowLayout>(R.id.detail_genres_container)
-        val descText = findViewById<TextView>(R.id.detail_description)
+        val castContainer = findViewById<LinearLayout>(R.id.detail_cast_container)
+
+        val apiType = if (type == "Series" || type == "TV Show") "series" else "movie"
+
         thread {
             try {
-                val json = java.net.URL("https://v3-cinemeta.strem.io/meta/movie/$imdbId.json").readText()
-                val data = parseFields(json)
-                val finalData = if (data == null) {
-                    val seriesJson = java.net.URL("https://v3-cinemeta.strem.io/meta/series/$imdbId.json").readText()
-                    parseFields(seriesJson)
-                } else data
+                val jsonText = URL("https://v3-cinemeta.strem.io/meta/$apiType/$imdbId.json").readText()
+                val meta = JSONObject(jsonText).optJSONObject("meta") ?: return@thread
+
+                val runtime = meta.optString("runtime", "")
+                val imdbRating = meta.optString("imdbRating", "")
+                val description = meta.optString("description", "")
+                val bgUrl = meta.optString("background", "")
+                val posterUrl = meta.optString("poster", "")
+
+                // Parse genres
+                val genresArr = meta.optJSONArray("genres")
+                val genres = mutableListOf<String>()
+                if (genresArr != null) {
+                    for (i in 0 until genresArr.length()) genres.add(genresArr.optString(i))
+                }
+
+                // Parse cast
+                val castArr = meta.optJSONArray("cast")
+                val cast = mutableListOf<String>()
+                if (castArr != null) {
+                    for (i in 0 until castArr.length()) cast.add(castArr.optString(i))
+                }
+
                 runOnUiThread {
-                    handler.removeCallbacksAndMessages(null)
-                    loadingNotice.visibility = View.GONE
-                    showExtraInfo(finalData, descText, genresContainer)
-                    // Hide skeletons, show real content
-                    descSkeleton.visibility = View.GONE
-                    if (finalData?.description != null) descText.visibility = View.VISIBLE
-                    if (finalData?.genres != null && finalData.genres!!.isNotEmpty()) {
-                        genresSkeleton.visibility = View.GONE
+                    // Update meta with runtime
+                    val metaParts = mutableListOf<String>()
+                    if (year.isNotBlank()) metaParts.add(year)
+                    if (runtime.isNotBlank()) metaParts.add(runtime)
+                    metaView.text = metaParts.joinToString(" · ").ifBlank { type }
+
+                    // Update rating
+                    if (imdbRating.isNotBlank()) {
+                        ratingView.text = "★ $imdbRating IMDb"
+                    } else {
+                        ratingView.visibility = View.GONE
+                    }
+
+                    // Update hero with background (better quality)
+                    if (bgUrl.isNotBlank()) {
+                        SimpleImageLoader.load(bgUrl, heroImage)
+                    } else if (posterUrl.isNotBlank() && imageUrl.isBlank()) {
+                        SimpleImageLoader.load(posterUrl, heroImage)
+                    }
+
+                    // Description
+                    if (description.isNotBlank()) {
+                        descView.text = description
+                        descView.visibility = View.VISIBLE
+                    }
+
+                    // Genres
+                    if (genres.isNotEmpty()) {
+                        genresContainer.removeAllViews()
+                        for (g in genres) {
+                            val chip = layoutInflater.inflate(R.layout.item_genre_chip, genresContainer, false) as TextView
+                            chip.text = g
+                            genresContainer.addView(chip)
+                        }
+                    }
+
+                    // Cast
+                    if (cast.isNotEmpty()) {
+                        castContainer.removeAllViews()
+                        val avatarColors = listOf(
+                            "#6B7CFF", "#FFA723", "#E85D75", "#4ECDC4",
+                            "#A78BFA", "#34D399", "#F472B6", "#60A5FA"
+                        )
+                        for ((i, actor) in cast.withIndex()) {
+                            val item = layoutInflater.inflate(R.layout.item_cast_member, castContainer, false)
+                            val avatar = item.findViewById<TextView>(R.id.cast_avatar)
+                            val name = item.findViewById<TextView>(R.id.cast_name)
+                            avatar.text = actor.firstOrNull()?.uppercase() ?: "?"
+                            try {
+                                avatar.background.setTint(Color.parseColor(avatarColors[i % avatarColors.size]))
+                            } catch (_: Exception) {}
+                            name.text = actor
+                            castContainer.addView(item)
+                        }
                     }
                 }
             } catch (_: Exception) {
                 runOnUiThread {
-                    handler.removeCallbacksAndMessages(null)
-                    descSkeleton.visibility = View.GONE
-                    genresSkeleton.visibility = View.GONE
-                    loadingNotice.visibility = View.GONE
+                    ratingView.text = "IMDb --"
                 }
             }
         }
-    }
 
-    private data class ExtraInfo(val description: String?, val genres: List<String>?)
-
-    private fun parseFields(json: String): ExtraInfo? {
-        val desc = """"description"\s*:\s*"((?:[^"\\]|\\.)*)"""".toRegex().find(json)
-            ?.groupValues?.getOrNull(1)?.replace("\\\"", "\"")?.replace("\\n", "\n")
-        val genreMatch = """"genres"\s*:\s*\[([^\]]+)\]""".toRegex().find(json)
-        val genres = genreMatch?.let { match ->
-            """"(.+?)"""".toRegex().findAll(match.groupValues[1]).map { it.groupValues[1] }.toList()
-        }
-        return if (desc != null || (genres != null && genres.isNotEmpty())) {
-            ExtraInfo(desc, genres)
-        } else null
-    }
-
-    private fun showExtraInfo(data: ExtraInfo?, descText: TextView, genresContainer: FlowLayout) {
-        if (data == null) return
-
-        if (!data.description.isNullOrBlank()) {
-            descText.text = data.description
-            descText.visibility = View.VISIBLE
-        }
-
-        if (data.genres != null && data.genres.isNotEmpty()) {
-            genresContainer.removeAllViews()
-            for (g in data.genres) {
-                val chip = layoutInflater.inflate(R.layout.item_genre_chip, genresContainer, false) as TextView
-                chip.text = g
-                genresContainer.addView(chip)
+        // Stremio button
+        findViewById<View>(R.id.detail_stremio_button).setOnClickListener {
+            val stremioType = when (type) {
+                "TV Series", "TV Mini Series", "TV Series (mini)", "TV Show", "Series" -> "series"
+                "TV Episode" -> "episode"
+                else -> "movie"
             }
-        }
-    }
-
-    private fun openStremio(type: String?, imdbId: String?) {
-        if (imdbId.isNullOrBlank()) return
-        val stremioType = when (type) {
-            "TV Series", "TV Mini Series", "TV Series (mini)", "TV Show" -> "series"
-            "TV Episode" -> "episode"
-            else -> "movie"
-        }
-        val stremioUri = Uri.parse("stremio://detail/$stremioType/$imdbId")
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, stremioUri))
-        } catch (_: ActivityNotFoundException) {
-            Toast.makeText(this, R.string.stremio_not_installed, Toast.LENGTH_SHORT).show()
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("stremio://detail/$stremioType/$imdbId")))
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(this, R.string.stremio_not_installed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }

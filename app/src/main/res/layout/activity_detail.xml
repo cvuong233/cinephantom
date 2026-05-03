@@ -11,213 +11,151 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Back button -->
-        <TextView
-            android:id="@+id/detail_back"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="16dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:gravity="center"
-            android:text="←"
-            android:textColor="@color/electric_blue"
-            android:textSize="24sp"
-            android:textStyle="bold" />
+        <!-- Hero image with back button overlay -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="220dp">
 
-        <!-- Poster row -->
+            <ImageView
+                android:id="@+id/detail_hero"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#0D1526"
+                android:contentDescription="@null"
+                android:scaleType="centerCrop" />
+
+            <TextView
+                android:id="@+id/detail_back"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginTop="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:text="←"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+        </FrameLayout>
+
+        <!-- Content -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:paddingHorizontal="24dp">
-
-            <FrameLayout
-                android:id="@+id/detail_poster_frame"
-                android:layout_width="120dp"
-                android:layout_height="170dp"
-                android:background="@drawable/search_poster_placeholder_bg">
-
-                <ImageView
-                    android:id="@+id/detail_poster"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:contentDescription="@null"
-                    android:scaleType="centerCrop"
-                    android:visibility="gone" />
-
-                <com.cvuong233.cinephantom.ui.search.ShimmerView
-                    android:id="@+id/detail_poster_placeholder"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/search_poster_placeholder_bg" />
-            </FrameLayout>
-
-            <!-- Right side: title + meta + rating -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/detail_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/text_primary"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/detail_meta"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/search_meta_chip_bg"
-                    android:paddingLeft="10dp"
-                    android:paddingTop="4dp"
-                    android:paddingRight="10dp"
-                    android:paddingBottom="4dp"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/detail_rating"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:textColor="#FFA723"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <com.cvuong233.cinephantom.ui.detail.FlowLayout
-                    android:id="@+id/detail_genres_container"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Description skeleton -->
-        <LinearLayout
-            android:id="@+id/detail_desc_skeleton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
             android:orientation="vertical"
-            android:paddingHorizontal="24dp"
-            android:visibility="visible">
+            android:paddingHorizontal="20dp"
+            android:paddingTop="20dp">
 
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
+            <!-- Title -->
+            <TextView
+                android:id="@+id/detail_title"
                 android:layout_width="match_parent"
-                android:layout_height="14dp" />
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="22sp"
+                android:textStyle="bold" />
 
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
+            <!-- Meta row: Year · Runtime -->
+            <TextView
+                android:id="@+id/detail_meta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp" />
+
+            <!-- IMDb rating -->
+            <TextView
+                android:id="@+id/detail_rating"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/widget_imdb"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <!-- Genres chips -->
+            <com.cvuong233.cinephantom.ui.detail.FlowLayout
+                android:id="@+id/detail_genres_container"
                 android:layout_width="match_parent"
-                android:layout_height="14dp"
-                android:layout_marginTop="8dp" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp" />
 
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
-                android:layout_width="250dp"
-                android:layout_height="14dp"
-                android:layout_marginTop="8dp" />
+            <!-- Divider -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="20dp"
+                android:background="#24304C" />
+
+            <!-- About section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="About"
+                android:textAllCaps="true"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <!-- Description -->
+            <TextView
+                android:id="@+id/detail_description"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:lineSpacingExtra="4dp"
+                android:textColor="@color/text_muted"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <!-- Cast section -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="Cast"
+                android:textAllCaps="true"
+                android:textColor="@color/text_muted"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <!-- Cast horizontal scroll -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/detail_cast_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal" />
+            </HorizontalScrollView>
+
+            <!-- Stremio button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/detail_stremio_button"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginTop="24dp"
+                android:gravity="center"
+                android:text="@string/stremio_open_button"
+                android:textAllCaps="false"
+                android:textColor="@color/electric_blue"
+                android:textSize="13sp"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_stremio_icon"
+                app:iconGravity="textStart"
+                app:iconSize="18dp"
+                app:strokeColor="@color/electric_blue"
+                app:strokeWidth="1dp"
+                app:backgroundTint="@color/surface_raised" />
         </LinearLayout>
-
-        <!-- Description -->
-        <TextView
-            android:id="@+id/detail_description"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:lineSpacingExtra="4dp"
-            android:paddingHorizontal="24dp"
-            android:textColor="@color/text_muted"
-            android:textSize="14sp"
-            android:visibility="gone" />
-
-        <!-- Genres skeleton -->
-        <LinearLayout
-            android:id="@+id/detail_genres_skeleton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:layout_marginStart="24dp"
-            android:orientation="horizontal"
-            android:visibility="visible">
-
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
-                android:layout_width="60dp"
-                android:layout_height="24dp" />
-
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
-                android:layout_width="70dp"
-                android:layout_height="24dp"
-                android:layout_marginStart="8dp" />
-
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
-                android:layout_width="50dp"
-                android:layout_height="24dp"
-                android:layout_marginStart="8dp" />
-        </LinearLayout>
-
-        <!-- Cast label -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:paddingHorizontal="24dp"
-            android:text="@string/search_cast_label"
-            android:textAllCaps="true"
-            android:textColor="@color/text_muted"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/detail_cast"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:lineSpacingExtra="3dp"
-            android:paddingHorizontal="24dp"
-            android:textColor="@color/text_muted"
-            android:textSize="13sp" />
-
-        <!-- Loading error / offline notice -->
-        <TextView
-            android:id="@+id/detail_loading_notice"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:gravity="center"
-            android:paddingHorizontal="24dp"
-            android:text="@string/detail_loading_extra"
-            android:textColor="@color/text_muted"
-            android:textSize="12sp"
-            android:visibility="gone" />
-
-        <!-- Stremio button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/detail_stremio_button"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_marginTop="20dp"
-            android:layout_marginStart="24dp"
-            android:gravity="center"
-            android:text="@string/stremio_open_button"
-            android:textAllCaps="false"
-            android:textColor="@color/electric_blue"
-            android:textSize="13sp"
-            app:cornerRadius="20dp"
-            app:icon="@drawable/ic_stremio_icon"
-            app:iconGravity="textStart"
-            app:iconSize="18dp"
-            app:strokeColor="@color/electric_blue"
-            app:strokeWidth="1dp"
-            app:backgroundTint="@color/surface_raised" />
 
         <!-- Bottom spacing -->
         <View
