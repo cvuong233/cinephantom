@@ -43,6 +43,7 @@ class DetailActivity : AppCompatActivity() {
         val type = intent?.getStringExtra(EXTRA_TYPE) ?: "Movie"
         val year = intent?.getStringExtra(EXTRA_YEAR) ?: ""
         val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
+        val intentCast = intent?.getStringExtra(EXTRA_CAST)
 
         // Views
         val backBtn = findViewById<TextView>(R.id.detail_back)
@@ -131,30 +132,43 @@ class DetailActivity : AppCompatActivity() {
                     for (i in 0 until directorArr.length()) directors.add(directorArr.optString(i))
                 }
 
-                // Cast
+                // Cast — try credits_cast first, then cast
                 val creditsCastArr = meta.optJSONArray("credits_cast")
+                val castArr = if (creditsCastArr != null && creditsCastArr.length() > 0) {
+                    creditsCastArr
+                } else {
+                    meta.optJSONArray("cast")
+                }
+
                 val castItems = mutableListOf<CastMember>()
-                if (creditsCastArr != null) {
-                    for (i in 0 until creditsCastArr.length()) {
-                        val c = creditsCastArr.optJSONObject(i)
-                        val pp = c.optString("profile_path", "")
-                        castItems.add(CastMember(
-                            name = c.optString("name", ""),
-                            profilePath = pp.ifBlank { null }
-                        ))
+                if (castArr != null) {
+                    for (i in 0 until castArr.length()) {
+                        val c = castArr.opt(i)
+                        when (c) {
+                            is JSONObject -> {
+                                val pp = c.optString("profile_path", "")
+                                castItems.add(CastMember(
+                                    name = c.optString("name", ""),
+                                    profilePath = pp.ifBlank { null }
+                                ))
+                            }
+                            is String -> {
+                                if (c.isNotBlank()) {
+                                    castItems.add(CastMember(name = c, profilePath = null))
+                                }
+                            }
+                        }
                     }
                 }
 
                 runOnUiThread {
-                    // If hero didn't load from intent, try background/poster
-                    if (imageUrl.isBlank()) {
-                        val fallbackUrl = if (bgUrl.isNotBlank()) bgUrl else posterUrl
-                        if (fallbackUrl.isNotBlank()) {
-                            SimpleImageLoader.load(fallbackUrl, heroImage,
-                                onSuccess = { heroIn() },
-                                onError = { heroIn() }
-                            )
-                        }
+                    // Prefer landscape background from Cinemeta, fall back to poster
+                    val landscapeUrl = if (bgUrl.isNotBlank()) bgUrl else posterUrl
+                    if (landscapeUrl.isNotBlank()) {
+                        SimpleImageLoader.load(landscapeUrl, heroImage,
+                            onSuccess = { heroIn() },
+                            onError = { heroIn() }
+                        )
                     }
 
                     populateContent(
@@ -164,11 +178,23 @@ class DetailActivity : AppCompatActivity() {
                         description, directors, genres, castItems
                     )
 
+                    val hasCast = castItems.isNotEmpty()
+
+                    // Fallback: use cast string from search results if Cinemeta returned nothing
+                    if (!hasCast && !intentCast.isNullOrBlank()) {
+                        val names = intentCast.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                        for (name in names) {
+                            castItems.add(CastMember(name = name, profilePath = null))
+                        }
+                    }
+
+                    val effectiveHasCast = castItems.isNotEmpty()
+
                     animateContent(
                         titleView, metaView, ratingView, directorView,
                         descView, genresContainer, castContainer, castScroll,
                         aboutLabel, castLabel, divider, stremioBtn,
-                        castItems.isNotEmpty()
+                        effectiveHasCast
                     )
                 }
             } catch (_: Exception) {
