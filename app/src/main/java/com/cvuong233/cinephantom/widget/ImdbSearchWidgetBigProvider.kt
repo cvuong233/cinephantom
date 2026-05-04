@@ -31,60 +31,42 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         val counter = prefs.getInt(PREF_COUNTER, 0) + 1
         prefs.edit().putInt(PREF_COUNTER, counter).apply()
 
-        // Phase 1: instant — show a hardcoded classic seed immediately (no network)
-        val fallbackSeed = WidgetDataFetcher.randomSeed()
-        showPhase1(context, fallbackSeed, counter, ids, appWidgetManager)
+        // Phase 1: instant — use cached live data if available
+        val cached = WidgetDataFetcher.instantSeed(context)
+        if (cached != null) {
+            val typeLabel = if (cached.type == "movie") "Movie" else "TV Show"
+            val views1 = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
+            setupClicks(context, views1, cached)
+            views1.setTextViewText(R.id.widget_rank_badge, "#${cached.rank} $typeLabel")
+            views1.setTextViewText(R.id.widget_counter, "Refresh #$counter")
+            for (id in ids) appWidgetManager.updateAppWidget(id, views1)
+        }
+        // If no cache, widget shows its default layout text (from XML) briefly
 
-        // Phase 2: background — try live IMDb charts + download poster
+        // Phase 2: background — fetch live data, download poster, update widget
         val pendingResult = goAsync()
         Thread {
             try {
-                // Try live data; fall back to the classic seed on any failure
-                val liveSeed = WidgetDataFetcher.fetchLiveSeed()
-                val finalSeed = liveSeed ?: fallbackSeed
-                val typeLabel = if (finalSeed.type == "movie") "Movie" else "TV Show"
+                val seed = WidgetDataFetcher.liveSeed(context)
+                if (seed != null) {
+                    val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
+                    val posterBmp = downloadBitmap(seed.posterUrlComputed)
 
-                // Fetch IMDb rating if we don't already have it from live data
-                val rating = finalSeed.imdbRating
-                    ?: fetchCinemetaRating(finalSeed.id, finalSeed.type)
-
-                // Download poster
-                val posterUrl = finalSeed.posterUrlComputed
-                val bmp = downloadBitmap(posterUrl)
-
-                // Update widget with final data
-                val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
-                setupClicks(context, views, finalSeed)
-
-                val rankText = "#${finalSeed.rank} $typeLabel"
-                views.setTextViewText(R.id.widget_rank_badge, rankText)
-                views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
-                if (bmp != null) {
-                    views.setImageViewBitmap(R.id.widget_poster, bmp)
+                    val views2 = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
+                    setupClicks(context, views2, seed)
+                    views2.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
+                    views2.setTextViewText(R.id.widget_counter, "Refresh #$counter")
+                    if (posterBmp != null) {
+                        views2.setImageViewBitmap(R.id.widget_poster, posterBmp)
+                    }
+                    for (id in ids) appWidgetManager.updateAppWidget(id, views2)
                 }
-                for (id in ids) appWidgetManager.updateAppWidget(id, views)
             } catch (_: Exception) {
-                // Phase 1 already shows content; widget is usable
+                // Cached content from phase 1 is already visible
             } finally {
                 pendingResult.finish()
             }
         }.start()
-    }
-
-    /** Phase 1: show text immediately with a fallback seed (no poster yet). */
-    private fun showPhase1(
-        context: Context,
-        seed: WidgetDataFetcher.Seed,
-        counter: Int,
-        ids: List<Int>,
-        appWidgetManager: AppWidgetManager,
-    ) {
-        val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
-        val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
-        setupClicks(context, views, seed)
-        views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
-        views.setTextViewText(R.id.widget_counter, "Refresh #$counter")
-        for (id in ids) appWidgetManager.updateAppWidget(id, views)
     }
 
     private fun setupClicks(context: Context, views: RemoteViews, seed: WidgetDataFetcher.Seed) {
@@ -124,20 +106,6 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             val bmp = BitmapFactory.decodeStream(conn.inputStream)
             conn.disconnect()
             bmp
-        } catch (_: Exception) { null }
-    }
-
-    private fun fetchCinemetaRating(imdbId: String, contentType: String): String? {
-        return try {
-            val url = URL("https://v3-cinemeta.strem.io/meta/$contentType/$imdbId.json")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 2000
-            conn.readTimeout = 2000
-            conn.instanceFollowRedirects = false
-            val text = conn.inputStream.bufferedReader().readText()
-            conn.disconnect()
-            val meta = org.json.JSONObject(text).optJSONObject("meta") ?: return null
-            meta.optString("imdbRating").takeIf { it.isNotBlank() }
         } catch (_: Exception) { null }
     }
 

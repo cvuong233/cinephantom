@@ -16,12 +16,6 @@
             android:layout_width="match_parent"
             android:layout_height="220dp">
 
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
-                android:id="@+id/hero_skeleton"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="visible" />
-
             <ImageView
                 android:id="@+id/detail_hero"
                 android:layout_width="match_parent"
@@ -29,7 +23,7 @@
                 android:background="#0D1526"
                 android:contentDescription="@null"
                 android:scaleType="centerCrop"
-                android:visibility="gone" />
+                android:visibility="visible" />
 
             <TextView
                 android:id="@+id/detail_back"
@@ -37,6 +31,7 @@
                 android:layout_height="40dp"
                 android:layout_marginStart="12dp"
                 android:layout_marginTop="12dp"
+                android:alpha="0"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
                 android:focusable="true"
@@ -55,14 +50,7 @@
             android:paddingHorizontal="20dp"
             android:paddingTop="20dp">
 
-            <!-- Title skeleton -->
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
-                android:id="@+id/title_skeleton"
-                android:layout_width="260dp"
-                android:layout_height="22dp"
-                android:visibility="visible" />
-
-            <!-- Real title -->
+            <!-- Title -->
             <TextView
                 android:id="@+id/detail_title"
                 android:layout_width="match_parent"
@@ -72,15 +60,7 @@
                 android:textStyle="bold"
                 android:visibility="gone" />
 
-            <!-- Meta+rating skeleton -->
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
-                android:id="@+id/meta_skeleton"
-                android:layout_width="180dp"
-                android:layout_height="40dp"
-                android:layout_marginTop="6dp"
-                android:visibility="visible" />
-
-            <!-- Real meta row -->
+            <!-- Meta row -->
             <TextView
                 android:id="@+id/detail_meta"
                 android:layout_width="wrap_content"
@@ -89,7 +69,7 @@
                 android:textSize="14sp"
                 android:visibility="gone" />
 
-            <!-- Real IMDb rating -->
+            <!-- IMDb rating -->
             <TextView
                 android:id="@+id/detail_rating"
                 android:layout_width="wrap_content"
@@ -100,15 +80,7 @@
                 android:textStyle="bold"
                 android:visibility="gone" />
 
-            <!-- Genre skeleton -->
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
-                android:id="@+id/genre_skeleton"
-                android:layout_width="200dp"
-                android:layout_height="28dp"
-                android:layout_marginTop="10dp"
-                android:visibility="visible" />
-
-            <!-- Real genres -->
+            <!-- Genres -->
             <com.cvuong233.cinephantom.ui.detail.FlowLayout
                 android:id="@+id/detail_genres_container"
                 android:layout_width="match_parent"
@@ -116,15 +88,7 @@
                 android:layout_marginTop="10dp"
                 android:visibility="gone" />
 
-            <!-- Director skeleton -->
-            <com.cvuong233.cinephantom.ui.search.ShimmerView
-                android:id="@+id/director_skeleton"
-                android:layout_width="150dp"
-                android:layout_height="13dp"
-                android:layout_marginTop="12dp"
-                android:visibility="visible" />
-
-            <!-- Real director -->
+            <!-- Director -->
             <TextView
                 android:id="@+id/detail_director"
                 android:layout_width="match_parent"
@@ -136,34 +100,12 @@
 
             <!-- Divider -->
             <View
+                android:id="@+id/detail_divider"
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:layout_marginTop="20dp"
-                android:background="#24304C" />
-
-            <!-- Description skeleton: 3 stacked shimmer lines -->
-            <LinearLayout
-                android:id="@+id/desc_skeleton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:orientation="vertical"
-                android:visibility="visible">
-
-                <com.cvuong233.cinephantom.ui.search.ShimmerView
-                    android:layout_width="match_parent"
-                    android:layout_height="14dp" />
-
-                <com.cvuong233.cinephantom.ui.search.ShimmerView
-                    android:layout_width="match_parent"
-                    android:layout_height="14dp"
-                    android:layout_marginTop="8dp" />
-
-                <com.cvuong233.cinephantom.ui.search.ShimmerView
-                    android:layout_width="200dp"
-                    android:layout_height="14dp"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
+                android:background="#24304C"
+                android:visibility="gone" />
 
             <!-- About label -->
             <TextView
@@ -178,7 +120,7 @@
                 android:textStyle="bold"
                 android:visibility="gone" />
 
-            <!-- Real description -->
+            <!-- Description -->
             <TextView
                 android:id="@+id/detail_description"
                 android:layout_width="match_parent"
@@ -188,88 +130,6 @@
                 android:textColor="@color/text_muted"
                 android:textSize="14sp"
                 android:visibility="gone" />
-
-            <!-- Cast skeleton: 4 groups (circle + bar) -->
-            <LinearLayout
-                android:id="@+id/cast_skeleton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:orientation="horizontal"
-                android:visibility="visible">
-
-                <LinearLayout
-                    android:layout_width="80dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:paddingHorizontal="4dp"
-                    android:paddingTop="4dp">
-
-                    <com.cvuong233.cinephantom.ui.search.ShimmerView
-                        android:layout_width="52dp"
-                        android:layout_height="52dp" />
-
-                    <com.cvuong233.cinephantom.ui.search.ShimmerView
-                        android:layout_width="60dp"
-                        android:layout_height="11dp"
-                        android:layout_marginTop="4dp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="80dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:paddingHorizontal="4dp"
-                    android:paddingTop="4dp">
-
-                    <com.cvuong233.cinephantom.ui.search.ShimmerView
-                        android:layout_width="52dp"
-                        android:layout_height="52dp" />
-
-                    <com.cvuong233.cinephantom.ui.search.ShimmerView
-                        android:layout_width="60dp"
-                        android:layout_height="11dp"
-                        android:layout_marginTop="4dp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="80dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:paddingHorizontal="4dp"
-                    android:paddingTop="4dp">
-
-                    <com.cvuong233.cinephantom.ui.search.ShimmerView
-                        android:layout_width="52dp"
-                        android:layout_height="52dp" />
-
-                    <com.cvuong233.cinephantom.ui.search.ShimmerView
-                        android:layout_width="60dp"
-                        android:layout_height="11dp"
-                        android:layout_marginTop="4dp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="80dp"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:paddingHorizontal="4dp"
-                    android:paddingTop="4dp">
-
-                    <com.cvuong233.cinephantom.ui.search.ShimmerView
-                        android:layout_width="52dp"
-                        android:layout_height="52dp" />
-
-                    <com.cvuong233.cinephantom.ui.search.ShimmerView
-                        android:layout_width="60dp"
-                        android:layout_height="11dp"
-                        android:layout_marginTop="4dp" />
-                </LinearLayout>
-            </LinearLayout>
 
             <!-- Cast label -->
             <TextView
@@ -284,12 +144,14 @@
                 android:textStyle="bold"
                 android:visibility="gone" />
 
-            <!-- Real cast horizontal scroll -->
+            <!-- Cast horizontal scroll -->
             <HorizontalScrollView
+                android:id="@+id/detail_cast_scroll"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:scrollbars="none">
+                android:scrollbars="none"
+                android:visibility="gone">
 
                 <LinearLayout
                     android:id="@+id/detail_cast_container"
@@ -298,7 +160,7 @@
                     android:orientation="horizontal" />
             </HorizontalScrollView>
 
-            <!-- Stremio button (always visible) -->
+            <!-- Stremio button -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/detail_stremio_button"
                 android:layout_width="wrap_content"
@@ -309,6 +171,7 @@
                 android:textAllCaps="false"
                 android:textColor="@color/electric_blue"
                 android:textSize="13sp"
+                android:visibility="gone"
                 app:cornerRadius="20dp"
                 app:icon="@drawable/ic_stremio_icon"
                 app:iconGravity="textStart"

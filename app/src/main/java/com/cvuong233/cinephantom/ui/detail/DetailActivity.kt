@@ -8,15 +8,16 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.ViewOutlineProvider
-import android.view.animation.AnimationUtils
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.ui.search.ShimmerView
 import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
 import org.json.JSONObject
 import java.net.URL
@@ -43,112 +44,53 @@ class DetailActivity : AppCompatActivity() {
         val year = intent?.getStringExtra(EXTRA_YEAR) ?: ""
         val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
 
-        // Back button
-        findViewById<View>(R.id.detail_back).setOnClickListener { finish() }
-
-        // Reference all skeleton views
-        val heroSkeleton = findViewById<ShimmerView>(R.id.hero_skeleton)
-        val titleSkeleton = findViewById<ShimmerView>(R.id.title_skeleton)
-        val metaSkeleton = findViewById<ShimmerView>(R.id.meta_skeleton)
-        val genreSkeleton = findViewById<ShimmerView>(R.id.genre_skeleton)
-        val directorSkeleton = findViewById<ShimmerView>(R.id.director_skeleton)
-        val descSkeleton = findViewById<LinearLayout>(R.id.desc_skeleton)
-        val castSkeleton = findViewById<LinearLayout>(R.id.cast_skeleton)
-
-        // Reference all real content views
+        // Views
+        val backBtn = findViewById<TextView>(R.id.detail_back)
         val heroImage = findViewById<ImageView>(R.id.detail_hero)
         val titleView = findViewById<TextView>(R.id.detail_title)
         val metaView = findViewById<TextView>(R.id.detail_meta)
         val ratingView = findViewById<TextView>(R.id.detail_rating)
-        val genresContainer = findViewById<FlowLayout>(R.id.detail_genres_container)
         val directorView = findViewById<TextView>(R.id.detail_director)
-        val aboutLabel = findViewById<TextView>(R.id.detail_about_label)
         val descView = findViewById<TextView>(R.id.detail_description)
-        val castLabel = findViewById<TextView>(R.id.detail_cast_label)
+        val genresContainer = findViewById<FlowLayout>(R.id.detail_genres_container)
         val castContainer = findViewById<LinearLayout>(R.id.detail_cast_container)
+        val castScroll = findViewById<HorizontalScrollView>(R.id.detail_cast_scroll)
+        val aboutLabel = findViewById<TextView>(R.id.detail_about_label)
+        val castLabel = findViewById<TextView>(R.id.detail_cast_label)
+        val divider = findViewById<View>(R.id.detail_divider)
+        val stremioBtn = findViewById<View>(R.id.detail_stremio_button)
 
-        // Load hero image immediately from intent
-        if (imageUrl.isNotBlank()) {
-            SimpleImageLoader.load(imageUrl, heroImage,
-                onSuccess = {
-                    heroSkeleton.visibility = View.GONE
-                    heroImage.visibility = View.VISIBLE
-                    heroImage.animate().alpha(1f).setDuration(400).start()
-                },
-                onError = {
-                    heroSkeleton.visibility = View.GONE
-                }
-            )
+        // Back button — fade in
+        backBtn.setOnClickListener { finish() }
+        backBtn.animate().alpha(1f).setDuration(300).start()
+
+        // Set title early (will animate in after data loads)
+        titleView.text = title
+
+        // Hero: start zoomed out, animate in when ready
+        heroImage.scaleX = 0.92f
+        heroImage.scaleY = 0.92f
+        heroImage.alpha = 0f
+
+        val heroIn = {
+            heroImage.animate()
+                .scaleX(1f).scaleY(1f).alpha(1f)
+                .setDuration(700)
+                .setInterpolator(OvershootInterpolator(1.05f))
+                .start()
         }
 
-        // Fetch full metadata from Cinemeta
-        val apiType = if (type == "Series" || type == "TV Show") "series" else "movie"
-
-        thread {
-            try {
-                val jsonText = URL("https://v3-cinemeta.strem.io/meta/$apiType/$imdbId.json").readText()
-                val meta = JSONObject(jsonText).optJSONObject("meta") ?: run {
-                    runOnUiThread { hideSkeletonsOnError(heroSkeleton, titleSkeleton, metaSkeleton, genreSkeleton, directorSkeleton, descSkeleton, castSkeleton) }
-                    return@thread
-                }
-
-                val runtime = meta.optString("runtime", "")
-                val imdbRating = meta.optString("imdbRating", "")
-                val description = meta.optString("description", "")
-                val bgUrl = meta.optString("background", "")
-                val posterUrl = meta.optString("poster", "")
-
-                // Parse genres
-                val genresArr = meta.optJSONArray("genres")
-                val genres = mutableListOf<String>()
-                if (genresArr != null) {
-                    for (i in 0 until genresArr.length()) genres.add(genresArr.optString(i))
-                }
-
-                // Parse director
-                val directorArr = meta.optJSONArray("director")
-                val director = if (directorArr != null && directorArr.length() > 0) directorArr.optString(0) else ""
-
-                // Parse credits_cast with photos
-                val creditsCast = meta.optJSONArray("credits_cast")
-                val castMembers = mutableListOf<CastMember>()
-                if (creditsCast != null) {
-                    for (i in 0 until creditsCast.length()) {
-                        val c = creditsCast.optJSONObject(i) ?: continue
-                        castMembers.add(CastMember(
-                            name = c.optString("name", ""),
-                            profilePath = c.optString("profile_path", null)?.takeIf { it.isNotBlank() }
-                        ))
-                    }
-                }
-                // Fallback to simple cast array if credits_cast is empty
-                if (castMembers.isEmpty()) {
-                    val castArr = meta.optJSONArray("cast")
-                    if (castArr != null) {
-                        for (i in 0 until castArr.length()) {
-                            castMembers.add(CastMember(name = castArr.optString(i), profilePath = null))
-                        }
-                    }
-                }
-
-                runOnUiThread {
-                    showContent(
-                        heroSkeleton, titleSkeleton, metaSkeleton, genreSkeleton, directorSkeleton, descSkeleton, castSkeleton,
-                        heroImage, titleView, metaView, ratingView, genresContainer, directorView,
-                        aboutLabel, descView, castLabel, castContainer,
-                        title, type, year, bgUrl, posterUrl, imageUrl,
-                        runtime, imdbRating, description, genres, director, castMembers
-                    )
-                }
-            } catch (_: Exception) {
-                runOnUiThread {
-                    hideSkeletonsOnError(heroSkeleton, titleSkeleton, metaSkeleton, genreSkeleton, directorSkeleton, descSkeleton, castSkeleton)
-                }
-            }
+        if (imageUrl.isNotBlank()) {
+            SimpleImageLoader.load(imageUrl, heroImage,
+                onSuccess = { heroIn() },
+                onError = { heroIn() }
+            )
+        } else {
+            heroIn()
         }
 
         // Stremio button
-        findViewById<View>(R.id.detail_stremio_button).setOnClickListener {
+        stremioBtn.setOnClickListener {
             val stremioType = when (type) {
                 "TV Series", "TV Mini Series", "TV Series (mini)", "TV Show", "Series" -> "series"
                 "TV Episode" -> "episode"
@@ -160,129 +102,157 @@ class DetailActivity : AppCompatActivity() {
                 Toast.makeText(this, R.string.stremio_not_installed, Toast.LENGTH_SHORT).show()
             }
         }
-    }
 
-    private fun showContent(
-        heroSkeleton: ShimmerView, titleSkeleton: ShimmerView, metaSkeleton: ShimmerView,
-        genreSkeleton: ShimmerView, directorSkeleton: ShimmerView,
-        descSkeleton: LinearLayout, castSkeleton: LinearLayout,
-        heroImage: ImageView, titleView: TextView, metaView: TextView,
-        ratingView: TextView, genresContainer: FlowLayout, directorView: TextView,
-        aboutLabel: TextView, descView: TextView, castLabel: TextView,
-        castContainer: LinearLayout,
-        title: String, type: String, year: String,
-        bgUrl: String, posterUrl: String, imageUrl: String,
-        runtime: String, imdbRating: String, description: String,
-        genres: List<String>, director: String,
-        castMembers: List<CastMember>
-    ) {
-        // Hide all skeletons
-        heroSkeleton.visibility = View.GONE
-        titleSkeleton.visibility = View.GONE
-        metaSkeleton.visibility = View.GONE
-        genreSkeleton.visibility = View.GONE
-        directorSkeleton.visibility = View.GONE
-        descSkeleton.visibility = View.GONE
-        castSkeleton.visibility = View.GONE
+        // Fetch metadata
+        val apiType = if (type == "Series" || type == "TV Show") "series" else "movie"
 
-        // Hero image: fade in
-        if (imageUrl.isBlank()) {
-            if (bgUrl.isNotBlank()) {
-                SimpleImageLoader.load(bgUrl, heroImage,
-                    onSuccess = {
-                        heroImage.visibility = View.VISIBLE
-                        heroImage.animate().alpha(1f).setDuration(400).start()
+        thread {
+            try {
+                val jsonText = URL("https://v3-cinemeta.strem.io/meta/$apiType/$imdbId.json").readText()
+                val meta = JSONObject(jsonText).optJSONObject("meta") ?: return@thread
+
+                val runtime = meta.optString("runtime", "")
+                val imdbRating = meta.optString("imdbRating", "")
+                val description = meta.optString("description", "")
+                val bgUrl = meta.optString("background", "")
+                val posterUrl = meta.optString("poster", "")
+
+                // Genres
+                val genresArr = meta.optJSONArray("genres")
+                val genres = mutableListOf<String>()
+                if (genresArr != null) {
+                    for (i in 0 until genresArr.length()) genres.add(genresArr.optString(i))
+                }
+
+                // Director
+                val directorArr = meta.optJSONArray("director")
+                val directors = mutableListOf<String>()
+                if (directorArr != null) {
+                    for (i in 0 until directorArr.length()) directors.add(directorArr.optString(i))
+                }
+
+                // Cast
+                val creditsCastArr = meta.optJSONArray("credits_cast")
+                val castItems = mutableListOf<CastMember>()
+                if (creditsCastArr != null) {
+                    for (i in 0 until creditsCastArr.length()) {
+                        val c = creditsCastArr.optJSONObject(i)
+                        val pp = c.optString("profile_path", "")
+                        castItems.add(CastMember(
+                            name = c.optString("name", ""),
+                            profilePath = pp.ifBlank { null }
+                        ))
                     }
-                )
-            } else if (posterUrl.isNotBlank()) {
-                SimpleImageLoader.load(posterUrl, heroImage,
-                    onSuccess = {
-                        heroImage.visibility = View.VISIBLE
-                        heroImage.animate().alpha(1f).setDuration(400).start()
+                }
+
+                runOnUiThread {
+                    // If hero didn't load from intent, try background/poster
+                    if (imageUrl.isBlank()) {
+                        val fallbackUrl = if (bgUrl.isNotBlank()) bgUrl else posterUrl
+                        if (fallbackUrl.isNotBlank()) {
+                            SimpleImageLoader.load(fallbackUrl, heroImage,
+                                onSuccess = { heroIn() },
+                                onError = { heroIn() }
+                            )
+                        }
                     }
-                )
+
+                    populateContent(
+                        metaView, ratingView, directorView, descView,
+                        genresContainer, castContainer,
+                        type, year, runtime, imdbRating,
+                        description, directors, genres, castItems
+                    )
+
+                    animateContent(
+                        titleView, metaView, ratingView, directorView,
+                        descView, genresContainer, castContainer, castScroll,
+                        aboutLabel, castLabel, divider, stremioBtn,
+                        castItems.isNotEmpty()
+                    )
+                }
+            } catch (_: Exception) {
+                runOnUiThread {
+                    // Fallback: just show title with animation
+                    titleView.visibility = View.VISIBLE
+                    titleView.translationY = -60f
+                    titleView.alpha = 0f
+                    titleView.animate()
+                        .translationY(0f).alpha(1f)
+                        .setDuration(450)
+                        .setInterpolator(DecelerateInterpolator())
+                        .start()
+                    // Still show stremio button
+                    animateStremioIn(stremioBtn, 200)
+                }
             }
         }
+    }
 
-        // Title: slide up + fade
-        titleView.text = title
-        titleView.visibility = View.VISIBLE
-        titleView.startAnimation(AnimationUtils.loadAnimation(this, R.anim.slide_up_fade))
-
-        // Meta: fade in delayed
+    private fun populateContent(
+        metaView: TextView, ratingView: TextView, directorView: TextView,
+        descView: TextView, genresContainer: FlowLayout,
+        castContainer: LinearLayout,
+        type: String, year: String,
+        runtime: String, imdbRating: String, description: String,
+        directors: List<String>, genres: List<String>,
+        castItems: List<CastMember>
+    ) {
+        // Meta row
         val metaParts = mutableListOf<String>()
         if (year.isNotBlank()) metaParts.add(year)
         if (runtime.isNotBlank()) metaParts.add(runtime)
         metaView.text = metaParts.joinToString(" · ").ifBlank { type }
-        metaView.visibility = View.VISIBLE
-        metaView.alpha = 0f
-        metaView.animate().alpha(1f).setStartDelay(200).setDuration(300).start()
 
-        // Rating: fade in delayed
+        // Rating
         if (imdbRating.isNotBlank()) {
             ratingView.text = "★ $imdbRating IMDb"
-            ratingView.visibility = View.VISIBLE
-            ratingView.alpha = 0f
-            ratingView.animate().alpha(1f).setStartDelay(350).setDuration(300).start()
+        } else {
+            ratingView.text = "IMDb --"
         }
 
-        // Director: fade in delayed
-        if (director.isNotBlank()) {
-            directorView.text = "Directed by $director"
-            directorView.visibility = View.VISIBLE
-            directorView.alpha = 0f
-            directorView.animate().alpha(1f).setStartDelay(400).setDuration(300).start()
+        // Director
+        if (directors.isNotEmpty()) {
+            directorView.text = "Directed by ${directors.joinToString(", ")}"
         }
 
-        // Genres: pop in staggered
+        // Description
+        if (description.isNotBlank()) {
+            descView.text = description
+        }
+
+        // Genre chips
         if (genres.isNotEmpty()) {
-            genresContainer.visibility = View.VISIBLE
             genresContainer.removeAllViews()
-            for ((i, g) in genres.withIndex()) {
+            for (g in genres) {
                 val chip = layoutInflater.inflate(R.layout.item_genre_chip, genresContainer, false) as TextView
                 chip.text = g
-                chip.alpha = 0f
-                chip.scaleX = 0.8f
-                chip.scaleY = 0.8f
                 genresContainer.addView(chip)
-                chip.animate().alpha(1f).scaleX(1f).scaleY(1f)
-                    .setStartDelay((100 + i * 60).toLong())
-                    .setDuration(300).start()
             }
         }
 
-        // Description: fade in
-        if (description.isNotBlank()) {
-            aboutLabel.visibility = View.VISIBLE
-            aboutLabel.alpha = 0f
-            aboutLabel.animate().alpha(1f).setStartDelay(450).setDuration(300).start()
-
-            descView.text = description
-            descView.visibility = View.VISIBLE
-            descView.alpha = 0f
-            descView.animate().alpha(1f).setStartDelay(500).setDuration(400).start()
-        }
-
-        // Cast: slide in from right, staggered
-        if (castMembers.isNotEmpty()) {
-            castLabel.visibility = View.VISIBLE
-            castLabel.alpha = 0f
-            castLabel.animate().alpha(1f).setStartDelay(500).setDuration(300).start()
-
+        // Cast with photos
+        if (castItems.isNotEmpty()) {
             castContainer.removeAllViews()
             val avatarColors = listOf(
                 "#6B7CFF", "#FFA723", "#E85D75", "#4ECDC4",
                 "#A78BFA", "#34D399", "#F472B6", "#60A5FA"
             )
 
-            for ((i, member) in castMembers.withIndex()) {
+            for ((i, member) in castItems.withIndex()) {
                 val item = layoutInflater.inflate(R.layout.item_cast_member, castContainer, false)
                 val frame = item.findViewById<FrameLayout>(R.id.cast_avatar_frame)
                 val photoView = item.findViewById<ImageView>(R.id.cast_photo)
                 val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
                 val nameView = item.findViewById<TextView>(R.id.cast_name)
 
-                // Initial letter fallback
+                frame.outlineProvider = object : ViewOutlineProvider() {
+                    override fun getOutline(view: View, outline: Outline) {
+                        outline.setOval(0, 0, view.width, view.height)
+                    }
+                }
+                frame.clipToOutline = true
+
                 avatarView.text = member.name.firstOrNull()?.uppercase() ?: "?"
                 try {
                     avatarView.background.setTint(Color.parseColor(avatarColors[i % avatarColors.size]))
@@ -290,16 +260,8 @@ class DetailActivity : AppCompatActivity() {
 
                 nameView.text = member.name
 
-                // Load photo if available
                 if (member.profilePath != null) {
                     val photoUrl = "https://image.tmdb.org/t/p/w185${member.profilePath}"
-                    frame.outlineProvider = object : ViewOutlineProvider() {
-                        override fun getOutline(view: View, outline: Outline) {
-                            outline.setOval(0, 0, view.width, view.height)
-                        }
-                    }
-                    frame.clipToOutline = true
-
                     SimpleImageLoader.load(photoUrl, photoView,
                         onSuccess = {
                             photoView.visibility = View.VISIBLE
@@ -309,30 +271,173 @@ class DetailActivity : AppCompatActivity() {
                 }
 
                 castContainer.addView(item)
-
-                // Staggered slide-in from right
-                item.alpha = 0f
-                item.translationX = 60f
-                item.animate().alpha(1f).translationX(0f)
-                    .setStartDelay((550 + i * 60).toLong())
-                    .setDuration(350).start()
             }
         }
     }
 
-    private fun hideSkeletonsOnError(
-        heroSkeleton: ShimmerView, titleSkeleton: ShimmerView, metaSkeleton: ShimmerView,
-        genreSkeleton: ShimmerView, directorSkeleton: ShimmerView,
-        descSkeleton: LinearLayout, castSkeleton: LinearLayout
+    private fun animateContent(
+        titleView: TextView, metaView: TextView, ratingView: TextView,
+        directorView: TextView, descView: TextView,
+        genresContainer: FlowLayout,
+        castContainer: LinearLayout, castScroll: HorizontalScrollView,
+        aboutLabel: TextView, castLabel: TextView,
+        divider: View, stremioBtn: View,
+        hasCast: Boolean
     ) {
-        heroSkeleton.visibility = View.GONE
-        titleSkeleton.visibility = View.GONE
-        metaSkeleton.visibility = View.GONE
-        genreSkeleton.visibility = View.GONE
-        directorSkeleton.visibility = View.GONE
-        descSkeleton.visibility = View.GONE
-        castSkeleton.visibility = View.GONE
+        val decel = DecelerateInterpolator()
+        val decelFast = DecelerateInterpolator(1.5f)
+        val overshoot = OvershootInterpolator(1.1f)
+        val overshootPop = OvershootInterpolator(1.25f)
+
+        // ── Title: drop from above ──
+        titleView.apply {
+            visibility = View.VISIBLE
+            translationY = -60f
+            alpha = 0f
+            animate()
+                .translationY(0f).alpha(1f)
+                .setDuration(450).setStartDelay(50)
+                .setInterpolator(decel)
+                .start()
+        }
+
+        // ── Meta: slide from left ──
+        metaView.apply {
+            visibility = View.VISIBLE
+            translationX = -80f
+            alpha = 0f
+            animate()
+                .translationX(0f).alpha(1f)
+                .setDuration(400).setStartDelay(150)
+                .setInterpolator(decelFast)
+                .start()
+        }
+
+        // ── Rating: slide from right ──
+        ratingView.apply {
+            visibility = View.VISIBLE
+            translationX = 80f
+            alpha = 0f
+            animate()
+                .translationX(0f).alpha(1f)
+                .setDuration(400).setStartDelay(200)
+                .setInterpolator(decelFast)
+                .start()
+        }
+
+        // ── Director: slide from left ──
+        directorView.apply {
+            visibility = View.VISIBLE
+            translationX = -60f
+            alpha = 0f
+            animate()
+                .translationX(0f).alpha(1f)
+                .setDuration(350).setStartDelay(250)
+                .setInterpolator(decel)
+                .start()
+        }
+
+        // ── Genres: pop in staggered with overshoot ──
+        genresContainer.apply {
+            visibility = View.VISIBLE
+            for (i in 0 until childCount) {
+                val child = getChildAt(i)
+                child.scaleX = 0f
+                child.scaleY = 0f
+                child.alpha = 0f
+                child.animate()
+                    .scaleX(1f).scaleY(1f).alpha(1f)
+                    .setDuration(350)
+                    .setStartDelay(300 + i * 60L)
+                    .setInterpolator(overshootPop)
+                    .start()
+            }
+        }
+
+        // ── Divider: expand from center ──
+        divider.apply {
+            visibility = View.VISIBLE
+            scaleX = 0f
+            animate()
+                .scaleX(1f)
+                .setDuration(400).setStartDelay(400)
+                .setInterpolator(DecelerateInterpolator(2f))
+                .start()
+        }
+
+        // ── About label: slide up ──
+        aboutLabel.apply {
+            visibility = View.VISIBLE
+            translationY = 25f
+            alpha = 0f
+            animate()
+                .translationY(0f).alpha(1f)
+                .setDuration(300).setStartDelay(480)
+                .setInterpolator(decel)
+                .start()
+        }
+
+        // ── Description: slide up ──
+        descView.apply {
+            visibility = View.VISIBLE
+            translationY = 30f
+            alpha = 0f
+            animate()
+                .translationY(0f).alpha(1f)
+                .setDuration(400).setStartDelay(510)
+                .setInterpolator(decel)
+                .start()
+        }
+
+        // ── Cast section (only if cast data exists) ──
+        if (hasCast) {
+            castLabel.apply {
+                visibility = View.VISIBLE
+                translationX = -40f
+                alpha = 0f
+                animate()
+                    .translationX(0f).alpha(1f)
+                    .setDuration(300).setStartDelay(580)
+                    .setInterpolator(decel)
+                    .start()
+            }
+
+            castScroll.apply {
+                visibility = View.VISIBLE
+            }
+
+            for (i in 0 until castContainer.childCount) {
+                val child = castContainer.getChildAt(i)
+                child.translationY = 50f
+                child.alpha = 0f
+                child.animate()
+                    .translationY(0f).alpha(1f)
+                    .setDuration(350)
+                    .setStartDelay(600 + i * 55L)
+                    .setInterpolator(overshoot)
+                    .start()
+            }
+
+            // Stremio button delay: after last cast item
+            animateStremioIn(stremioBtn, 600 + castContainer.childCount * 55L + 200)
+        } else {
+            // No cast: stremio comes in sooner
+            animateStremioIn(stremioBtn, 580)
+        }
     }
 
-    data class CastMember(val name: String, val profilePath: String?)
+    private fun animateStremioIn(btn: View, delay: Long) {
+        btn.apply {
+            visibility = View.VISIBLE
+            translationY = 40f
+            alpha = 0f
+            animate()
+                .translationY(0f).alpha(1f)
+                .setDuration(450).setStartDelay(delay)
+                .setInterpolator(OvershootInterpolator(1.1f))
+                .start()
+        }
+    }
 }
+
+private data class CastMember(val name: String, val profilePath: String?)

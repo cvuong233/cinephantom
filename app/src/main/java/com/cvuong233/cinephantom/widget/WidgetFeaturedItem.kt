@@ -9,25 +9,4 @@ data class WidgetFeaturedItem(
     val imdbRating: String?,
     val posterUrl: String?,
     val year: String?,
-) {
-    fun toSeed() = WidgetDataFetcher.Seed(
-        id = id,
-        title = title,
-        type = if (type == "TV Show") "series" else "movie",
-        year = year ?: "",
-        rank = rank,
-        posterUrl = posterUrl ?: "",
-    )
-
-    companion object {
-        fun fromSeed(seed: WidgetDataFetcher.Seed) = WidgetFeaturedItem(
-            id = seed.id,
-            title = seed.title,
-            type = if (seed.type == "movie") "Movie" else "TV Show",
-            rank = seed.rank,
-            imdbRating = null,
-            posterUrl = seed.posterUrlComputed,
-            year = seed.year,
-        )
-    }
-}
+)
