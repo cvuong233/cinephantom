@@ -21,6 +21,8 @@ import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
 import org.json.JSONObject
 import java.net.URL
+import com.cvuong233.cinephantom.data.TMDBApi
+import com.cvuong233.cinephantom.data.TMDBCastMember
 import kotlin.concurrent.thread
 
 class DetailActivity : AppCompatActivity() {
@@ -49,6 +51,7 @@ class DetailActivity : AppCompatActivity() {
         val backBtn = findViewById<TextView>(R.id.detail_back)
         val heroImage = findViewById<ImageView>(R.id.detail_hero)
         val titleView = findViewById<TextView>(R.id.detail_title)
+        val titleRow = findViewById<LinearLayout>(R.id.detail_title_row)
         val metaView = findViewById<TextView>(R.id.detail_meta)
         val ratingView = findViewById<TextView>(R.id.detail_rating)
         val directorView = findViewById<TextView>(R.id.detail_director)
@@ -59,7 +62,7 @@ class DetailActivity : AppCompatActivity() {
         val aboutLabel = findViewById<TextView>(R.id.detail_about_label)
         val castLabel = findViewById<TextView>(R.id.detail_cast_label)
         val divider = findViewById<View>(R.id.detail_divider)
-        val stremioBtn = findViewById<View>(R.id.detail_stremio_button)
+        val stremioBtn = findViewById<ImageView>(R.id.detail_stremio_button)
 
         // Back button — fade in
         backBtn.setOnClickListener { finish() }
@@ -104,9 +107,73 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
-        // Fetch metadata
+        // Fetch metadata — Cinemeta AND TMDB find in parallel
         val apiType = if (type == "Series" || type == "TV Show") "series" else "movie"
+        val isSeries = apiType == "series"
 
+        // Shared state: whichever thread gets tmdbId first fires credits
+        var creditsFetched = false
+        val creditsLock = Any()
+
+        // Helper: fetch TMDB credits + update cast photos (called by whichever thread wins)
+        fun fetchCreditsAndUpdatePhotos(tmdbId: Int) {
+            synchronized(creditsLock) {
+                if (creditsFetched || tmdbId <= 0) return
+                creditsFetched = true
+            }
+            try {
+                val tmdbApi = TMDBApi()
+                val tmdbCast = tmdbApi.fetchCredits(tmdbId, isSeries)
+                val tmdbShow = if (isSeries) tmdbApi.fetchShowDetails(tmdbId) else null
+
+                runOnUiThread {
+                    if (tmdbShow != null && tmdbShow.seasons > 0) {
+                        val showParts = mutableListOf<String>()
+                        showParts.add("${tmdbShow.seasons} season${if (tmdbShow.seasons != 1) "s" else ""}")
+                        if (tmdbShow.episodes > 0) {
+                            showParts.add("${tmdbShow.episodes} episode${if (tmdbShow.episodes != 1) "s" else ""}")
+                        }
+                        metaView.text = showParts.joinToString(" · ")
+                    }
+                    if (tmdbCast.isNotEmpty() && castContainer.childCount > 0) {
+                        for (tmbdMember in tmdbCast) {
+                            if (tmbdMember.profilePath == null) continue
+                            for (j in 0 until castContainer.childCount) {
+                                val item = castContainer.getChildAt(j)
+                                val nameView = item.findViewById<TextView>(R.id.cast_name)
+                                if (nameView.text == tmbdMember.name) {
+                                    val photoView = item.findViewById<ImageView>(R.id.cast_photo)
+                                    val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
+                                    val photoUrl = TMDBApi.profileImageUrl(tmbdMember.profilePath)
+                                    SimpleImageLoader.loadCastPhoto(photoUrl, photoView,
+                                        onSuccess = {
+                                            photoView.visibility = View.VISIBLE
+                                            avatarView.visibility = View.GONE
+                                        }
+                                    )
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        // Thread 1: TMDB find by IMDb ID (runs in parallel with Cinemeta)
+        thread {
+            try {
+                val findJson = URL("https://api.themoviedb.org/3/find/$imdbId?api_key=${TMDBApi.API_KEY}&external_source=imdb_id").readText()
+                val root = JSONObject(findJson)
+                val results = if (isSeries) root.optJSONArray("tv_results") else root.optJSONArray("movie_results")
+                if (results != null && results.length() > 0) {
+                    val foundId = results.optJSONObject(0)?.optInt("id", -1) ?: -1
+                    if (foundId > 0) fetchCreditsAndUpdatePhotos(foundId)
+                }
+            } catch (_: Exception) {}
+        }
+
+        // Thread 2: Cinemeta (title, rating, genres, description, cast initials)
         thread {
             try {
                 val jsonText = URL("https://v3-cinemeta.strem.io/meta/$apiType/$imdbId.json").readText()
@@ -117,6 +184,7 @@ class DetailActivity : AppCompatActivity() {
                 val description = meta.optString("description", "")
                 val bgUrl = meta.optString("background", "")
                 val posterUrl = meta.optString("poster", "")
+                val tmdbId = meta.optInt("moviedb_id", -1)
 
                 // Genres
                 val genresArr = meta.optJSONArray("genres")
@@ -132,37 +200,35 @@ class DetailActivity : AppCompatActivity() {
                     for (i in 0 until directorArr.length()) directors.add(directorArr.optString(i))
                 }
 
-                // Cast — try credits_cast first, then cast
+                // Cast from Cinemeta (show initials now, TMDB photos update later)
                 val creditsCastArr = meta.optJSONArray("credits_cast")
                 val castArr = if (creditsCastArr != null && creditsCastArr.length() > 0) {
                     creditsCastArr
                 } else {
                     meta.optJSONArray("cast")
                 }
-
-                val castItems = mutableListOf<CastMember>()
+                val cinemetaCast = mutableListOf<CastMember>()
                 if (castArr != null) {
                     for (i in 0 until castArr.length()) {
                         val c = castArr.opt(i)
                         when (c) {
                             is JSONObject -> {
                                 val pp = c.optString("profile_path", "")
-                                castItems.add(CastMember(
-                                    name = c.optString("name", ""),
-                                    profilePath = pp.ifBlank { null }
-                                ))
+                                cinemetaCast.add(CastMember(name = c.optString("name", ""), profilePath = pp.ifBlank { null }))
                             }
                             is String -> {
-                                if (c.isNotBlank()) {
-                                    castItems.add(CastMember(name = c, profilePath = null))
-                                }
+                                if (c.isNotBlank()) cinemetaCast.add(CastMember(name = c, profilePath = null))
                             }
                         }
                     }
                 }
+                if (cinemetaCast.isEmpty() && !intentCast.isNullOrBlank()) {
+                    intentCast.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                        .forEach { cinemetaCast.add(CastMember(name = it, profilePath = null)) }
+                }
 
                 runOnUiThread {
-                    // Prefer landscape background from Cinemeta, fall back to poster
+                    // Show Cinemeta data immediately
                     val landscapeUrl = if (bgUrl.isNotBlank()) bgUrl else posterUrl
                     if (landscapeUrl.isNotBlank()) {
                         SimpleImageLoader.load(landscapeUrl, heroImage,
@@ -171,299 +237,153 @@ class DetailActivity : AppCompatActivity() {
                         )
                     }
 
-                    populateContent(
-                        metaView, ratingView, directorView, descView,
-                        genresContainer, castContainer,
-                        type, year, runtime, imdbRating,
-                        description, directors, genres, castItems
-                    )
+                    // Meta: show basic info now (TMDB seasons may update later)
+                    val metaParts = mutableListOf<String>()
+                    if (year.isNotBlank()) metaParts.add(year)
+                    if (runtime.isNotBlank()) metaParts.add(runtime)
+                    metaView.text = metaParts.joinToString(" · ").ifBlank { type }
+                    metaView.visibility = View.VISIBLE
+                    metaView.translationX = -80f
+                    metaView.alpha = 0f
+                    metaView.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(150)
+                        .setInterpolator(DecelerateInterpolator(1.5f)).start()
 
-                    val hasCast = castItems.isNotEmpty()
+                    // Rating
+                    if (imdbRating.isNotBlank()) {
+                        ratingView.text = "★ $imdbRating IMDb"
+                    } else {
+                        ratingView.text = "IMDb --"
+                    }
+                    ratingView.visibility = View.VISIBLE
+                    ratingView.translationX = 80f
+                    ratingView.alpha = 0f
+                    ratingView.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(200)
+                        .setInterpolator(DecelerateInterpolator(1.5f)).start()
 
-                    // Fallback: use cast string from search results if Cinemeta returned nothing
-                    if (!hasCast && !intentCast.isNullOrBlank()) {
-                        val names = intentCast.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                        for (name in names) {
-                            castItems.add(CastMember(name = name, profilePath = null))
+                    // Director
+                    if (directors.isNotEmpty()) {
+                        directorView.text = "Directed by ${directors.joinToString(", ")}"
+                    }
+                    directorView.visibility = View.VISIBLE
+                    directorView.translationX = -60f
+                    directorView.alpha = 0f
+                    directorView.animate().translationX(0f).alpha(1f).setDuration(350).setStartDelay(250)
+                        .setInterpolator(DecelerateInterpolator()).start()
+
+                    // Genres
+                    if (genres.isNotEmpty()) {
+                        genresContainer.removeAllViews()
+                        for (g in genres) {
+                            val chip = layoutInflater.inflate(R.layout.item_genre_chip, genresContainer, false) as TextView
+                            chip.text = g
+                            genresContainer.addView(chip)
+                        }
+                    }
+                    genresContainer.visibility = View.VISIBLE
+                    for (i in 0 until genresContainer.childCount) {
+                        val child = genresContainer.getChildAt(i)
+                        child.scaleX = 0f; child.scaleY = 0f; child.alpha = 0f
+                        child.animate().scaleX(1f).scaleY(1f).alpha(1f)
+                            .setDuration(350).setStartDelay(300 + i * 60L)
+                            .setInterpolator(OvershootInterpolator(1.25f)).start()
+                    }
+
+                    // Divider + About
+                    divider.visibility = View.VISIBLE
+                    divider.scaleX = 0f
+                    divider.animate().scaleX(1f).setDuration(400).setStartDelay(400)
+                        .setInterpolator(DecelerateInterpolator(2f)).start()
+
+                    aboutLabel.visibility = View.VISIBLE
+                    aboutLabel.translationY = 25f; aboutLabel.alpha = 0f
+                    aboutLabel.animate().translationY(0f).alpha(1f).setDuration(300).setStartDelay(480)
+                        .setInterpolator(DecelerateInterpolator()).start()
+
+                    // Description
+                    if (description.isNotBlank()) {
+                        descView.text = description
+                    }
+                    descView.visibility = View.VISIBLE
+                    descView.translationY = 30f; descView.alpha = 0f
+                    descView.animate().translationY(0f).alpha(1f).setDuration(400).setStartDelay(510)
+                        .setInterpolator(DecelerateInterpolator()).start()
+
+                    // Show cast with initials immediately (photos update when TMDB arrives)
+                    if (cinemetaCast.isNotEmpty()) {
+                        castContainer.removeAllViews()
+                        val avatarColors = listOf(
+                            "#5B6E9A", "#9E7A3E", "#9B5268", "#42989E",
+                            "#7C6BA0", "#439A6E", "#9B5E7E", "#5B82B0"
+                        )
+                        for ((i, member) in cinemetaCast.withIndex()) {
+                            val item = layoutInflater.inflate(R.layout.item_cast_member, castContainer, false)
+                            val frame = item.findViewById<FrameLayout>(R.id.cast_avatar_frame)
+                            val photoView = item.findViewById<ImageView>(R.id.cast_photo)
+                            val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
+                            val nameView = item.findViewById<TextView>(R.id.cast_name)
+
+                            frame.outlineProvider = object : ViewOutlineProvider() {
+                                override fun getOutline(view: View, outline: Outline) {
+                                    outline.setOval(0, 0, view.width, view.height)
+                                }
+                            }
+                            frame.clipToOutline = true
+
+                            avatarView.text = member.name.firstOrNull()?.uppercase() ?: "?"
+                            try {
+                                avatarView.background.setTint(Color.parseColor(avatarColors[i % avatarColors.size]))
+                            } catch (_: Exception) {}
+
+                            nameView.text = member.name
+
+                            castContainer.addView(item)
+                        }
+
+                        castLabel.visibility = View.VISIBLE
+                        castLabel.translationX = -40f; castLabel.alpha = 0f
+                        castLabel.animate().translationX(0f).alpha(1f)
+                            .setDuration(300).setStartDelay(560)
+                            .setInterpolator(DecelerateInterpolator()).start()
+
+                        castScroll.visibility = View.VISIBLE
+                        for (i in 0 until castContainer.childCount) {
+                            val child = castContainer.getChildAt(i)
+                            child.translationY = 50f; child.alpha = 0f
+                            child.animate().translationY(0f).alpha(1f)
+                                .setDuration(350).setStartDelay(580 + i * 55L)
+                                .setInterpolator(OvershootInterpolator(1.1f)).start()
                         }
                     }
 
-                    val effectiveHasCast = castItems.isNotEmpty()
-
-                    animateContent(
-                        titleView, metaView, ratingView, directorView,
-                        descView, genresContainer, castContainer, castScroll,
-                        aboutLabel, castLabel, divider, stremioBtn,
-                        effectiveHasCast
-                    )
+                    // Animate title row
+                    titleRow.visibility = View.VISIBLE
+                    titleView.translationY = -60f; titleView.alpha = 0f
+                    titleView.animate().translationY(0f).alpha(1f).setDuration(450).setStartDelay(50)
+                        .setInterpolator(DecelerateInterpolator()).start()
+                    // Stremio icon pops in with bounce
+                    stremioBtn.scaleX = 0f; stremioBtn.scaleY = 0f
+                    stremioBtn.animate().scaleX(1f).scaleY(1f).setDuration(400).setStartDelay(300)
+                        .setInterpolator(OvershootInterpolator(1.3f)).start()
                 }
+
+                // Fire TMDB credits using Cinemeta's tmdb_id (other thread may have already done it)
+                if (tmdbId > 0) fetchCreditsAndUpdatePhotos(tmdbId)
             } catch (_: Exception) {
                 runOnUiThread {
-                    // Fallback: just show title with animation
-                    titleView.visibility = View.VISIBLE
-                    titleView.translationY = -60f
-                    titleView.alpha = 0f
-                    titleView.animate()
-                        .translationY(0f).alpha(1f)
-                        .setDuration(450)
-                        .setInterpolator(DecelerateInterpolator())
-                        .start()
-                    // Still show stremio button
-                    animateStremioIn(stremioBtn, 200)
+                    titleRow.visibility = View.VISIBLE
+                    titleView.translationY = -60f; titleView.alpha = 0f
+                    titleView.animate().translationY(0f).alpha(1f)
+                        .setDuration(450).setInterpolator(DecelerateInterpolator()).start()
+                    stremioBtn.scaleX = 0f; stremioBtn.scaleY = 0f
+                    stremioBtn.animate().scaleX(1f).scaleY(1f).setDuration(400).setStartDelay(300)
+                        .setInterpolator(OvershootInterpolator(1.3f)).start()
                 }
             }
         }
     }
 
-    private fun populateContent(
-        metaView: TextView, ratingView: TextView, directorView: TextView,
-        descView: TextView, genresContainer: FlowLayout,
-        castContainer: LinearLayout,
-        type: String, year: String,
-        runtime: String, imdbRating: String, description: String,
-        directors: List<String>, genres: List<String>,
-        castItems: List<CastMember>
-    ) {
-        // Meta row
-        val metaParts = mutableListOf<String>()
-        if (year.isNotBlank()) metaParts.add(year)
-        if (runtime.isNotBlank()) metaParts.add(runtime)
-        metaView.text = metaParts.joinToString(" · ").ifBlank { type }
 
-        // Rating
-        if (imdbRating.isNotBlank()) {
-            ratingView.text = "★ $imdbRating IMDb"
-        } else {
-            ratingView.text = "IMDb --"
-        }
 
-        // Director
-        if (directors.isNotEmpty()) {
-            directorView.text = "Directed by ${directors.joinToString(", ")}"
-        }
-
-        // Description
-        if (description.isNotBlank()) {
-            descView.text = description
-        }
-
-        // Genre chips
-        if (genres.isNotEmpty()) {
-            genresContainer.removeAllViews()
-            for (g in genres) {
-                val chip = layoutInflater.inflate(R.layout.item_genre_chip, genresContainer, false) as TextView
-                chip.text = g
-                genresContainer.addView(chip)
-            }
-        }
-
-        // Cast with photos
-        if (castItems.isNotEmpty()) {
-            castContainer.removeAllViews()
-            val avatarColors = listOf(
-                "#6B7CFF", "#FFA723", "#E85D75", "#4ECDC4",
-                "#A78BFA", "#34D399", "#F472B6", "#60A5FA"
-            )
-
-            for ((i, member) in castItems.withIndex()) {
-                val item = layoutInflater.inflate(R.layout.item_cast_member, castContainer, false)
-                val frame = item.findViewById<FrameLayout>(R.id.cast_avatar_frame)
-                val photoView = item.findViewById<ImageView>(R.id.cast_photo)
-                val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
-                val nameView = item.findViewById<TextView>(R.id.cast_name)
-
-                frame.outlineProvider = object : ViewOutlineProvider() {
-                    override fun getOutline(view: View, outline: Outline) {
-                        outline.setOval(0, 0, view.width, view.height)
-                    }
-                }
-                frame.clipToOutline = true
-
-                avatarView.text = member.name.firstOrNull()?.uppercase() ?: "?"
-                try {
-                    avatarView.background.setTint(Color.parseColor(avatarColors[i % avatarColors.size]))
-                } catch (_: Exception) {}
-
-                nameView.text = member.name
-
-                if (member.profilePath != null) {
-                    val photoUrl = "https://image.tmdb.org/t/p/w185${member.profilePath}"
-                    SimpleImageLoader.load(photoUrl, photoView,
-                        onSuccess = {
-                            photoView.visibility = View.VISIBLE
-                            avatarView.visibility = View.GONE
-                        }
-                    )
-                }
-
-                castContainer.addView(item)
-            }
-        }
-    }
-
-    private fun animateContent(
-        titleView: TextView, metaView: TextView, ratingView: TextView,
-        directorView: TextView, descView: TextView,
-        genresContainer: FlowLayout,
-        castContainer: LinearLayout, castScroll: HorizontalScrollView,
-        aboutLabel: TextView, castLabel: TextView,
-        divider: View, stremioBtn: View,
-        hasCast: Boolean
-    ) {
-        val decel = DecelerateInterpolator()
-        val decelFast = DecelerateInterpolator(1.5f)
-        val overshoot = OvershootInterpolator(1.1f)
-        val overshootPop = OvershootInterpolator(1.25f)
-
-        // ── Title: drop from above ──
-        titleView.apply {
-            visibility = View.VISIBLE
-            translationY = -60f
-            alpha = 0f
-            animate()
-                .translationY(0f).alpha(1f)
-                .setDuration(450).setStartDelay(50)
-                .setInterpolator(decel)
-                .start()
-        }
-
-        // ── Meta: slide from left ──
-        metaView.apply {
-            visibility = View.VISIBLE
-            translationX = -80f
-            alpha = 0f
-            animate()
-                .translationX(0f).alpha(1f)
-                .setDuration(400).setStartDelay(150)
-                .setInterpolator(decelFast)
-                .start()
-        }
-
-        // ── Rating: slide from right ──
-        ratingView.apply {
-            visibility = View.VISIBLE
-            translationX = 80f
-            alpha = 0f
-            animate()
-                .translationX(0f).alpha(1f)
-                .setDuration(400).setStartDelay(200)
-                .setInterpolator(decelFast)
-                .start()
-        }
-
-        // ── Director: slide from left ──
-        directorView.apply {
-            visibility = View.VISIBLE
-            translationX = -60f
-            alpha = 0f
-            animate()
-                .translationX(0f).alpha(1f)
-                .setDuration(350).setStartDelay(250)
-                .setInterpolator(decel)
-                .start()
-        }
-
-        // ── Genres: pop in staggered with overshoot ──
-        genresContainer.apply {
-            visibility = View.VISIBLE
-            for (i in 0 until childCount) {
-                val child = getChildAt(i)
-                child.scaleX = 0f
-                child.scaleY = 0f
-                child.alpha = 0f
-                child.animate()
-                    .scaleX(1f).scaleY(1f).alpha(1f)
-                    .setDuration(350)
-                    .setStartDelay(300 + i * 60L)
-                    .setInterpolator(overshootPop)
-                    .start()
-            }
-        }
-
-        // ── Divider: expand from center ──
-        divider.apply {
-            visibility = View.VISIBLE
-            scaleX = 0f
-            animate()
-                .scaleX(1f)
-                .setDuration(400).setStartDelay(400)
-                .setInterpolator(DecelerateInterpolator(2f))
-                .start()
-        }
-
-        // ── About label: slide up ──
-        aboutLabel.apply {
-            visibility = View.VISIBLE
-            translationY = 25f
-            alpha = 0f
-            animate()
-                .translationY(0f).alpha(1f)
-                .setDuration(300).setStartDelay(480)
-                .setInterpolator(decel)
-                .start()
-        }
-
-        // ── Description: slide up ──
-        descView.apply {
-            visibility = View.VISIBLE
-            translationY = 30f
-            alpha = 0f
-            animate()
-                .translationY(0f).alpha(1f)
-                .setDuration(400).setStartDelay(510)
-                .setInterpolator(decel)
-                .start()
-        }
-
-        // ── Cast section (only if cast data exists) ──
-        if (hasCast) {
-            castLabel.apply {
-                visibility = View.VISIBLE
-                translationX = -40f
-                alpha = 0f
-                animate()
-                    .translationX(0f).alpha(1f)
-                    .setDuration(300).setStartDelay(580)
-                    .setInterpolator(decel)
-                    .start()
-            }
-
-            castScroll.apply {
-                visibility = View.VISIBLE
-            }
-
-            for (i in 0 until castContainer.childCount) {
-                val child = castContainer.getChildAt(i)
-                child.translationY = 50f
-                child.alpha = 0f
-                child.animate()
-                    .translationY(0f).alpha(1f)
-                    .setDuration(350)
-                    .setStartDelay(600 + i * 55L)
-                    .setInterpolator(overshoot)
-                    .start()
-            }
-
-            // Stremio button delay: after last cast item
-            animateStremioIn(stremioBtn, 600 + castContainer.childCount * 55L + 200)
-        } else {
-            // No cast: stremio comes in sooner
-            animateStremioIn(stremioBtn, 580)
-        }
-    }
-
-    private fun animateStremioIn(btn: View, delay: Long) {
-        btn.apply {
-            visibility = View.VISIBLE
-            translationY = 40f
-            alpha = 0f
-            animate()
-                .translationY(0f).alpha(1f)
-                .setDuration(450).setStartDelay(delay)
-                .setInterpolator(OvershootInterpolator(1.1f))
-                .start()
-        }
-    }
 }
 
 private data class CastMember(val name: String, val profilePath: String?)
