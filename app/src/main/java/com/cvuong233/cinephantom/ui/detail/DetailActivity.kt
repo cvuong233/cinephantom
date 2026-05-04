@@ -23,6 +23,7 @@ import org.json.JSONObject
 import java.net.URL
 import com.cvuong233.cinephantom.data.TMDBApi
 import com.cvuong233.cinephantom.data.TMDBCastMember
+import com.cvuong233.cinephantom.data.TMDBShowDetails
 import kotlin.concurrent.thread
 
 class DetailActivity : AppCompatActivity() {
@@ -111,11 +112,46 @@ class DetailActivity : AppCompatActivity() {
         val apiType = if (type == "Series" || type == "TV Show") "series" else "movie"
         val isSeries = apiType == "series"
 
-        // Shared state: whichever thread gets tmdbId first fires credits
+        // Shared state: whichever thread gets tmdbId first fetches credits
         var creditsFetched = false
         val creditsLock = Any()
+        var cachedTmdbCast: List<TMDBCastMember>? = null
+        var cachedTmdbShow: TMDBShowDetails? = null
 
-        // Helper: fetch TMDB credits + update cast photos (called by whichever thread wins)
+        // Apply cached TMDB credits to cast views (idempotent, called from UI thread)
+        fun applyCreditsToUi(tmdbCast: List<TMDBCastMember>, tmdbShow: TMDBShowDetails?) {
+            if (tmdbShow != null && tmdbShow.seasons > 0) {
+                val showParts = mutableListOf<String>()
+                showParts.add("${tmdbShow.seasons} season${if (tmdbShow.seasons != 1) "s" else ""}")
+                if (tmdbShow.episodes > 0) {
+                    showParts.add("${tmdbShow.episodes} episode${if (tmdbShow.episodes != 1) "s" else ""}")
+                }
+                metaView.text = showParts.joinToString(" · ")
+            }
+            if (tmdbCast.isNotEmpty() && castContainer.childCount > 0) {
+                for (tmbdMember in tmdbCast) {
+                    if (tmbdMember.profilePath == null) continue
+                    for (j in 0 until castContainer.childCount) {
+                        val item = castContainer.getChildAt(j)
+                        val nameView = item.findViewById<TextView>(R.id.cast_name)
+                        if (nameView.text == tmbdMember.name) {
+                            val photoView = item.findViewById<ImageView>(R.id.cast_photo)
+                            val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
+                            val photoUrl = TMDBApi.profileImageUrl(tmbdMember.profilePath)
+                            SimpleImageLoader.loadCastPhoto(photoUrl, photoView,
+                                onSuccess = {
+                                    photoView.visibility = View.VISIBLE
+                                    avatarView.visibility = View.GONE
+                                }
+                            )
+                            break
+                        }
+                    }
+                }
+            }
+        }
+
+        // Helper: fetch TMDB credits once, cache result, apply to UI when cast views are ready
         fun fetchCreditsAndUpdatePhotos(tmdbId: Int) {
             synchronized(creditsLock) {
                 if (creditsFetched || tmdbId <= 0) return
@@ -125,39 +161,12 @@ class DetailActivity : AppCompatActivity() {
                 val tmdbApi = TMDBApi()
                 val tmdbCast = tmdbApi.fetchCredits(tmdbId, isSeries)
                 val tmdbShow = if (isSeries) tmdbApi.fetchShowDetails(tmdbId) else null
-
-                runOnUiThread {
-                    if (tmdbShow != null && tmdbShow.seasons > 0) {
-                        val showParts = mutableListOf<String>()
-                        showParts.add("${tmdbShow.seasons} season${if (tmdbShow.seasons != 1) "s" else ""}")
-                        if (tmdbShow.episodes > 0) {
-                            showParts.add("${tmdbShow.episodes} episode${if (tmdbShow.episodes != 1) "s" else ""}")
-                        }
-                        metaView.text = showParts.joinToString(" · ")
-                    }
-                    if (tmdbCast.isNotEmpty() && castContainer.childCount > 0) {
-                        for (tmbdMember in tmdbCast) {
-                            if (tmbdMember.profilePath == null) continue
-                            for (j in 0 until castContainer.childCount) {
-                                val item = castContainer.getChildAt(j)
-                                val nameView = item.findViewById<TextView>(R.id.cast_name)
-                                if (nameView.text == tmbdMember.name) {
-                                    val photoView = item.findViewById<ImageView>(R.id.cast_photo)
-                                    val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
-                                    val photoUrl = TMDBApi.profileImageUrl(tmbdMember.profilePath)
-                                    SimpleImageLoader.loadCastPhoto(photoUrl, photoView,
-                                        onSuccess = {
-                                            photoView.visibility = View.VISIBLE
-                                            avatarView.visibility = View.GONE
-                                        }
-                                    )
-                                    break
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
+                cachedTmdbCast = tmdbCast
+                cachedTmdbShow = tmdbShow
+                runOnUiThread { applyCreditsToUi(tmdbCast, tmdbShow) }
+            } catch (_: Exception) {
+                synchronized(creditsLock) { creditsFetched = false }
+            }
         }
 
         // Thread 1: TMDB find by IMDb ID (runs in parallel with Cinemeta)
@@ -366,6 +375,8 @@ class DetailActivity : AppCompatActivity() {
                         .setInterpolator(OvershootInterpolator(1.3f)).start()
                 }
 
+                // Apply TMDB credits if parallel thread already fetched them
+                cachedTmdbCast?.let { cast -> runOnUiThread { applyCreditsToUi(cast, cachedTmdbShow) } }
                 // Fire TMDB credits using Cinemeta's tmdb_id (other thread may have already done it)
                 if (tmdbId > 0) fetchCreditsAndUpdatePhotos(tmdbId)
             } catch (_: Exception) {

@@ -2,8 +2,6 @@ package com.cvuong233.cinephantom.ui.search
 
 import android.app.SearchManager
 import android.content.ActivityNotFoundException
-import android.content.ClipboardManager
-import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -98,27 +96,6 @@ class SearchActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         debounceHandler.removeCallbacksAndMessages(null)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        pasteClipboard()
-    }
-
-    private fun pasteClipboard() {
-        val input = binding.searchEditText.text?.toString().orEmpty().trim()
-        if (input.isNotEmpty()) return // already has text, don't overwrite
-
-        val clipboard = getSystemService(CLIPBOARD_SERVICE) as? ClipboardManager ?: return
-        val clip = clipboard.primaryClip ?: return
-        if (clip.itemCount == 0) return
-
-        val text = clip.getItemAt(0).text?.toString()?.trim() ?: return
-        if (text.isBlank() || text.length > 200) return
-
-        binding.searchEditText.setText(text)
-        binding.searchEditText.setSelection(text.length)
-        performSearch()
     }
 
     private fun updateEmptyState() {

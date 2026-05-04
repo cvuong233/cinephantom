@@ -30,6 +30,7 @@ class ImdbSearchWidgetProvider : AppWidgetProvider() {
         val pendingIntent = buildSearchIntent(context)
         views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
 
+
         for (id in appWidgetIds) {
             appWidgetManager.updateAppWidget(id, views)
         }
@@ -48,5 +49,6 @@ class ImdbSearchWidgetProvider : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         }
+
     }
 }

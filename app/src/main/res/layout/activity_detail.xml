@@ -9,12 +9,16 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
         <!-- HERO SECTION -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="180dp">
+            android:layout_height="180dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
             <ImageView
                 android:id="@+id/detail_hero"
@@ -40,6 +44,18 @@
                 android:textColor="@color/text_primary"
                 android:textSize="24sp"
                 android:textStyle="bold" />
+
+            <!-- Stremio button — half overlaps hero, floats into content -->
+            <ImageView
+                android:id="@+id/detail_stremio_button"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_gravity="bottom|end"
+                android:layout_marginEnd="20dp"
+                android:translationY="28dp"
+                android:elevation="8dp"
+                android:src="@drawable/ic_stremio_brand"
+                android:contentDescription="@string/stremio_open_button" />
         </FrameLayout>
 
         <!-- CONTENT -->
@@ -50,15 +66,23 @@
             android:paddingHorizontal="20dp"
             android:paddingTop="20dp">
 
-            <!-- Title -->
-            <TextView
-                android:id="@+id/detail_title"
+            <!-- Title row -->
+            <LinearLayout
+                android:id="@+id/detail_title_row"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/text_primary"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/detail_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <!-- Meta row -->
             <TextView
@@ -131,6 +155,8 @@
                 android:textSize="14sp"
                 android:visibility="gone" />
 
+
+
             <!-- Cast label -->
             <TextView
                 android:id="@+id/detail_cast_label"
@@ -160,25 +186,7 @@
                     android:orientation="horizontal" />
             </HorizontalScrollView>
 
-            <!-- Stremio button -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/detail_stremio_button"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginTop="24dp"
-                android:gravity="center"
-                android:text="@string/stremio_open_button"
-                android:textAllCaps="false"
-                android:textColor="@color/electric_blue"
-                android:textSize="13sp"
-                android:visibility="gone"
-                app:cornerRadius="20dp"
-                app:icon="@drawable/ic_stremio_icon"
-                app:iconGravity="textStart"
-                app:iconSize="18dp"
-                app:strokeColor="@color/electric_blue"
-                app:strokeWidth="1dp"
-                app:backgroundTint="@color/surface_raised" />
+
         </LinearLayout>
 
         <!-- Bottom spacing -->

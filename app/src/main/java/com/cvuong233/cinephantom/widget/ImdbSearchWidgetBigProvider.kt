@@ -65,10 +65,10 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         appWidgetManager: AppWidgetManager,
         downloadPoster: Boolean = false,
     ) {
-        val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
+        val typeIcon = if (seed.type == "movie") "\uD83C\uDFAC" else "\uD83D\uDCFA"
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, seed)
-        views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
+        views.setTextViewText(R.id.widget_rank_badge, "$typeIcon  #${seed.rank}")
 
         if (downloadPoster) {
             val bmp = downloadBitmap(seed.posterUrlComputed)
@@ -88,7 +88,6 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         views.setOnClickPendingIntent(R.id.widget_search_bar, searchPi)
-        views.setOnClickPendingIntent(R.id.widget_brand, searchPi)
 
         val detailPi = PendingIntent.getActivity(
             context, 1002,
@@ -103,6 +102,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         views.setOnClickPendingIntent(R.id.widget_featured, detailPi)
+
     }
 
     private fun downloadBitmap(url: String): Bitmap? {
