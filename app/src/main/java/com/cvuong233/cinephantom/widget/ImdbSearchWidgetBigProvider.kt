@@ -69,7 +69,6 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, seed)
         views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
-        views.setTextViewText(R.id.widget_counter, "") // counter removed
 
         if (downloadPoster) {
             val bmp = downloadBitmap(seed.posterUrlComputed)
