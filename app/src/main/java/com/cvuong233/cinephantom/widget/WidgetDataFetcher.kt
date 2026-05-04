@@ -1,13 +1,17 @@
 package com.cvuong233.cinephantom.widget
 
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 /**
- * Fetches a random featured item for the big widget.
- * Uses raw HttpURLConnection — no OkHttp dependency.
+ * Fetches featured items for the big widget.
+ * Primary: live IMDb Most Popular charts from our API endpoint.
+ * Fallback: hardcoded classic seeds if network is unavailable.
  */
 object WidgetDataFetcher {
 
@@ -18,11 +22,23 @@ object WidgetDataFetcher {
         val year: String,
         val rank: Int = Random.nextInt(1, 11),
         val posterUrl: String = "",
+        val imdbRating: String? = null,
+        val votes: String? = null,
     ) {
         val posterUrlComputed: String get() =
             if (posterUrl.isNotBlank()) posterUrl
             else "https://images.metahub.space/poster/small/${id}/img"
     }
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
+        .build()
+
+    private const val LIVE_CHARTS_URL =
+        "https://cvuong233.github.io/agent-presentation/imdb_charts.json"
+
+    // ── Hardcoded fallback (used when network is unavailable) ──
 
     private val SEEDS = listOf(
         Seed("tt0111161", "The Shawshank Redemption", "movie", "1994"),
@@ -46,15 +62,71 @@ object WidgetDataFetcher {
     /** Pick a random seed — no network, instant. Used for phase-1 immediate display. */
     fun randomSeed(): Seed = SEEDS.random()
 
+    /**
+     * Fetch a random seed from live IMDb Most Popular charts.
+     * Returns null on any failure (network, parse, etc.) so caller can fall back.
+     */
+    fun fetchLiveSeed(): Seed? {
+        return try {
+            val request = Request.Builder()
+                .url(LIVE_CHARTS_URL)
+                .header("User-Agent", "CinePhantom/1.0")
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return null
+
+            val body = response.body?.string() ?: return null
+            val root = JSONObject(body)
+
+            // Combine movies and TV shows into one pool
+            val allItems = mutableListOf<Seed>()
+            for (key in listOf("movies", "tv")) {
+                val arr = root.optJSONArray(key) ?: continue
+                for (i in 0 until arr.length()) {
+                    val item = arr.optJSONObject(i) ?: continue
+                    allItems.add(
+                        Seed(
+                            id = item.optString("imdb_id", ""),
+                            title = item.optString("title", ""),
+                            type = if (key == "tv") "series" else "movie",
+                            year = item.optString("year", ""),
+                            rank = item.optInt("rank", i + 1),
+                            posterUrl = item.optString("poster", ""),
+                            imdbRating = item.optDouble("rating", 0.0)
+                                .takeIf { it > 0 }?.toString(),
+                            votes = item.optString("votes", ""),
+                        )
+                    )
+                }
+            }
+
+            if (allItems.isEmpty()) return null
+            allItems.random()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Fetch a featured item using live IMDb charts data.
+     * Returns a Seed from the live endpoint (with IMDb rating already populated),
+     * or falls back to a random hardcoded seed.
+     */
+    fun fetchLiveOrFallbackSeed(): Seed {
+        return fetchLiveSeed() ?: randomSeed()
+    }
+
     /** Fetch rating for a pre-chosen seed. Returns full WidgetFeaturedItem. */
     fun fetchFeatured(seed: Seed): WidgetFeaturedItem {
-        val imdbRating = fetchImdbRating(seed.id, seed.type)
+        // If we already have an IMDb rating from live data, use it
+        val rating = seed.imdbRating ?: fetchImdbRating(seed.id, seed.type)
         return WidgetFeaturedItem(
             id = seed.id,
             title = seed.title,
             type = if (seed.type == "movie") "Movie" else "TV Show",
             rank = seed.rank,
-            imdbRating = imdbRating,
+            imdbRating = rating,
             posterUrl = seed.posterUrlComputed,
             year = seed.year,
         )
