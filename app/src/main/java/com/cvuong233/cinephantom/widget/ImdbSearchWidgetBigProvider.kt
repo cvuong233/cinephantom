@@ -1,5 +1,6 @@
 package com.cvuong233.cinephantom.widget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -16,6 +17,14 @@ import java.net.URL
 
 class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
 
+    override fun onEnabled(context: Context) {
+        scheduleRefresh(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        cancelRefresh(context)
+    }
+
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -27,46 +36,47 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             ).toList()
         if (ids.isEmpty()) return
 
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val counter = prefs.getInt(PREF_COUNTER, 0) + 1
-        prefs.edit().putInt(PREF_COUNTER, counter).apply()
-
-        // Phase 1: instant — use cached live data if available
-        val cached = WidgetDataFetcher.instantSeed(context)
+        // Phase 1: instant — show cached seed if available
+        val cached = WidgetDataFetcher.cachedSeed(context)
         if (cached != null) {
-            val typeLabel = if (cached.type == "movie") "Movie" else "TV Show"
-            val views1 = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
-            setupClicks(context, views1, cached)
-            views1.setTextViewText(R.id.widget_rank_badge, "#${cached.rank} $typeLabel")
-            views1.setTextViewText(R.id.widget_counter, "Refresh #$counter")
-            for (id in ids) appWidgetManager.updateAppWidget(id, views1)
+            showWidget(context, cached, ids, appWidgetManager)
         }
-        // If no cache, widget shows its default layout text (from XML) briefly
 
-        // Phase 2: background — fetch live data, download poster, update widget
+        // Phase 2: background — fetch fresh data, pick random, update
         val pendingResult = goAsync()
         Thread {
             try {
-                val seed = WidgetDataFetcher.liveSeed(context)
-                if (seed != null) {
-                    val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
-                    val posterBmp = downloadBitmap(seed.posterUrlComputed)
-
-                    val views2 = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
-                    setupClicks(context, views2, seed)
-                    views2.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
-                    views2.setTextViewText(R.id.widget_counter, "Refresh #$counter")
-                    if (posterBmp != null) {
-                        views2.setImageViewBitmap(R.id.widget_poster, posterBmp)
-                    }
-                    for (id in ids) appWidgetManager.updateAppWidget(id, views2)
+                val seeds = WidgetDataFetcher.fetchSeeds(context)
+                seeds?.randomOrNull()?.let { seed ->
+                    showWidget(context, seed, ids, appWidgetManager, downloadPoster = true)
                 }
             } catch (_: Exception) {
-                // Cached content from phase 1 is already visible
+                // Cached content from phase 1 already visible
             } finally {
                 pendingResult.finish()
             }
         }.start()
+    }
+
+    private fun showWidget(
+        context: Context,
+        seed: WidgetDataFetcher.Seed,
+        ids: List<Int>,
+        appWidgetManager: AppWidgetManager,
+        downloadPoster: Boolean = false,
+    ) {
+        val typeLabel = if (seed.type == "movie") "Movie" else "TV Show"
+        val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
+        setupClicks(context, views, seed)
+        views.setTextViewText(R.id.widget_rank_badge, "#${seed.rank} $typeLabel")
+        views.setTextViewText(R.id.widget_counter, "") // counter removed
+
+        if (downloadPoster) {
+            val bmp = downloadBitmap(seed.posterUrlComputed)
+            if (bmp != null) views.setImageViewBitmap(R.id.widget_poster, bmp)
+        }
+
+        for (id in ids) appWidgetManager.updateAppWidget(id, views)
     }
 
     private fun setupClicks(context: Context, views: RemoteViews, seed: WidgetDataFetcher.Seed) {
@@ -87,7 +97,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                 putExtra(DetailActivity.EXTRA_IMDB_ID, seed.id)
                 putExtra(DetailActivity.EXTRA_TITLE, seed.title)
                 putExtra(DetailActivity.EXTRA_IMAGE_URL, seed.posterUrl)
-                putExtra(DetailActivity.EXTRA_YEAR, seed.year)
+                putExtra(DetailActivity.EXTRA_YEAR, "")
                 putExtra(DetailActivity.EXTRA_TYPE, if (seed.type == "movie") "Movie" else "Series")
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             },
@@ -110,7 +120,34 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
     }
 
     companion object {
-        private const val PREFS_NAME = "cinephantom_widget"
-        private const val PREF_COUNTER = "refresh_counter"
+        private const val ALARM_REQ = 3001
+        private const val REFRESH_INTERVAL_MS = 30 * 60 * 1000L
+
+        private fun scheduleRefresh(context: Context) {
+            val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, ImdbSearchWidgetBigProvider::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            val pi = PendingIntent.getBroadcast(
+                context, ALARM_REQ, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            alarm.setInexactRepeating(
+                AlarmManager.ELAPSED_REALTIME, REFRESH_INTERVAL_MS,
+                REFRESH_INTERVAL_MS, pi,
+            )
+        }
+
+        private fun cancelRefresh(context: Context) {
+            val alarm = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, ImdbSearchWidgetBigProvider::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            val pi = PendingIntent.getBroadcast(
+                context, ALARM_REQ, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            alarm.cancel(pi)
+        }
     }
 }
