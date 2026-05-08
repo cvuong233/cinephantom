@@ -22,4 +22,16 @@
     <color name="widget_blue_dim">#1A6B7CFF</color>
     <color name="widget_overlay">#0DF5F7FF</color>
     <color name="widget_divider">#24304C</color>
+    <color name="watchlist_accent">#6B7CFF</color>
+
+    <!-- Futuristic neon theme -->
+    <color name="neon_cyan">#00E5FF</color>
+    <color name="neon_purple">#B44DFF</color>
+    <color name="neon_pink">#FF2D95</color>
+    <color name="cyan_glow">#4000E5FF</color>
+    <color name="purple_glow">#40B44DFF</color>
+    <color name="card_glass">#14FFFFFF</color>
+    <color name="card_border_glass">#20FFFFFF</color>
+    <color name="neon_green">#00FF88</color>
+    <color name="star_gold">#FFD740</color>
 </resources>

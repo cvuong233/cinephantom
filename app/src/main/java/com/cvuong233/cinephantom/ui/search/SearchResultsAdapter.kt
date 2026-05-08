@@ -3,13 +3,14 @@ package com.cvuong233.cinephantom.ui.search
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.databinding.ItemSearchResultBinding
 import com.cvuong233.cinephantom.model.ImdbTitle
 
 class SearchResultsAdapter(
-    private val onClick: (ImdbTitle) -> Unit,
+    private val onClick: (View, ImdbTitle) -> Unit,
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     companion object {
@@ -103,7 +104,8 @@ class SearchResultsAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: ImdbTitle, position: Int) {
-            binding.root.setOnClickListener { onClick(item) }
+            ViewCompat.setTransitionName(binding.posterImage, "poster_${item.id}")
+            binding.root.setOnClickListener { onClick(binding.posterImage, item) }
 
             // Title
             binding.titleText.text = item.title
@@ -169,6 +171,8 @@ class SearchResultsAdapter(
             binding.stremioButton.setOnClickListener {
                 onStremioClick?.invoke(item)
             }
+
+
         }
     }
 }

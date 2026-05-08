@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/detail_scroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/screen_bg"
@@ -13,21 +14,52 @@
         android:clipChildren="false"
         android:clipToPadding="false">
 
-        <!-- HERO SECTION -->
+        <!-- HERO SECTION (240dp FrameLayout, hero fixed at 220dp so button overlaps 40dp) -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="180dp"
+            android:layout_height="240dp"
             android:clipChildren="false"
             android:clipToPadding="false">
 
             <ImageView
                 android:id="@+id/detail_hero"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="#0D1526"
+                android:layout_height="220dp"
                 android:contentDescription="@null"
                 android:scaleType="centerCrop"
-                android:visibility="visible" />
+                android:transitionName="poster_transition"
+                android:alpha="0" />
+
+            <!-- Gradient overlay - between hero image and shimmer -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:background="@drawable/gradient_hero_fade" />
+
+            <!-- Shimmer placeholder while loading landscape -->
+            <LinearLayout
+                android:id="@+id/detail_hero_shimmer"
+                android:layout_width="match_parent"
+                android:layout_height="220dp"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <ImageView
+                    android:id="@+id/detail_shimmer_icon"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_search"
+                    android:alpha="0.15"
+                    android:contentDescription="@null" />
+
+                <View
+                    android:id="@+id/detail_shimmer_bar"
+                    android:layout_width="60dp"
+                    android:layout_height="2dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@color/text_muted"
+                    android:alpha="0.2" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/detail_back"
@@ -36,7 +68,7 @@
                 android:layout_marginStart="12dp"
                 android:layout_marginTop="12dp"
                 android:alpha="0"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/bg_back_button"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center"
@@ -45,15 +77,29 @@
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
-            <!-- Stremio button — half overlaps hero, floats into content -->
+            <!-- Share button (top-right) -->
+            <ImageView
+                android:id="@+id/detail_share_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="12dp"
+                android:layout_marginEnd="12dp"
+                android:padding="8dp"
+                android:src="@drawable/ic_share"
+                android:contentDescription="@string/share_title"
+                android:background="@drawable/bg_back_button"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Stremio button — 56dp tall, positioned at FrameLayout bottom → 28dp overlap into hero -->
             <ImageView
                 android:id="@+id/detail_stremio_button"
                 android:layout_width="56dp"
                 android:layout_height="56dp"
                 android:layout_gravity="bottom|end"
                 android:layout_marginEnd="20dp"
-                android:translationY="28dp"
-                android:elevation="8dp"
+                android:elevation="12dp"
                 android:src="@drawable/ic_stremio_brand"
                 android:contentDescription="@string/stremio_open_button" />
         </FrameLayout>
@@ -109,7 +155,7 @@
                 android:id="@+id/detail_genres_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="14dp"
                 android:visibility="gone" />
 
             <!-- Director -->
@@ -120,6 +166,25 @@
                 android:layout_marginTop="12dp"
                 android:textColor="@color/text_muted"
                 android:textSize="13sp"
+                android:visibility="gone" />
+
+            <!-- Trailer button -->
+            <TextView
+                android:id="@+id/detail_trailer_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:paddingLeft="18dp"
+                android:paddingTop="10dp"
+                android:paddingRight="18dp"
+                android:paddingBottom="10dp"
+                android:background="@drawable/search_meta_chip_bg"
+                android:text="▶ Trailer"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:clickable="true"
+                android:focusable="true"
                 android:visibility="gone" />
 
             <!-- Divider -->
@@ -138,10 +203,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="About"
-                android:textAllCaps="true"
-                android:textColor="@color/text_muted"
-                android:textSize="11sp"
-                android:textStyle="bold"
+                style="@style/LabelSmall"
                 android:visibility="gone" />
 
             <!-- Description -->
@@ -151,9 +213,105 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:lineSpacingExtra="4dp"
+                android:letterSpacing="0.02"
                 android:textColor="@color/text_muted"
                 android:textSize="14sp"
                 android:visibility="gone" />
+
+            <!-- TV show details card -->
+            <LinearLayout
+                android:id="@+id/detail_tv_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="12dp"
+                android:layout_marginTop="16dp"
+                android:orientation="horizontal"
+                android:background="@drawable/bg_tv_stats_card"
+                android:elevation="1dp"
+                android:padding="14dp"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView
+                        android:id="@+id/detail_tv_seasons"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="-"
+                        android:textColor="@color/text_primary"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Seasons"
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.05" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginHorizontal="12dp"
+                    android:background="#20FFFFFF" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView
+                        android:id="@+id/detail_tv_episodes"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="-"
+                        android:textColor="@color/text_primary"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Episodes"
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.05" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginHorizontal="12dp"
+                    android:background="#20FFFFFF" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView
+                        android:id="@+id/detail_tv_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="-"
+                        android:textColor="@color/neon_cyan"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Status"
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.05" />
+                </LinearLayout>
+            </LinearLayout>
 
 
 
@@ -164,10 +322,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
                 android:text="Cast"
-                android:textAllCaps="true"
-                android:textColor="@color/text_muted"
-                android:textSize="11sp"
-                android:textStyle="bold"
+                style="@style/LabelSmall"
                 android:visibility="gone" />
 
             <!-- Cast horizontal scroll -->

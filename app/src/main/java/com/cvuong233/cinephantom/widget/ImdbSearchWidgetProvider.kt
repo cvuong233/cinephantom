@@ -8,7 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.ui.search.SearchActivity
+import com.cvuong233.cinephantom.MainActivity
 
 /** Small home screen widget: search bar only. */
 class ImdbSearchWidgetProvider : AppWidgetProvider() {
@@ -38,7 +38,7 @@ class ImdbSearchWidgetProvider : AppWidgetProvider() {
 
     companion object {
         private fun buildSearchIntent(context: Context): PendingIntent {
-            val intent = Intent(context, SearchActivity::class.java).apply {
+            val intent = Intent(context, MainActivity::class.java).apply {
                 action = Intent.ACTION_SEARCH
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }

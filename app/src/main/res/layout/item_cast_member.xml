@@ -1,35 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="80dp"
+    android:layout_width="72dp"
     android:layout_height="wrap_content"
+    android:layout_marginEnd="14dp"
     android:gravity="center"
-    android:orientation="vertical"
-    android:paddingHorizontal="4dp"
-    android:paddingTop="4dp">
+    android:orientation="vertical">
 
+    <!-- Avatar with glow ring -->
     <FrameLayout
         android:id="@+id/cast_avatar_frame"
-        android:layout_width="52dp"
-        android:layout_height="52dp"
-        android:clipToOutline="true">
+        android:layout_width="56dp"
+        android:layout_height="56dp">
 
+        <!-- Glow ring background -->
+        <View
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@drawable/cast_avatar_glow" />
+
+        <!-- Photo (loaded from TMDB, hidden initially) -->
         <ImageView
             android:id="@+id/cast_photo"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center"
             android:contentDescription="@null"
             android:scaleType="centerCrop"
             android:visibility="gone" />
 
+        <!-- Initials (fallback when no photo) -->
         <TextView
             android:id="@+id/cast_avatar"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/cast_avatar_bg"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_cast_avatar"
             android:gravity="center"
             android:text="A"
-            android:textColor="#F5F7FF"
-            android:textSize="20sp"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
             android:textStyle="bold" />
     </FrameLayout>
 
@@ -37,11 +46,11 @@
         android:id="@+id/cast_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="6dp"
         android:ellipsize="end"
         android:gravity="center"
         android:maxLines="2"
         android:text="Name"
-        android:textColor="#7C8AAF"
+        android:textColor="@color/text_secondary"
         android:textSize="11sp" />
 </LinearLayout>

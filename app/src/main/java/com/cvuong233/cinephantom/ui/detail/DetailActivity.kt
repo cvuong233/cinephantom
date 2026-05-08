@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.graphics.Outline
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
@@ -16,14 +18,24 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ScrollView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import com.cvuong233.cinephantom.ui.FuturisticAnim
 import com.cvuong233.cinephantom.R
+import com.cvuong233.cinephantom.MainActivity
 import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
 import org.json.JSONObject
 import java.net.URL
 import com.cvuong233.cinephantom.data.TMDBApi
 import com.cvuong233.cinephantom.data.TMDBCastMember
 import com.cvuong233.cinephantom.data.TMDBShowDetails
+import com.cvuong233.cinephantom.data.WatchlistDatabase
+import com.cvuong233.cinephantom.model.WatchlistItem
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.concurrent.thread
 
 class DetailActivity : AppCompatActivity() {
@@ -48,9 +60,19 @@ class DetailActivity : AppCompatActivity() {
         val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
         val intentCast = intent?.getStringExtra(EXTRA_CAST)
 
+        // Normalize type early — needed by trailer button and metadata threads
+        val typeLower = type?.lowercase() ?: ""
+        val isSeries = typeLower.contains("series") ||
+                       typeLower.contains("tv episode") ||
+                       typeLower == "mini series"
+        val apiType = if (isSeries) "series" else "movie"
+
         // Views
         val backBtn = findViewById<TextView>(R.id.detail_back)
         val heroImage = findViewById<ImageView>(R.id.detail_hero)
+        ViewCompat.setTransitionName(heroImage, "poster_$imdbId")
+        val heroShimmer = findViewById<View>(R.id.detail_hero_shimmer)
+        val shimmerBar = findViewById<View>(R.id.detail_shimmer_bar)
         val titleView = findViewById<TextView>(R.id.detail_title)
         val titleRow = findViewById<LinearLayout>(R.id.detail_title_row)
         val metaView = findViewById<TextView>(R.id.detail_meta)
@@ -63,11 +85,83 @@ class DetailActivity : AppCompatActivity() {
         val aboutLabel = findViewById<TextView>(R.id.detail_about_label)
         val castLabel = findViewById<TextView>(R.id.detail_cast_label)
         val divider = findViewById<View>(R.id.detail_divider)
+        val shareBtn = findViewById<ImageView>(R.id.detail_share_button)
         val stremioBtn = findViewById<ImageView>(R.id.detail_stremio_button)
+        val db = WatchlistDatabase.get(this) // still used for auto-history
+        val trailerBtn = findViewById<TextView>(R.id.detail_trailer_button)
+        val tvCard = findViewById<LinearLayout>(R.id.detail_tv_card)
+        val tvSeasons = findViewById<TextView>(R.id.detail_tv_seasons)
+        val tvEpisodes = findViewById<TextView>(R.id.detail_tv_episodes)
+        val tvStatus = findViewById<TextView>(R.id.detail_tv_status)
 
-        // Back button — fade in
-        backBtn.setOnClickListener { finish() }
+        // Back button — fade in. If launched from widget, go to app search screen.
+        backBtn.setOnClickListener {
+            if (isTaskRoot) {
+                startActivity(Intent(this, MainActivity::class.java))
+            }
+            finish()
+        }
         backBtn.animate().alpha(1f).setDuration(300).start()
+
+        // Share button
+        shareBtn.setOnClickListener {
+            val shareText = "$title — https://www.imdb.com/title/$imdbId/"
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                setType("text/plain")
+                putExtra(Intent.EXTRA_TEXT, shareText)
+            }
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.share_title)))
+        }
+
+        // Auto-history: record view on detail page open
+        CoroutineScope(Dispatchers.IO).launch {
+            if (!db.dao().isSaved(imdbId)) {
+                db.dao().insert(WatchlistItem(
+                    imdbId = imdbId, title = title, type = type,
+                    year = year.takeIf { it.isNotBlank() },
+                    imageUrl = imageUrl, cast = intentCast,
+                    watchedAt = System.currentTimeMillis()
+                ))
+            } else {
+                db.dao().markWatched(imdbId)
+            }
+        }
+
+        // Trailer button: fetch TMDB video and open YouTube
+        var tmdbTrailerId = -1
+        trailerBtn.setOnClickListener {
+            trailerBtn.text = "Loading..."
+            thread {
+                try {
+                    if (tmdbTrailerId <= 0) {
+                        val findJson = URL("https://api.themoviedb.org/3/find/$imdbId?api_key=${TMDBApi.API_KEY}&external_source=imdb_id").readText()
+                        val root = JSONObject(findJson)
+                        val results = if (isSeries) root.optJSONArray("tv_results") else root.optJSONArray("movie_results")
+                        tmdbTrailerId = results?.optJSONObject(0)?.optInt("id", -1) ?: -1
+                    }
+                    if (tmdbTrailerId > 0) {
+                        val videos = TMDBApi().fetchVideos(tmdbTrailerId, isSeries)
+                        val trailer = videos.firstOrNull { it.site == "YouTube" && it.type in listOf("Trailer", "Teaser") }
+                            ?: videos.firstOrNull { it.site == "YouTube" }
+                        runOnUiThread {
+                            trailerBtn.text = "▶ Trailer"
+                            if (trailer != null) {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=${trailer.key}")))
+                            } else {
+                                openTrailerFallback(title, year)
+                            }
+                        }
+                    } else {
+                        runOnUiThread { trailerBtn.text = "▶ Trailer"; openTrailerFallback(title, year) }
+                    }
+                } catch (_: Exception) {
+                    runOnUiThread {
+                        trailerBtn.text = "▶ Trailer"
+                        Toast.makeText(this@DetailActivity, "Couldn't load trailer", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
 
         // Set title early (will animate in after data loads)
         titleView.text = title
@@ -77,22 +171,34 @@ class DetailActivity : AppCompatActivity() {
         heroImage.scaleY = 0.92f
         heroImage.alpha = 0f
 
+        // Shimmer pulse animation while Cinemeta loads
+        shimmerPulse(shimmerBar)
+        var heroLoaded = false
+
         val heroIn = {
-            heroImage.animate()
-                .scaleX(1f).scaleY(1f).alpha(1f)
-                .setDuration(700)
-                .setInterpolator(OvershootInterpolator(1.05f))
-                .start()
+            if (!heroLoaded) {
+                heroLoaded = true
+                heroShimmer.animate().alpha(0f).setDuration(200).start()
+                heroImage.visibility = View.VISIBLE
+                heroImage.animate()
+                    .scaleX(1f).scaleY(1f).alpha(1f)
+                    .setDuration(700)
+                    .setInterpolator(OvershootInterpolator(1.05f))
+                    .start()
+
+            }
         }
 
-        if (imageUrl.isNotBlank()) {
-            SimpleImageLoader.load(imageUrl, heroImage,
-                onSuccess = { heroIn() },
-                onError = { heroIn() }
-            )
-        } else {
-            heroIn()
+        // Fallback: if Cinemeta takes >4s, show poster from intent extras
+        val posterFallback = {
+            if (!heroLoaded && imageUrl.isNotBlank()) {
+                SimpleImageLoader.load(imageUrl, heroImage,
+                    onSuccess = { heroIn() },
+                    onError = { heroIn() }
+                )
+            }
         }
+        Handler(Looper.getMainLooper()).postDelayed(posterFallback, 4000)
 
         // Stremio button
         stremioBtn.setOnClickListener {
@@ -108,9 +214,27 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
+        // Parallax hero on scroll
+        val scrollView = findViewById<ScrollView>(R.id.detail_scroll)
+        scrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            val parallax = scrollY * 0.4f
+            heroImage.translationY = parallax
+            // Fade out back button + hero as you scroll
+            val fadeThreshold = 300f
+            val alpha = (1f - scrollY / fadeThreshold).coerceIn(0f, 1f)
+            backBtn.alpha = alpha
+        }
+
+        // Glow pulse on action buttons
+        thread {
+            Thread.sleep(800)
+            runOnUiThread {
+                FuturisticAnim.glowPulse(trailerBtn, 0.97f, 1.03f)
+            }
+        }
+
         // Fetch metadata — Cinemeta AND TMDB find in parallel
-        val apiType = if (type == "Series" || type == "TV Show") "series" else "movie"
-        val isSeries = apiType == "series"
+        // (type normalization now at top of onCreate)
 
         // Shared state: whichever thread gets tmdbId first fetches credits
         var creditsFetched = false
@@ -127,6 +251,19 @@ class DetailActivity : AppCompatActivity() {
                     showParts.add("${tmdbShow.episodes} episode${if (tmdbShow.episodes != 1) "s" else ""}")
                 }
                 metaView.text = showParts.joinToString(" · ")
+
+                // Populate TV details card
+                tvSeasons.text = "${tmdbShow.seasons}"
+                tvEpisodes.text = "${tmdbShow.episodes}"
+                val statusText = when (tmdbShow.status?.lowercase()) {
+                    "returning series" -> "Returning"
+                    "ended" -> "Ended"
+                    "canceled" -> "Canceled"
+                    else -> tmdbShow.status ?: "-"
+                }
+                tvStatus.text = statusText
+                tvStatus.setTextColor(if (statusText == "Returning") Color.parseColor("#4CAF50") else Color.parseColor("#4DA6FF"))
+                tvCard.visibility = View.VISIBLE
             }
             if (tmdbCast.isNotEmpty() && castContainer.childCount > 0) {
                 for (tmbdMember in tmdbCast) {
@@ -271,13 +408,19 @@ class DetailActivity : AppCompatActivity() {
 
                     // Director
                     if (directors.isNotEmpty()) {
-                        directorView.text = "Directed by ${directors.joinToString(", ")}"
+                        directorView.text = "🎬 ${directors.joinToString(", ")}"
                     }
                     directorView.visibility = View.VISIBLE
                     directorView.translationX = -60f
                     directorView.alpha = 0f
                     directorView.animate().translationX(0f).alpha(1f).setDuration(350).setStartDelay(250)
                         .setInterpolator(DecelerateInterpolator()).start()
+
+                    // Show trailer button
+                    trailerBtn.visibility = View.VISIBLE
+                    trailerBtn.scaleX = 0f; trailerBtn.scaleY = 0f
+                    trailerBtn.animate().scaleX(1f).scaleY(1f).setDuration(300).setStartDelay(280)
+                        .setInterpolator(OvershootInterpolator(1.15f)).start()
 
                     // Genres
                     if (genres.isNotEmpty()) {
@@ -393,8 +536,29 @@ class DetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun shimmerPulse(view: View) {
+        view.animate().cancel()
+        view.alpha = 0.15f
+        view.animate()
+            .alpha(0.5f)
+            .setDuration(800)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .withEndAction {
+                view.animate()
+                    .alpha(0.15f)
+                    .setDuration(800)
+                    .withEndAction { shimmerPulse(view) }
+                    .start()
+            }
+            .start()
+    }
 
-
+    private fun openTrailerFallback(title: String, year: String) {
+        val query = "$title ${if (year.isNotBlank()) year else ""} official trailer"
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
+            "https://www.youtube.com/results?search_query=${java.net.URLEncoder.encode(query, "UTF-8")}"
+        )))
+    }
 }
 
 private data class CastMember(val name: String, val profilePath: String?)

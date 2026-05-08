@@ -11,7 +11,10 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
+import androidx.core.app.ActivityOptionsCompat
+import androidx.core.view.ViewCompat
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -27,7 +30,7 @@ class SearchActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySearchBinding
     private val api = ImdbSuggestionApi()
-    private val adapter = SearchResultsAdapter(::openImdbTitle)
+    private val adapter = SearchResultsAdapter { view, title -> openImdbTitle(view, title) }
 
     private val debounceHandler = Handler(Looper.getMainLooper())
     private val debounceDelayMs = 400L
@@ -71,6 +74,10 @@ class SearchActivity : AppCompatActivity() {
         })
 
         binding.searchEditText.requestFocus()
+        binding.searchEditText.postDelayed({
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(binding.searchEditText, InputMethodManager.SHOW_IMPLICIT)
+        }, 200)
 
         binding.searchEditText.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -172,7 +179,7 @@ class SearchActivity : AppCompatActivity() {
 
 
 
-    private fun openImdbTitle(title: ImdbTitle) {
+    private fun openImdbTitle(posterView: View, title: ImdbTitle) {
         val intent = Intent(this, DetailActivity::class.java).apply {
             putExtra(DetailActivity.EXTRA_IMDB_ID, title.id)
             putExtra(DetailActivity.EXTRA_TITLE, title.title)
@@ -180,9 +187,12 @@ class SearchActivity : AppCompatActivity() {
             putExtra(DetailActivity.EXTRA_CAST, title.cast)
             putExtra(DetailActivity.EXTRA_YEAR, title.year)
             putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
-            // Do NOT pass rating — detail page reads from shared RatingFetcher cache
         }
-        startActivity(intent)
+        ViewCompat.setTransitionName(posterView, "poster_${title.id}")
+        val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
+            this, posterView, "poster_${title.id}"
+        )
+        startActivity(intent, options.toBundle())
     }
 
     private fun openInStremio(title: ImdbTitle) {

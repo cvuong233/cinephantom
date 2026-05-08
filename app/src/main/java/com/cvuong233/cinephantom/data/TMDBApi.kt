@@ -11,6 +11,13 @@ data class TMDBShowDetails(
     val lastAirDate: String? = null
 )
 
+data class TMDBVideo(
+    val key: String,
+    val name: String,
+    val site: String,   // "YouTube"
+    val type: String    // "Trailer", "Teaser", etc.
+)
+
 data class TMDBCastMember(
     val name: String,
     val character: String? = null,
@@ -68,4 +75,23 @@ class TMDBApi {
         } catch (_: Exception) { emptyList() }
     }
 
+    fun fetchVideos(tmdbId: Int, isSeries: Boolean): List<TMDBVideo> {
+        return try {
+            val endpoint = if (isSeries) "tv" else "movie"
+            val json = java.net.URL("$BASE_URL/$endpoint/$tmdbId/videos?api_key=$API_KEY").readText()
+            val root = JSONObject(json)
+            val results = root.optJSONArray("results") ?: return emptyList()
+            val videos = mutableListOf<TMDBVideo>()
+            for (i in 0 until results.length()) {
+                val v = results.optJSONObject(i) ?: continue
+                videos.add(TMDBVideo(
+                    key = v.optString("key", ""),
+                    name = v.optString("name", ""),
+                    site = v.optString("site", ""),
+                    type = v.optString("type", "")
+                ))
+            }
+            videos
+        } catch (_: Exception) { emptyList() }
+    }
 }
