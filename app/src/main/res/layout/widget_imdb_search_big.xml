@@ -17,35 +17,21 @@
         android:layout_height="match_parent"
         android:background="#00000000" />
 
-    <LinearLayout
+    <FrameLayout
         android:id="@+id/widget_search_bar"
-        android:layout_width="match_parent"
+        android:layout_width="52dp"
         android:layout_height="52dp"
         android:layout_alignParentBottom="true"
-        android:layout_marginStart="12dp"
+        android:layout_alignParentEnd="true"
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="12dp"
-        android:background="@drawable/widget_search_background"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp">
+        android:background="@drawable/widget_search_fab_bg"
+        android:padding="16dp">
 
         <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:contentDescription="Search"
             android:src="@drawable/ic_widget_search" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="Search movies and shows"
-            android:textColor="#FF9DA9C8"
-            android:textSize="13sp" />
-    </LinearLayout>
+    </FrameLayout>
 </RelativeLayout>
