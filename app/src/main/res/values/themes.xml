@@ -1,7 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.CinePhantom" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/electric_blue</item>
-        <item name="colorSecondary">@color/electric_blue</item>
+        <item name="colorPrimary">@color/secondary_accent</item>
+        <item name="colorSecondary">@color/secondary_link</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@color/screen_bg</item>
         <item name="android:windowBackground">@color/screen_bg</item>
@@ -54,7 +54,7 @@
     </style>
 
     <style name="NavActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
-        <item name="android:color">@color/cyan_glow</item>
+        <item name="android:color">@color/secondary_accent_dim</item>
         <item name="shapeAppearanceOverlay">@style/NavIndicatorShape</item>
     </style>
 

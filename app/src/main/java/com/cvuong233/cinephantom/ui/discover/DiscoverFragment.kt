@@ -253,15 +253,46 @@ class DiscoverFragment : Fragment() {
         pendingFocusType = null
 
         val recycler = recyclerView ?: return
+        val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return
         recycler.post {
-            recycler.smoothScrollToPosition(position)
-            recycler.postDelayed({
-                (recycler.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(position, 120)
-                recycler.postDelayed({
-                    adapter.requestHighlight(imdbId, position)
-                }, 120)
-            }, 320)
+            layoutManager.scrollToPositionWithOffset(position, 120)
+            recycler.post {
+                alignAndHighlightTarget(recycler, layoutManager, imdbId, position)
+            }
         }
+    }
+
+    private fun alignAndHighlightTarget(
+        recycler: RecyclerView,
+        layoutManager: LinearLayoutManager,
+        imdbId: String,
+        position: Int,
+        attemptsLeft: Int = 8,
+    ) {
+        val targetView = layoutManager.findViewByPosition(position)
+        if (targetView != null) {
+            val desiredTop = 120
+            val delta = targetView.top - desiredTop
+            if (kotlin.math.abs(delta) > 6) {
+                recycler.smoothScrollBy(0, delta)
+                recycler.postDelayed({
+                    alignAndHighlightTarget(recycler, layoutManager, imdbId, position, attemptsLeft - 1)
+                }, 80)
+            } else {
+                adapter.requestHighlight(imdbId, position)
+            }
+            return
+        }
+
+        if (attemptsLeft <= 0) {
+            adapter.requestHighlight(imdbId, position)
+            return
+        }
+
+        layoutManager.scrollToPositionWithOffset(position, 120)
+        recycler.postDelayed({
+            alignAndHighlightTarget(recycler, layoutManager, imdbId, position, attemptsLeft - 1)
+        }, 80)
     }
 
     private fun updateContentState(showError: Boolean = false) {

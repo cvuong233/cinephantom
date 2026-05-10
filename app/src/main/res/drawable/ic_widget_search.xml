@@ -1,20 +1,22 @@
-<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="20dp"
     android:height="20dp"
     android:viewportWidth="20"
     android:viewportHeight="20">
-    <!-- Magnifying glass circle -->
     <path
+        android:pathData="M8.4,3.8a4.6,4.6 0 1,0 0,9.2a4.6,4.6 0 1,0 0,-9.2z"
         android:fillColor="#00000000"
-        android:strokeColor="#7C8AAF"
-        android:strokeWidth="1.8"
-        android:pathData="M8.5,8.5m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
-    <!-- Handle -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#7C8AAF"
-        android:strokeWidth="1.8"
+        android:strokeColor="#FFF7FD"
         android:strokeLineCap="round"
-        android:pathData="M13,13l6,6" />
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.7" />
+    <path
+        android:pathData="M11.8,11.8L16,16"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFF7FD"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.7" />
+    <path
+        android:pathData="M13.9,4.1L14.4,5.1L15.5,5.6L14.4,6.1L13.9,7.1L13.4,6.1L12.3,5.6L13.4,5.1z"
+        android:fillColor="#B78BE2" />
 </vector>

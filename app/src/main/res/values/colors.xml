@@ -1,37 +1,40 @@
 <resources>
-    <color name="screen_bg">#090E19</color>
-    <color name="surface_dark">#121B2D</color>
-    <color name="surface_raised">#10192A</color>
-    <color name="input_surface">#0D1526</color>
-    <color name="surface_border">#24304C</color>
-    <color name="electric_blue">#6B7CFF</color>
-    <color name="text_primary">#F5F7FF</color>
-    <color name="text_secondary">#B0BDDF</color>
-    <color name="text_muted">#7C8AAF</color>
+    <color name="screen_bg">#050505</color>
+    <color name="surface_dark">#0D0D10</color>
+    <color name="surface_raised">#15151A</color>
+    <color name="input_surface">#101015</color>
+    <color name="surface_border">#2A2230</color>
+    <color name="electric_blue">#B78BE2</color>
+    <color name="text_primary">#FFF7FD</color>
+    <color name="text_secondary">#D9C7D7</color>
+    <color name="text_muted">#8F7E8F</color>
+    <color name="secondary_link">#CDA8FF</color>
+    <color name="secondary_accent">#B78BE2</color>
+    <color name="secondary_accent_dim">#26B78BE2</color>
+    <color name="imdb_yellow">#F5C451</color>
+    <color name="imdb_yellow_dim">#26F5C451</color>
 
-    <!-- Widget colors -->
-    <color name="widget_bg_start">#0A0F1E</color>
-    <color name="widget_bg_end">#121A2F</color>
-    <color name="widget_border">#243152</color>
-    <color name="widget_text_primary">#F5F7FF</color>
-    <color name="widget_text_secondary">#6B7280</color>
-    <color name="widget_accent">#FFA723</color>
-    <color name="widget_accent_dim">#1AFFA723</color>
-    <color name="widget_imdb">#FFA723</color>
-    <color name="widget_blue">#6B7CFF</color>
-    <color name="widget_blue_dim">#1A6B7CFF</color>
-    <color name="widget_overlay">#0DF5F7FF</color>
-    <color name="widget_divider">#24304C</color>
-    <color name="watchlist_accent">#6B7CFF</color>
+    <color name="widget_bg_start">#080608</color>
+    <color name="widget_bg_end">#151019</color>
+    <color name="widget_border">#34233A</color>
+    <color name="widget_text_primary">#FFF7FD</color>
+    <color name="widget_text_secondary">#8F7E8F</color>
+    <color name="widget_accent">#B78BE2</color>
+    <color name="widget_accent_dim">#26B78BE2</color>
+    <color name="widget_imdb">#F5C451</color>
+    <color name="widget_blue">#B78BE2</color>
+    <color name="widget_blue_dim">#26B78BE2</color>
+    <color name="widget_overlay">#10FFF7FD</color>
+    <color name="widget_divider">#2A2230</color>
+    <color name="watchlist_accent">#B78BE2</color>
 
-    <!-- Futuristic neon theme -->
-    <color name="neon_cyan">#00E5FF</color>
-    <color name="neon_purple">#B44DFF</color>
-    <color name="neon_pink">#FF2D95</color>
-    <color name="cyan_glow">#4000E5FF</color>
-    <color name="purple_glow">#40B44DFF</color>
+    <color name="neon_cyan">#B78BE2</color>
+    <color name="neon_purple">#B78BE2</color>
+    <color name="neon_pink">#B78BE2</color>
+    <color name="cyan_glow">#33B78BE2</color>
+    <color name="purple_glow">#33B78BE2</color>
     <color name="card_glass">#14FFFFFF</color>
-    <color name="card_border_glass">#20FFFFFF</color>
-    <color name="neon_green">#00FF88</color>
-    <color name="star_gold">#FFD740</color>
+    <color name="card_border_glass">#28B78BE2</color>
+    <color name="neon_green">#B78BE2</color>
+    <color name="star_gold">#F5C451</color>
 </resources>
