@@ -15,8 +15,7 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.data.ImdbSuggestionApi
-import com.cvuong233.cinephantom.data.SearchRatingLoader
+import com.cvuong233.cinephantom.data.TMDBApi
 import com.cvuong233.cinephantom.model.ImdbTitle
 import com.cvuong233.cinephantom.ui.FuturisticAnim
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
@@ -28,6 +27,7 @@ import android.view.ViewTreeObserver
 import android.net.Uri
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
+import androidx.appcompat.content.res.AppCompatResources
 import com.cvuong233.cinephantom.data.WatchlistDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,19 +37,28 @@ import kotlin.concurrent.thread
 
 class SearchFragment : Fragment() {
 
-    private val api = ImdbSuggestionApi()
+    private val api = TMDBApi()
     private val adapter by lazy { SearchResultsAdapter { view, title -> openImdbTitle(view, title) } }
     private val debounceHandler = Handler(Looper.getMainLooper())
     private val debounceDelayMs = 400L
     private var searchJob: Thread? = null
-    private var ratingLoader: SearchRatingLoader? = null
     private var latestQuery = ""
+    private var bindingRef: com.cvuong233.cinephantom.databinding.ActivitySearchBinding? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         val binding = com.cvuong233.cinephantom.databinding.ActivitySearchBinding.inflate(inflater, container, false)
+        bindingRef = binding
         return binding.root.also { setupView(binding) }
+    }
+
+    fun clearSearchFocus() {
+        val binding = bindingRef ?: return
+        binding.searchEditText.clearFocus()
+        binding.root.requestFocus()
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(binding.searchEditText.windowToken, 0)
     }
 
     private fun setupView(binding: com.cvuong233.cinephantom.databinding.ActivitySearchBinding) {
@@ -85,16 +94,16 @@ class SearchFragment : Fragment() {
             imm.showSoftInput(binding.searchEditText, InputMethodManager.SHOW_IMPLICIT)
         }, 300)
 
-        // Neon glow on search bar focus
+        // Search bar focus state
         binding.searchEditText.setOnFocusChangeListener { _, hasFocus ->
             val layout = binding.searchInputLayout
             if (hasFocus) {
-                layout.boxStrokeColor = Color.parseColor("#00E5FF")
+                layout.boxStrokeColor = Color.parseColor("#CDA8FF")
                 layout.alpha = 1f
                 layout.animate().scaleX(1.02f).scaleY(1.02f).setDuration(250)
                     .setInterpolator(OvershootInterpolator(0.5f)).start()
             } else {
-                layout.boxStrokeColor = Color.parseColor("#6B7CFF")
+                layout.boxStrokeColor = Color.parseColor("#8F7E8F")
                 layout.alpha = 0.8f
                 layout.animate().scaleX(1f).scaleY(1f).setDuration(250).start()
             }
@@ -123,12 +132,14 @@ class SearchFragment : Fragment() {
         val hasResults = adapter.itemCount > 0 && !adapter.isLoading()
         if (query.isEmpty()) {
             binding.emptyStateContainer.visibility = View.VISIBLE
-            binding.emptyStateIcon.text = "🎬"
+            binding.emptyStateIcon.setImageDrawable(AppCompatResources.getDrawable(requireContext(), R.drawable.ic_search_empty))
+            binding.emptyStateIcon.imageTintList = android.content.res.ColorStateList.valueOf(requireContext().getColor(R.color.secondary_accent))
             binding.emptyStateTitle.text = getString(R.string.search_guidance)
             binding.emptyStateSubtitle.text = getString(R.string.search_empty_subtitle)
         } else if (!hasResults && !adapter.isLoading()) {
             binding.emptyStateContainer.visibility = View.VISIBLE
-            binding.emptyStateIcon.text = "🔍"
+            binding.emptyStateIcon.setImageDrawable(AppCompatResources.getDrawable(requireContext(), R.drawable.ic_search_empty_active))
+            binding.emptyStateIcon.imageTintList = android.content.res.ColorStateList.valueOf(requireContext().getColor(R.color.neon_pink))
             binding.emptyStateTitle.text = getString(R.string.search_no_results_title)
             binding.emptyStateSubtitle.text = getString(R.string.search_no_results_subtitle)
         } else {
@@ -147,13 +158,12 @@ class SearchFragment : Fragment() {
         latestQuery = query
 
         searchJob?.interrupt()
-        ratingLoader?.cancel()
         adapter.showLoading()
         updateEmptyState(binding)
 
         val currentFilter: String? = null  // disabled
         searchJob = thread {
-            val result = api.search(query)
+            val result = api.searchTitles(query)
             if (Thread.currentThread().isInterrupted) return@thread
             val filtered = result.getOrNull() ?: emptyList()
 
@@ -162,14 +172,7 @@ class SearchFragment : Fragment() {
                 adapter.submitList(filtered)
                 adapter.hideLoading()
                 updateEmptyState(binding)
-                if (filtered.isNotEmpty()) {
-                    ratingLoader = SearchRatingLoader(
-                        onRatingFetched = { updatedTitle ->
-                            activity?.runOnUiThread { adapter.updateRating(updatedTitle) }
-                        },
-                        onComplete = { activity?.runOnUiThread { adapter.onRatingFetchDone() } },
-                    ).apply { load(filtered) }
-                }
+                adapter.onRatingFetchDone()
                 if (filtered.isEmpty() && query.isNotEmpty()) {
                     updateEmptyState(binding)
                 }
@@ -231,6 +234,11 @@ class SearchFragment : Fragment() {
                 }
             }
         }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        bindingRef = null
     }
 
     override fun onDestroy() {

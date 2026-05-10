@@ -254,10 +254,13 @@ class DiscoverFragment : Fragment() {
 
         val recycler = recyclerView ?: return
         recycler.post {
-            (recycler.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(position, 24)
+            recycler.smoothScrollToPosition(position)
             recycler.postDelayed({
-                adapter.requestHighlight(imdbId, position)
-            }, 180)
+                (recycler.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(position, 120)
+                recycler.postDelayed({
+                    adapter.requestHighlight(imdbId, position)
+                }, 120)
+            }, 320)
         }
     }
 

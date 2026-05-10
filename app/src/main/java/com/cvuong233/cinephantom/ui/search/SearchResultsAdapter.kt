@@ -175,31 +175,42 @@ class SearchResultsAdapter(
                     binding.root.animate().cancel()
                     binding.posterFrame.animate().cancel()
 
-                    binding.root.alpha = 0.82f
-                    binding.root.scaleX = 0.978f
-                    binding.root.scaleY = 0.978f
-                    binding.posterFrame.scaleX = 0.988f
-                    binding.posterFrame.scaleY = 0.988f
-                    binding.posterFrame.alpha = 0.94f
-                    card?.strokeWidth = 2
+                    binding.root.alpha = 0.78f
+                    binding.root.scaleX = 0.972f
+                    binding.root.scaleY = 0.972f
+                    binding.posterFrame.scaleX = 0.984f
+                    binding.posterFrame.scaleY = 0.984f
+                    binding.posterFrame.alpha = 0.9f
+                    binding.metaText.alpha = 0.72f
+                    binding.rankText.alpha = 0.72f
+                    card?.strokeWidth = 3
                     card?.strokeColor = glowStroke
 
                     binding.root.animate()
                         .alpha(1f)
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(420)
+                        .scaleX(1.012f)
+                        .scaleY(1.012f)
+                        .setDuration(220)
+                        .withEndAction {
+                            binding.root.animate().scaleX(1f).scaleY(1f).setDuration(180).start()
+                        }
                         .start()
 
                     binding.posterFrame.animate()
                         .alpha(1f)
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(420)
+                        .scaleX(1.018f)
+                        .scaleY(1.018f)
+                        .setDuration(220)
+                        .withEndAction {
+                            binding.posterFrame.animate().scaleX(1f).scaleY(1f).setDuration(180).start()
+                        }
                         .start()
 
+                    binding.metaText.animate().alpha(1f).setDuration(260).start()
+                    binding.rankText.animate().alpha(1f).setDuration(260).start()
+
                     ObjectAnimator.ofArgb(card, "strokeColor", glowStroke, baseStroke).apply {
-                        duration = 520
+                        duration = 620
                         start()
                     }
 
@@ -212,9 +223,11 @@ class SearchResultsAdapter(
                         binding.posterFrame.alpha = 1f
                         binding.posterFrame.scaleX = 1f
                         binding.posterFrame.scaleY = 1f
+                        binding.metaText.alpha = 1f
+                        binding.rankText.alpha = 1f
                         binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)
                         binding.metaText.setTextColor(baseMetaBg)
-                    }, 560)
+                    }, 680)
                 }
             }
 

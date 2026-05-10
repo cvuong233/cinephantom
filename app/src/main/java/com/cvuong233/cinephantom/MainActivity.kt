@@ -72,7 +72,9 @@ class MainActivity : AppCompatActivity() {
         currentFocus?.clearFocus()
         val imm = getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(binding.root.windowToken, 0)
+        (supportFragmentManager.findFragmentByTag("search") as? SearchFragment)?.clearSearchFocus()
         supportFragmentManager.findFragmentByTag("search")?.view?.findFocus()?.clearFocus()
+        binding.root.requestFocus()
     }
 
     private fun showFragment(fragment: Fragment, tag: String) {
