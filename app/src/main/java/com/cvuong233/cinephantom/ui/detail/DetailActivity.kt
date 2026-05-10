@@ -29,6 +29,7 @@ import com.cvuong233.cinephantom.MainActivity
 import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
 import org.json.JSONObject
 import java.net.URL
+import com.cvuong233.cinephantom.data.RatingFetcher
 import com.cvuong233.cinephantom.data.TMDBApi
 import com.cvuong233.cinephantom.data.TMDBCastMember
 import com.cvuong233.cinephantom.data.TMDBCrewMember
@@ -53,6 +54,8 @@ class DetailActivity : AppCompatActivity() {
         const val EXTRA_TRANSITION_NAME = "extra_transition_name"
         const val EXTRA_FROM_WIDGET = "extra_from_widget"
         const val EXTRA_RETURN_DISCOVER_TYPE = "extra_return_discover_type"
+        const val EXTRA_RATING = "extra_rating"
+        const val EXTRA_RATING_TEXT = "extra_rating_text"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -108,6 +111,16 @@ class DetailActivity : AppCompatActivity() {
         val tvEpisodes = findViewById<TextView>(R.id.detail_tv_episodes)
         val tvStatus = findViewById<TextView>(R.id.detail_tv_status)
 
+        fun applyRating(rawRatingText: String?, fallbackRating: Float? = null) {
+            val cleanText = rawRatingText?.trim().orEmpty()
+            val numericText = cleanText.toFloatOrNull()?.let { String.format(java.util.Locale.US, "%.1f", it) }
+            when {
+                fallbackRating != null && fallbackRating > 0f -> ratingView.text = String.format(java.util.Locale.US, "★ %.1f IMDb", fallbackRating)
+                numericText != null -> ratingView.text = "★ $numericText IMDb"
+                else -> ratingView.text = "IMDb --"
+            }
+        }
+
         // Back button — if launched from widget, return to Top IMDb and focus the title.
         backBtn.setOnClickListener {
             if (launchedFromWidget) {
@@ -131,6 +144,21 @@ class DetailActivity : AppCompatActivity() {
                 isEnabled = false
                 finishAfterTransition()
             }
+        }
+
+        applyRating(null, null)
+
+        thread {
+            try {
+                val fetched = RatingFetcher().fetchRating(imdbId)
+                if (fetched != null && fetched > 0f) {
+                    runOnUiThread {
+                        applyRating(null, fetched)
+                        ratingRow.visibility = View.VISIBLE
+                        ratingView.visibility = View.VISIBLE
+                    }
+                }
+            } catch (_: Exception) {}
         }
 
         // Share button
@@ -492,7 +520,6 @@ class DetailActivity : AppCompatActivity() {
                 val meta = JSONObject(jsonText).optJSONObject("meta") ?: return@thread
 
                 val runtime = meta.optString("runtime", "")
-                val imdbRating = meta.optString("imdbRating", "")
                 val description = meta.optString("description", "")
                 val bgUrl = meta.optString("background", "")
                 val posterUrl = meta.optString("poster", "")
@@ -575,11 +602,6 @@ class DetailActivity : AppCompatActivity() {
                         .setInterpolator(DecelerateInterpolator(1.5f)).start()
 
                     // Rating
-                    if (imdbRating.isNotBlank()) {
-                        ratingView.text = "★ $imdbRating IMDb"
-                    } else {
-                        ratingView.text = "IMDb --"
-                    }
                     ratingRow.visibility = View.VISIBLE
                     ratingView.visibility = View.VISIBLE
                     ratingRow.translationX = 80f
@@ -688,6 +710,7 @@ class DetailActivity : AppCompatActivity() {
                 cachedTmdbCast?.let { cast -> runOnUiThread { applyCreditsToUi(cast, cachedTmdbDirectors ?: emptyList(), cachedTmdbShow) } }
                 // Fire TMDB credits using Cinemeta's tmdb_id (other thread may have already done it)
                 if (tmdbId > 0) fetchCreditsAndUpdatePhotos(tmdbId)
+
             } catch (_: Exception) {
                 runOnUiThread {
                     titleRow.visibility = View.VISIBLE
