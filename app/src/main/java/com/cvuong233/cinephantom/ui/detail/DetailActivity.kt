@@ -54,8 +54,6 @@ class DetailActivity : AppCompatActivity() {
         const val EXTRA_TRANSITION_NAME = "extra_transition_name"
         const val EXTRA_FROM_WIDGET = "extra_from_widget"
         const val EXTRA_RETURN_DISCOVER_TYPE = "extra_return_discover_type"
-        const val EXTRA_RATING = "extra_rating"
-        const val EXTRA_RATING_TEXT = "extra_rating_text"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -307,6 +305,8 @@ class DetailActivity : AppCompatActivity() {
         var cachedTmdbCast: List<TMDBCastMember>? = null
         var cachedTmdbDirectors: List<TMDBCrewMember>? = null
         var cachedTmdbShow: TMDBShowDetails? = null
+        var tmdbCreditsApplied = false
+        val fallbackHandler = Handler(Looper.getMainLooper())
 
         fun animateSectionHeader(view: View, delay: Long = 0L) {
             view.visibility = View.VISIBLE
@@ -342,6 +342,8 @@ class DetailActivity : AppCompatActivity() {
 
         // Apply cached TMDB credits to cast views (idempotent, called from UI thread)
         fun applyCreditsToUi(tmdbCast: List<TMDBCastMember>, tmdbDirectors: List<TMDBCrewMember>, tmdbShow: TMDBShowDetails?) {
+            tmdbCreditsApplied = true
+            fallbackHandler.removeCallbacksAndMessages(null)
             if (tmdbShow != null && tmdbShow.seasons > 0) {
                 val showParts = mutableListOf<String>()
                 showParts.add("${tmdbShow.seasons} season${if (tmdbShow.seasons != 1) "s" else ""}")
@@ -651,48 +653,50 @@ class DetailActivity : AppCompatActivity() {
                     descView.animate().translationY(0f).alpha(1f).setDuration(400).setStartDelay(510)
                         .setInterpolator(DecelerateInterpolator()).start()
 
-                    // Show cast with initials immediately (photos update when TMDB arrives)
+                    // Show Cinemeta cast only as fallback if TMDB credits don't arrive shortly.
                     if (cinemetaCast.isNotEmpty()) {
-                        castContainer.removeAllViews()
-                        val avatarColors = listOf(
-                            "#5B6E9A", "#9E7A3E", "#9B5268", "#42989E",
-                            "#7C6BA0", "#439A6E", "#9B5E7E", "#5B82B0"
-                        )
-                        for ((i, member) in cinemetaCast.withIndex()) {
-                            val item = layoutInflater.inflate(R.layout.item_cast_member, castContainer, false)
-                            val frame = item.findViewById<FrameLayout>(R.id.cast_avatar_frame)
-                            val photoView = item.findViewById<ImageView>(R.id.cast_photo)
-                            val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
-                            val nameView = item.findViewById<TextView>(R.id.cast_name)
+                        fallbackHandler.postDelayed({
+                            if (tmdbCreditsApplied) return@postDelayed
+                            castContainer.removeAllViews()
+                            val avatarColors = listOf(
+                                "#5B6E9A", "#9E7A3E", "#9B5268", "#42989E",
+                                "#7C6BA0", "#439A6E", "#9B5E7E", "#5B82B0"
+                            )
+                            for ((i, member) in cinemetaCast.withIndex()) {
+                                val item = layoutInflater.inflate(R.layout.item_cast_member, castContainer, false)
+                                val frame = item.findViewById<FrameLayout>(R.id.cast_avatar_frame)
+                                val photoView = item.findViewById<ImageView>(R.id.cast_photo)
+                                val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
+                                val nameView = item.findViewById<TextView>(R.id.cast_name)
 
-                            frame.outlineProvider = object : ViewOutlineProvider() {
-                                override fun getOutline(view: View, outline: Outline) {
-                                    outline.setOval(0, 0, view.width, view.height)
+                                frame.outlineProvider = object : ViewOutlineProvider() {
+                                    override fun getOutline(view: View, outline: Outline) {
+                                        outline.setOval(0, 0, view.width, view.height)
+                                    }
                                 }
+                                frame.clipToOutline = true
+
+                                avatarView.text = member.name.firstOrNull()?.uppercase() ?: "?"
+                                try {
+                                    avatarView.background.setTint(Color.parseColor(avatarColors[i % avatarColors.size]))
+                                } catch (_: Exception) {}
+
+                                nameView.text = member.name
+                                item.isClickable = false
+                                item.isFocusable = false
+
+                                castContainer.addView(item)
                             }
-                            frame.clipToOutline = true
 
-                            avatarView.text = member.name.firstOrNull()?.uppercase() ?: "?"
-                            try {
-                                avatarView.background.setTint(Color.parseColor(avatarColors[i % avatarColors.size]))
-                            } catch (_: Exception) {}
-
-                            nameView.text = member.name
-                            item.isClickable = false
-                            item.isFocusable = false
-
-                            castContainer.addView(item)
-                        }
-
-                        animateSectionHeader(castHeader, 560)
-
-                        castScroll.visibility = View.VISIBLE
-                        castScroll.alpha = 0f
-                        castScroll.translationX = 24f
-                        castScroll.animate().translationX(0f).alpha(1f)
-                            .setDuration(260).setStartDelay(575)
-                            .setInterpolator(DecelerateInterpolator()).start()
-                        animateHorizontalItems(castContainer, 580)
+                            animateSectionHeader(castHeader, 560)
+                            castScroll.visibility = View.VISIBLE
+                            castScroll.alpha = 0f
+                            castScroll.translationX = 24f
+                            castScroll.animate().translationX(0f).alpha(1f)
+                                .setDuration(260).setStartDelay(575)
+                                .setInterpolator(DecelerateInterpolator()).start()
+                            animateHorizontalItems(castContainer, 580)
+                        }, 450)
                     }
 
                     // Animate title row
@@ -707,7 +711,11 @@ class DetailActivity : AppCompatActivity() {
                 }
 
                 // Apply TMDB credits if parallel thread already fetched them
-                cachedTmdbCast?.let { cast -> runOnUiThread { applyCreditsToUi(cast, cachedTmdbDirectors ?: emptyList(), cachedTmdbShow) } }
+                cachedTmdbCast?.let { cast ->
+                    if (!tmdbCreditsApplied) {
+                        runOnUiThread { applyCreditsToUi(cast, cachedTmdbDirectors ?: emptyList(), cachedTmdbShow) }
+                    }
+                }
                 // Fire TMDB credits using Cinemeta's tmdb_id (other thread may have already done it)
                 if (tmdbId > 0) fetchCreditsAndUpdatePhotos(tmdbId)
 
