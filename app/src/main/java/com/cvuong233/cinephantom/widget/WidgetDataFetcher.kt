@@ -20,6 +20,7 @@ object WidgetDataFetcher {
         val type: String,   // "movie" or "series"
         val rank: Int,
         val posterUrl: String = "",
+        val ratingText: String = "",
     ) {
         val posterUrlComputed: String get() =
             if (posterUrl.isNotBlank()) posterUrl
@@ -103,6 +104,7 @@ object WidgetDataFetcher {
                         type = if (key == "tv") "series" else "movie",
                         rank = item.optInt("rank", i + 1),
                         posterUrl = item.optString("poster", ""),
+                        ratingText = item.optString("rating", ""),
                     )
                 )
             }

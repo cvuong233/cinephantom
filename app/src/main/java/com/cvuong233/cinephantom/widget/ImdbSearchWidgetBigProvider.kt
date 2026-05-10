@@ -71,6 +71,8 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, effectiveSeed)
         views.setImageViewBitmap(R.id.widget_poster, result.bitmap)
+        val rating = effectiveSeed.ratingText.trim()
+        views.setTextViewText(R.id.widget_rating, if (rating.isNotBlank()) "IMDb $rating" else "IMDb --")
 
         for (id in ids) appWidgetManager.updateAppWidget(id, views)
     }
@@ -105,6 +107,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     put("type", seed.type)
                     put("rank", seed.rank)
                     put("posterUrl", seed.posterUrl)
+                    put("ratingText", seed.ratingText)
                 }.toString())
             } catch (_: Exception) { /* non-critical */ }
             return PosterResult(bmp, seed)
@@ -121,6 +124,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     type = json.optString("type", ""),
                     rank = json.optInt("rank", 0),
                     posterUrl = json.optString("posterUrl", ""),
+                    ratingText = json.optString("ratingText", ""),
                 )
             } else null
         } catch (_: Exception) { null }
