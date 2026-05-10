@@ -274,7 +274,7 @@ class DiscoverFragment : Fragment() {
                 override fun onStop() {
                     super.onStop()
                     recycler.post {
-                        pinTargetExactly(recycler, layoutManager, imdbId, position, desiredTop)
+                        settleTargetExactly(recycler, layoutManager, imdbId, position, desiredTop)
                     }
                 }
             }
@@ -283,37 +283,27 @@ class DiscoverFragment : Fragment() {
         }
     }
 
-    private fun pinTargetExactly(
+    private fun settleTargetExactly(
         recycler: RecyclerView,
         layoutManager: LinearLayoutManager,
         imdbId: String,
         position: Int,
         desiredTop: Int,
-        attemptsLeft: Int = 12,
     ) {
         val targetView = layoutManager.findViewByPosition(position)
         if (targetView == null) {
-            if (attemptsLeft <= 0) {
-                adapter.requestHighlight(imdbId, position)
-                return
-            }
             layoutManager.scrollToPositionWithOffset(position, desiredTop)
-            recycler.postDelayed({
-                pinTargetExactly(recycler, layoutManager, imdbId, position, desiredTop, attemptsLeft - 1)
-            }, 32)
+            recycler.post { adapter.requestHighlight(imdbId, position) }
             return
         }
 
         val delta = targetView.top - desiredTop
-        if (kotlin.math.abs(delta) <= 2) {
+        if (kotlin.math.abs(delta) > 2) {
+            layoutManager.scrollToPositionWithOffset(position, desiredTop)
+            recycler.post { adapter.requestHighlight(imdbId, position) }
+        } else {
             adapter.requestHighlight(imdbId, position)
-            return
         }
-
-        recycler.scrollBy(0, delta)
-        recycler.postDelayed({
-            pinTargetExactly(recycler, layoutManager, imdbId, position, desiredTop, attemptsLeft - 1)
-        }, 32)
     }
 
     private fun updateContentState(showError: Boolean = false) {
