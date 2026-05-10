@@ -20,6 +20,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityMainBinding
+    private var currentTabTag: String = "search"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,6 +29,8 @@ class MainActivity : AppCompatActivity() {
 
         if (savedInstanceState == null) {
             showFragment(SearchFragment(), "search")
+        } else {
+            currentTabTag = supportFragmentManager.fragments.firstOrNull { !it.isHidden }?.tag ?: "search"
         }
 
         binding.bottomNav.setOnItemSelectedListener { item ->
@@ -85,12 +88,18 @@ class MainActivity : AppCompatActivity() {
         val existing = supportFragmentManager.findFragmentByTag(tag)
         if (tag == "discover") clearSearchFocusAndKeyboard()
 
+        val movingForward = when {
+            currentTabTag == tag -> true
+            currentTabTag == "search" && tag == "discover" -> true
+            else -> false
+        }
+
         supportFragmentManager.commit {
             setCustomAnimations(
-                android.R.anim.fade_in,
-                android.R.anim.fade_out,
-                android.R.anim.fade_in,
-                android.R.anim.fade_out
+                if (movingForward) R.anim.fragment_slide_in_right else R.anim.fragment_slide_in_left,
+                if (movingForward) R.anim.fragment_slide_out_left else R.anim.fragment_slide_out_right,
+                if (movingForward) R.anim.fragment_slide_in_left else R.anim.fragment_slide_in_right,
+                if (movingForward) R.anim.fragment_slide_out_right else R.anim.fragment_slide_out_left
             )
             supportFragmentManager.fragments.forEach {
                 if (it.tag != tag && !it.isHidden) hide(it)
@@ -101,5 +110,6 @@ class MainActivity : AppCompatActivity() {
                 add(R.id.main_fragment_container, fragment, tag)
             }
         }
+        currentTabTag = tag
     }
 }

@@ -13,14 +13,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * detail page — so the first lookup (search card or detail page) caches
  * the result, and every subsequent lookup reads from the same cache.
  *
- * Only one Cinemeta request per IMDb ID is ever made, regardless of how
+ * Only one fallback rating lookup per IMDb ID is ever made, regardless of how
  * many times or from where the rating is accessed.
  */
 class SearchRatingLoader(
     private val onRatingFetched: (ImdbTitle) -> Unit,
     private val onComplete: () -> Unit = {},
 ) {
-    private val executor = Executors.newFixedThreadPool(4)
+    private val executor = Executors.newFixedThreadPool(8)
     private val fetcher = RatingFetcher()
     private val finished = AtomicBoolean(false)
 
@@ -48,7 +48,11 @@ class SearchRatingLoader(
         }
 
         executor.submit {
-            latch.await(8, TimeUnit.SECONDS)
+            try {
+                latch.await(20, TimeUnit.SECONDS)
+            } catch (_: Exception) {
+                // ignore
+            }
             if (finished.compareAndSet(false, true)) {
                 onComplete()
             }

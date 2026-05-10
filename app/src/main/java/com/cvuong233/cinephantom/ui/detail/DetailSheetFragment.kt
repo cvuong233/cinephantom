@@ -15,6 +15,7 @@ import coil.size.ViewSizeResolver
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.data.RatingFetcher
+import com.cvuong233.cinephantom.data.TMDBApi
 import com.cvuong233.cinephantom.ui.search.ShimmerView
 import kotlin.concurrent.thread
 
@@ -117,17 +118,12 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
             }
         }
 
-        // Genres — fetch from Cinemeta
+        // Genres — fetch from TMDB
         thread {
             try {
-                val json = java.net.URL("https://v3-cinemeta.strem.io/meta/movie/$imdbId.json").readText()
-                var genres: List<String>? = parseGenres(json)
-                if (genres == null) {
-                    val seriesJson = java.net.URL("https://v3-cinemeta.strem.io/meta/series/$imdbId.json").readText()
-                    genres = parseGenres(seriesJson)
-                }
-                val finalGenres = genres
-                if (finalGenres != null && finalGenres.isNotEmpty()) {
+                val details = TMDBApi().fetchTitleDetailsByImdb(imdbId, preferSeries = (type ?: "").contains("TV", ignoreCase = true))
+                val finalGenres = details?.genres.orEmpty()
+                if (finalGenres.isNotEmpty()) {
                     view.post {
                         genresSkeleton.visibility = View.GONE
                         for (g in finalGenres) {
@@ -164,12 +160,4 @@ class DetailSheetFragment : BottomSheetDialogFragment() {
         }
     }
 
-    private fun parseGenres(json: String): List<String>? {
-        // Look for "genres":["Drama","Action",...]
-        val pattern = """"genres"\s*:\s*\[([^\]]+)\]""".toRegex()
-        val match = pattern.find(json) ?: return null
-        val content = match.groupValues.getOrNull(1) ?: return null
-        // Extract quoted strings
-        return """"(.+?)"""".toRegex().findAll(content).map { it.groupValues[1] }.toList()
-    }
 }

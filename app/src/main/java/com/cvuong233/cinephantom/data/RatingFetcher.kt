@@ -7,16 +7,16 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
- * IMDb rating fetcher.
+ * IMDb/TMDB rating fetcher.
  *
  * Order:
  * 1. Shared in-memory cache
  * 2. Our hosted Top IMDb charts dataset (movies + tv top 100)
- * 3. Cinemeta fallback for titles outside the chart dataset
+ * 3. TMDB fallback for titles outside the chart dataset
  */
 class RatingFetcher {
 
-    private val api = CinemetaApi()
+    private val tmdbApi = TMDBApi()
     private val client = OkHttpClient.Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
@@ -45,14 +45,14 @@ class RatingFetcher {
             return it
         }
 
-        val movieRating = fetchWithType(imdbId, "movie")
-        if (movieRating != null) {
+        val movieRating = tmdbApi.fetchTitleDetailsByImdb(imdbId, preferSeries = false)?.rating
+        if (movieRating != null && movieRating > 0f) {
             sharedCache[imdbId] = movieRating
             return movieRating
         }
 
-        val seriesRating = fetchWithType(imdbId, "series")
-        if (seriesRating != null) {
+        val seriesRating = tmdbApi.fetchTitleDetailsByImdb(imdbId, preferSeries = true)?.rating
+        if (seriesRating != null && seriesRating > 0f) {
             sharedCache[imdbId] = seriesRating
             return seriesRating
         }
@@ -105,12 +105,4 @@ class RatingFetcher {
         }
     }
 
-    private fun fetchWithType(imdbId: String, contentType: String): Float? {
-        return try {
-            val result = api.fetchMetadata(imdbId, contentType)
-            result.getOrNull()?.rating?.takeIf { it > 0 }
-        } catch (_: Exception) {
-            null
-        }
-    }
 }

@@ -296,8 +296,7 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
-        // Fetch metadata — Cinemeta AND TMDB find in parallel
-        // (type normalization now at top of onCreate)
+        // Fetch metadata from TMDB
 
         // Shared state: whichever thread gets tmdbId first fetches credits
         var creditsFetched = false
@@ -502,75 +501,18 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
-        // Thread 1: TMDB find by IMDb ID (runs in parallel with Cinemeta)
         thread {
             try {
-                val findJson = URL("https://api.themoviedb.org/3/find/$imdbId?api_key=${TMDBApi.API_KEY}&external_source=imdb_id").readText()
-                val root = JSONObject(findJson)
-                val results = if (isSeries) root.optJSONArray("tv_results") else root.optJSONArray("movie_results")
-                if (results != null && results.length() > 0) {
-                    val foundId = results.optJSONObject(0)?.optInt("id", -1) ?: -1
-                    if (foundId > 0) fetchCreditsAndUpdatePhotos(foundId)
-                }
-            } catch (_: Exception) {}
-        }
-
-        // Thread 2: Cinemeta (title, rating, genres, description, cast initials)
-        thread {
-            try {
-                val jsonText = URL("https://v3-cinemeta.strem.io/meta/$apiType/$imdbId.json").readText()
-                val meta = JSONObject(jsonText).optJSONObject("meta") ?: return@thread
-
-                val runtime = meta.optString("runtime", "")
-                val description = meta.optString("description", "")
-                val bgUrl = meta.optString("background", "")
-                val posterUrl = meta.optString("poster", "")
-                val tmdbId = meta.optInt("moviedb_id", -1)
-
-                // Genres
-                val genresArr = meta.optJSONArray("genres")
-                val genres = mutableListOf<String>()
-                if (genresArr != null) {
-                    for (i in 0 until genresArr.length()) genres.add(genresArr.optString(i))
-                }
-
-                // Director
-                val directorArr = meta.optJSONArray("director")
-                val directors = mutableListOf<String>()
-                if (directorArr != null) {
-                    for (i in 0 until directorArr.length()) directors.add(directorArr.optString(i))
-                }
-
-                // Cast from Cinemeta (show initials now, TMDB photos update later)
-                val creditsCastArr = meta.optJSONArray("credits_cast")
-                val castArr = if (creditsCastArr != null && creditsCastArr.length() > 0) {
-                    creditsCastArr
-                } else {
-                    meta.optJSONArray("cast")
-                }
-                val cinemetaCast = mutableListOf<CastMember>()
-                if (castArr != null) {
-                    for (i in 0 until castArr.length()) {
-                        val c = castArr.opt(i)
-                        when (c) {
-                            is JSONObject -> {
-                                val pp = c.optString("profile_path", "")
-                                cinemetaCast.add(CastMember(name = c.optString("name", ""), profilePath = pp.ifBlank { null }))
-                            }
-                            is String -> {
-                                if (c.isNotBlank()) cinemetaCast.add(CastMember(name = c, profilePath = null))
-                            }
-                        }
-                    }
-                }
-                if (cinemetaCast.isEmpty() && !intentCast.isNullOrBlank()) {
-                    intentCast.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                        .forEach { cinemetaCast.add(CastMember(name = it, profilePath = null)) }
-                }
+                val details = TMDBApi().fetchTitleDetailsByImdb(imdbId, preferSeries = isSeries)
 
                 runOnUiThread {
-                    // Show Cinemeta data immediately
-                    val landscapeUrl = if (bgUrl.isNotBlank()) bgUrl else posterUrl
+                    val backdropPath = details?.backdropPath
+                    val posterPath = details?.posterPath
+                    val landscapeUrl = when {
+                        !backdropPath.isNullOrBlank() -> "https://image.tmdb.org/t/p/w780$backdropPath"
+                        !posterPath.isNullOrBlank() -> "https://image.tmdb.org/t/p/w780$posterPath"
+                        else -> ""
+                    }
                     if (landscapeUrl.isNotBlank()) {
                         SimpleImageLoader.load(landscapeUrl, backdropImage,
                             onSuccess = {
@@ -588,14 +530,13 @@ class DetailActivity : AppCompatActivity() {
                             }
                         )
                     }
-                    // Keep the portrait poster locked to the incoming source image so
-                    // shared-element transitions from search/discover stay visually identical.
                     posterIn()
 
-                    // Meta: show basic info now (TMDB seasons may update later)
+                    val runtimeText = details?.runtimeMinutes?.takeIf { it > 0 }?.let { "$it min" }
+                    val displayYear = details?.year ?: year
                     val metaParts = mutableListOf<String>()
-                    if (year.isNotBlank()) metaParts.add(year)
-                    if (runtime.isNotBlank()) metaParts.add(runtime)
+                    if (displayYear.isNotBlank()) metaParts.add(displayYear)
+                    if (!runtimeText.isNullOrBlank()) metaParts.add(runtimeText)
                     metaView.text = metaParts.joinToString(" · ").ifBlank { type }
                     metaView.visibility = View.VISIBLE
                     metaView.translationX = -80f
@@ -603,7 +544,7 @@ class DetailActivity : AppCompatActivity() {
                     metaView.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(150)
                         .setInterpolator(DecelerateInterpolator(1.5f)).start()
 
-                    // Rating
+                    details?.rating?.let { applyRating(null, it) }
                     ratingRow.visibility = View.VISIBLE
                     ratingView.visibility = View.VISIBLE
                     ratingRow.translationX = 80f
@@ -611,11 +552,7 @@ class DetailActivity : AppCompatActivity() {
                     ratingRow.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(200)
                         .setInterpolator(DecelerateInterpolator(1.5f)).start()
 
-                    if (directors.isNotEmpty()) {
-                        animateSectionHeader(directorHeader, 540)
-                    }
-
-                    // Genres
+                    val genres = details?.genres.orEmpty()
                     if (genres.isNotEmpty()) {
                         genresContainer.removeAllViews()
                         for (g in genres) {
@@ -633,7 +570,6 @@ class DetailActivity : AppCompatActivity() {
                             .setInterpolator(OvershootInterpolator(1.25f)).start()
                     }
 
-                    // Divider + About
                     divider.visibility = View.VISIBLE
                     divider.scaleX = 0f
                     divider.animate().scaleX(1f).setDuration(400).setStartDelay(400)
@@ -644,7 +580,7 @@ class DetailActivity : AppCompatActivity() {
                     aboutLabel.animate().translationY(0f).alpha(1f).setDuration(300).setStartDelay(480)
                         .setInterpolator(DecelerateInterpolator()).start()
 
-                    // Description
+                    val description = details?.overview.orEmpty()
                     if (description.isNotBlank()) {
                         descView.text = description
                     }
@@ -653,71 +589,17 @@ class DetailActivity : AppCompatActivity() {
                     descView.animate().translationY(0f).alpha(1f).setDuration(400).setStartDelay(510)
                         .setInterpolator(DecelerateInterpolator()).start()
 
-                    // Show Cinemeta cast only as fallback if TMDB credits don't arrive shortly.
-                    if (cinemetaCast.isNotEmpty()) {
-                        fallbackHandler.postDelayed({
-                            if (tmdbCreditsApplied) return@postDelayed
-                            castContainer.removeAllViews()
-                            val avatarColors = listOf(
-                                "#5B6E9A", "#9E7A3E", "#9B5268", "#42989E",
-                                "#7C6BA0", "#439A6E", "#9B5E7E", "#5B82B0"
-                            )
-                            for ((i, member) in cinemetaCast.withIndex()) {
-                                val item = layoutInflater.inflate(R.layout.item_cast_member, castContainer, false)
-                                val frame = item.findViewById<FrameLayout>(R.id.cast_avatar_frame)
-                                val photoView = item.findViewById<ImageView>(R.id.cast_photo)
-                                val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
-                                val nameView = item.findViewById<TextView>(R.id.cast_name)
-
-                                frame.outlineProvider = object : ViewOutlineProvider() {
-                                    override fun getOutline(view: View, outline: Outline) {
-                                        outline.setOval(0, 0, view.width, view.height)
-                                    }
-                                }
-                                frame.clipToOutline = true
-
-                                avatarView.text = member.name.firstOrNull()?.uppercase() ?: "?"
-                                try {
-                                    avatarView.background.setTint(Color.parseColor(avatarColors[i % avatarColors.size]))
-                                } catch (_: Exception) {}
-
-                                nameView.text = member.name
-                                item.isClickable = false
-                                item.isFocusable = false
-
-                                castContainer.addView(item)
-                            }
-
-                            animateSectionHeader(castHeader, 560)
-                            castScroll.visibility = View.VISIBLE
-                            castScroll.alpha = 0f
-                            castScroll.translationX = 24f
-                            castScroll.animate().translationX(0f).alpha(1f)
-                                .setDuration(260).setStartDelay(575)
-                                .setInterpolator(DecelerateInterpolator()).start()
-                            animateHorizontalItems(castContainer, 580)
-                        }, 450)
-                    }
-
-                    // Animate title row
                     titleRow.visibility = View.VISIBLE
                     titleView.translationY = -60f; titleView.alpha = 0f
                     titleView.animate().translationY(0f).alpha(1f).setDuration(450).setStartDelay(50)
                         .setInterpolator(DecelerateInterpolator()).start()
-                    // Stremio icon pops in with bounce
                     stremioBtn.scaleX = 0f; stremioBtn.scaleY = 0f
                     stremioBtn.animate().scaleX(1f).scaleY(1f).setDuration(400).setStartDelay(300)
                         .setInterpolator(OvershootInterpolator(1.3f)).start()
                 }
 
-                // Apply TMDB credits if parallel thread already fetched them
-                cachedTmdbCast?.let { cast ->
-                    if (!tmdbCreditsApplied) {
-                        runOnUiThread { applyCreditsToUi(cast, cachedTmdbDirectors ?: emptyList(), cachedTmdbShow) }
-                    }
-                }
-                // Fire TMDB credits using Cinemeta's tmdb_id (other thread may have already done it)
-                if (tmdbId > 0) fetchCreditsAndUpdatePhotos(tmdbId)
+                details?.showDetails?.let { cachedTmdbShow = it }
+                details?.tmdbId?.takeIf { it > 0 }?.let { fetchCreditsAndUpdatePhotos(it) }
 
             } catch (_: Exception) {
                 runOnUiThread {
@@ -768,5 +650,3 @@ class DetailActivity : AppCompatActivity() {
         )))
     }
 }
-
-private data class CastMember(val name: String, val profilePath: String?)
