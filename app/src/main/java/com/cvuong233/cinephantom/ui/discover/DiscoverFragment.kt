@@ -297,7 +297,7 @@ class DiscoverFragment : Fragment() {
             }
             recycler.postDelayed({
                 smoothScrollTargetIntoPlace(recycler, layoutManager, imdbId, position, desiredTop, attemptsLeft - 1)
-            }, 32)
+            }, 40)
             return
         }
 
@@ -307,11 +307,23 @@ class DiscoverFragment : Fragment() {
             return
         }
 
-        recycler.smoothScrollBy(0, delta)
+        val animatedDelta = when {
+            delta > 0 -> maxOf(delta - 24, 0)
+            else -> minOf(delta + 24, 0)
+        }
+
+        if (animatedDelta != 0) {
+            recycler.smoothScrollBy(0, animatedDelta)
+        }
+
         recycler.postDelayed({
-            layoutManager.scrollToPositionWithOffset(position, desiredTop)
-            recycler.post { adapter.requestHighlight(imdbId, position) }
-        }, 220)
+            val refreshedView = layoutManager.findViewByPosition(position)
+            val finalDelta = (refreshedView?.top ?: desiredTop) - desiredTop
+            if (kotlin.math.abs(finalDelta) > 2) {
+                recycler.scrollBy(0, finalDelta)
+            }
+            adapter.requestHighlight(imdbId, position)
+        }, 260)
     }
 
     private fun updateContentState(showError: Boolean = false) {
