@@ -56,9 +56,13 @@ class SearchFragment : Fragment() {
     fun clearSearchFocus() {
         val binding = bindingRef ?: return
         binding.searchEditText.clearFocus()
+        binding.searchEditText.clearComposingText()
+        binding.searchEditText.isCursorVisible = false
+        binding.root.isFocusableInTouchMode = true
         binding.root.requestFocus()
         val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(binding.searchEditText.windowToken, 0)
+        imm?.hideSoftInputFromWindow(binding.root.windowToken, 0)
     }
 
     private fun setupView(binding: com.cvuong233.cinephantom.databinding.ActivitySearchBinding) {
@@ -89,6 +93,7 @@ class SearchFragment : Fragment() {
         })
 
         binding.searchEditText.requestFocus()
+        binding.searchEditText.isCursorVisible = true
         binding.searchEditText.postDelayed({
             val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(binding.searchEditText, InputMethodManager.SHOW_IMPLICIT)
@@ -97,6 +102,7 @@ class SearchFragment : Fragment() {
         // Search bar focus state
         binding.searchEditText.setOnFocusChangeListener { _, hasFocus ->
             val layout = binding.searchInputLayout
+            binding.searchEditText.isCursorVisible = hasFocus
             if (hasFocus) {
                 layout.boxStrokeColor = Color.parseColor("#CDA8FF")
                 layout.alpha = 1f

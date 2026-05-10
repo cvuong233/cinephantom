@@ -61,8 +61,12 @@ class MainActivity : AppCompatActivity() {
                     clearSearchFocusAndKeyboard()
                     binding.bottomNav.selectedItemId = R.id.nav_discover
                     supportFragmentManager.executePendingTransactions()
-                    (supportFragmentManager.findFragmentByTag("discover") as? DiscoverFragment)
-                        ?.focusOnTitle(imdbId, type)
+                    binding.root.post {
+                        clearSearchFocusAndKeyboard()
+                        (supportFragmentManager.findFragmentByTag("discover") as? DiscoverFragment)
+                            ?.focusOnTitle(imdbId, type)
+                        binding.root.postDelayed({ clearSearchFocusAndKeyboard() }, 120)
+                    }
                 }
             }
         }
