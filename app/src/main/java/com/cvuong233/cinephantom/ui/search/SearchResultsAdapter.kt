@@ -1,9 +1,6 @@
 package com.cvuong233.cinephantom.ui.search
 
-import android.animation.AnimatorSet
-import android.animation.ArgbEvaluator
 import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -139,10 +136,8 @@ class SearchResultsAdapter(
             val baseStroke = context.getColor(R.color.surface_border)
             val glowStroke = context.getColor(R.color.neon_pink)
             val baseMetaBg = context.getColor(R.color.imdb_yellow)
-            val pulseMetaBg = context.getColor(R.color.neon_pink)
             binding.metaText.setTextColor(baseMetaBg)
-            binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)?.mutate()
-            binding.metaText.background?.setTint(baseMetaBg)
+            binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)
             (binding.root as? MaterialCardView)?.apply {
                 strokeWidth = 1
                 strokeColor = baseStroke
@@ -179,35 +174,32 @@ class SearchResultsAdapter(
                     val card = binding.root as? MaterialCardView
                     binding.root.animate().cancel()
                     binding.posterFrame.animate().cancel()
-                    binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)?.mutate()
-                    binding.metaText.background?.setTint(baseMetaBg)
 
-                    binding.root.alpha = 0.86f
-                    binding.root.scaleX = 0.972f
-                    binding.root.scaleY = 0.972f
-                    binding.posterFrame.scaleX = 0.985f
-                    binding.posterFrame.scaleY = 0.985f
-                    binding.posterFrame.alpha = 0.92f
+                    binding.root.alpha = 0.82f
+                    binding.root.scaleX = 0.978f
+                    binding.root.scaleY = 0.978f
+                    binding.posterFrame.scaleX = 0.988f
+                    binding.posterFrame.scaleY = 0.988f
+                    binding.posterFrame.alpha = 0.94f
                     card?.strokeWidth = 2
                     card?.strokeColor = glowStroke
-                    binding.metaText.background?.setTint(pulseMetaBg)
 
-                    AnimatorSet().apply {
-                        playTogether(
-                            ObjectAnimator.ofFloat(binding.root, View.ALPHA, 0.86f, 1f),
-                            ObjectAnimator.ofFloat(binding.root, View.SCALE_X, 0.972f, 1.012f, 1f),
-                            ObjectAnimator.ofFloat(binding.root, View.SCALE_Y, 0.972f, 1.012f, 1f),
-                            ObjectAnimator.ofFloat(binding.posterFrame, View.SCALE_X, 0.985f, 1.02f, 1f),
-                            ObjectAnimator.ofFloat(binding.posterFrame, View.SCALE_Y, 0.985f, 1.02f, 1f),
-                            ObjectAnimator.ofFloat(binding.posterFrame, View.ALPHA, 0.92f, 1f),
-                            ValueAnimator.ofObject(ArgbEvaluator(), glowStroke, baseStroke).apply {
-                                addUpdateListener { card?.strokeColor = it.animatedValue as Int }
-                            },
-                            ValueAnimator.ofObject(ArgbEvaluator(), pulseMetaBg, baseMetaBg).apply {
-                                addUpdateListener { binding.metaText.background?.setTint(it.animatedValue as Int) }
-                            }
-                        )
-                        duration = 680
+                    binding.root.animate()
+                        .alpha(1f)
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(420)
+                        .start()
+
+                    binding.posterFrame.animate()
+                        .alpha(1f)
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(420)
+                        .start()
+
+                    ObjectAnimator.ofArgb(card, "strokeColor", glowStroke, baseStroke).apply {
+                        duration = 520
                         start()
                     }
 
@@ -220,9 +212,9 @@ class SearchResultsAdapter(
                         binding.posterFrame.alpha = 1f
                         binding.posterFrame.scaleX = 1f
                         binding.posterFrame.scaleY = 1f
-                        binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)?.mutate()
-                        binding.metaText.background?.setTint(baseMetaBg)
-                    }, 720)
+                        binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)
+                        binding.metaText.setTextColor(baseMetaBg)
+                    }, 560)
                 }
             }
 

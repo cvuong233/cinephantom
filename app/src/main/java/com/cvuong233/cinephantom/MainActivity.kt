@@ -3,6 +3,7 @@ package com.cvuong233.cinephantom
 import android.os.Bundle
 import android.content.Intent
 import android.app.SearchManager
+import android.view.inputmethod.InputMethodManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
@@ -57,6 +58,7 @@ class MainActivity : AppCompatActivity() {
                 val imdbId = intent.getStringExtra(EXTRA_DISCOVER_IMDB_ID).orEmpty()
                 val type = intent.getStringExtra(EXTRA_DISCOVER_TYPE).orEmpty()
                 if (imdbId.isNotBlank()) {
+                    clearSearchFocusAndKeyboard()
                     binding.bottomNav.selectedItemId = R.id.nav_discover
                     supportFragmentManager.executePendingTransactions()
                     (supportFragmentManager.findFragmentByTag("discover") as? DiscoverFragment)
@@ -66,8 +68,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun clearSearchFocusAndKeyboard() {
+        currentFocus?.clearFocus()
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(binding.root.windowToken, 0)
+        supportFragmentManager.findFragmentByTag("search")?.view?.findFocus()?.clearFocus()
+    }
+
     private fun showFragment(fragment: Fragment, tag: String) {
         val existing = supportFragmentManager.findFragmentByTag(tag)
+        if (tag == "discover") clearSearchFocusAndKeyboard()
+
         supportFragmentManager.commit {
             setCustomAnimations(
                 android.R.anim.fade_in,
