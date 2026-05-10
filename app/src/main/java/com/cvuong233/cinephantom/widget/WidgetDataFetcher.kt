@@ -93,7 +93,8 @@ object WidgetDataFetcher {
 
         for (key in listOf("movies", "tv")) {
             val arr = root.optJSONArray(key) ?: continue
-            for (i in 0 until arr.length()) {
+            val limit = minOf(arr.length(), 20)
+            for (i in 0 until limit) {
                 val item = arr.optJSONObject(i) ?: continue
                 allItems.add(
                     Seed(
