@@ -1,5 +1,9 @@
 package com.cvuong233.cinephantom.ui.search
 
+import android.animation.AnimatorSet
+import android.animation.ArgbEvaluator
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -8,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.databinding.ItemSearchResultBinding
 import com.cvuong233.cinephantom.model.ImdbTitle
+import com.google.android.material.card.MaterialCardView
 
 class SearchResultsAdapter(
     private val onClick: (View, ImdbTitle) -> Unit,
@@ -161,16 +166,49 @@ class SearchResultsAdapter(
             if (item.id == highlightId) {
                 highlightId = null
                 binding.root.post {
+                    val card = binding.root as? MaterialCardView
                     binding.root.animate().cancel()
-                    binding.root.alpha = 0.5f
-                    binding.root.scaleX = 0.985f
-                    binding.root.scaleY = 0.985f
-                    binding.root.animate()
-                        .alpha(1f)
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(420)
-                        .start()
+                    binding.posterFrame.animate().cancel()
+
+                    val baseStroke = binding.root.context.getColor(R.color.surface_border)
+                    val glowStroke = binding.root.context.getColor(R.color.neon_pink)
+                    val baseMetaBg = binding.root.context.getColor(R.color.imdb_yellow)
+                    val pulseMetaBg = binding.root.context.getColor(R.color.neon_pink)
+
+                    binding.root.alpha = 0.86f
+                    binding.root.scaleX = 0.972f
+                    binding.root.scaleY = 0.972f
+                    binding.posterFrame.scaleX = 0.985f
+                    binding.posterFrame.scaleY = 0.985f
+                    binding.posterFrame.alpha = 0.92f
+                    card?.strokeWidth = 2
+                    card?.strokeColor = glowStroke
+                    binding.metaText.background?.mutate()?.setTint(pulseMetaBg)
+
+                    val settle = AnimatorSet().apply {
+                        playTogether(
+                            ObjectAnimator.ofFloat(binding.root, View.ALPHA, 0.86f, 1f),
+                            ObjectAnimator.ofFloat(binding.root, View.SCALE_X, 0.972f, 1.012f, 1f),
+                            ObjectAnimator.ofFloat(binding.root, View.SCALE_Y, 0.972f, 1.012f, 1f),
+                            ObjectAnimator.ofFloat(binding.posterFrame, View.SCALE_X, 0.985f, 1.02f, 1f),
+                            ObjectAnimator.ofFloat(binding.posterFrame, View.SCALE_Y, 0.985f, 1.02f, 1f),
+                            ObjectAnimator.ofFloat(binding.posterFrame, View.ALPHA, 0.92f, 1f),
+                            ValueAnimator.ofObject(ArgbEvaluator(), glowStroke, baseStroke).apply {
+                                addUpdateListener { card?.strokeColor = it.animatedValue as Int }
+                            },
+                            ValueAnimator.ofObject(ArgbEvaluator(), pulseMetaBg, baseMetaBg).apply {
+                                addUpdateListener { binding.metaText.background?.mutate()?.setTint(it.animatedValue as Int) }
+                            }
+                        )
+                        duration = 680
+                        start()
+                    }
+
+                    binding.root.postDelayed({
+                        card?.strokeWidth = 1
+                        card?.strokeColor = baseStroke
+                        binding.metaText.background?.mutate()?.setTint(baseMetaBg)
+                    }, 720)
                 }
             }
 
