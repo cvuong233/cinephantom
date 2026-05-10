@@ -37,13 +37,7 @@ class RatingFetcher {
      * Fetch rating for an IMDb ID. Returns the numeric rating, or null on failure.
      */
     fun fetchRating(imdbId: String): Float? {
-        sharedCache[imdbId]?.let { return it.takeIf { v -> v > 0f } }
-
-        loadChartRatingsIfNeeded()
-        chartRatings[imdbId]?.takeIf { it > 0f }?.let {
-            sharedCache[imdbId] = it
-            return it
-        }
+        fetchCachedOrChartRating(imdbId)?.let { return it }
 
         val movieRating = tmdbApi.fetchTitleDetailsByImdb(imdbId, preferSeries = false)?.rating
         if (movieRating != null && movieRating > 0f) {
@@ -58,6 +52,18 @@ class RatingFetcher {
         }
 
         sharedCache[imdbId] = -1f
+        return null
+    }
+
+    fun fetchCachedOrChartRating(imdbId: String): Float? {
+        sharedCache[imdbId]?.let { return it.takeIf { v -> v > 0f } }
+
+        loadChartRatingsIfNeeded()
+        chartRatings[imdbId]?.takeIf { it > 0f }?.let {
+            sharedCache[imdbId] = it
+            return it
+        }
+
         return null
     }
 

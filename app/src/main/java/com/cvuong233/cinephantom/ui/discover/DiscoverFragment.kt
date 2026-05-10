@@ -44,6 +44,7 @@ class DiscoverFragment : Fragment() {
     private var recyclerView: RecyclerView? = null
     private var pendingFocusImdbId: String? = null
     private var pendingFocusType: String? = null
+    private var lastFilter: String = "movies"
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -122,6 +123,7 @@ class DiscoverFragment : Fragment() {
     }
 
     private fun setFilter(type: String) {
+        val previousFilter = currentFilter
         currentFilter = type
         val view = view ?: return
         val filterMovies = view.findViewById<TextView>(R.id.discover_filter_movies)
@@ -137,26 +139,30 @@ class DiscoverFragment : Fragment() {
         unselected.setBackgroundResource(R.drawable.bg_discover_tab_unselected)
         unselected.setTextColor(0xFF8F7E8F.toInt())
 
-        selected.scaleX = 0.92f
-        selected.scaleY = 0.92f
-        selected.alpha = 0.82f
+        selected.scaleX = 0.9f
+        selected.scaleY = 0.9f
+        selected.alpha = 0.78f
+        selected.translationY = 4f
         selected.animate()
             .scaleX(1f)
             .scaleY(1f)
             .alpha(1f)
-            .setDuration(240)
+            .translationY(0f)
+            .setDuration(220)
             .start()
 
         unselected.animate()
-            .scaleX(0.98f)
-            .scaleY(0.98f)
-            .alpha(0.9f)
-            .setDuration(180)
+            .scaleX(0.97f)
+            .scaleY(0.97f)
+            .alpha(0.88f)
+            .translationY(2f)
+            .setDuration(150)
             .withEndAction {
-                unselected.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(140).start()
+                unselected.animate().scaleX(1f).scaleY(1f).alpha(1f).translationY(0f).setDuration(120).start()
             }
             .start()
 
+        lastFilter = previousFilter
         showContent()
     }
 
@@ -209,6 +215,8 @@ class DiscoverFragment : Fragment() {
         inFlightRatings.clear()
         recycler?.animate()?.cancel()
 
+        val movingToTv = currentFilter == "tv"
+        val movingForward = lastFilter != currentFilter && movingToTv
         if (hasPendingFocus) {
             recycler?.alpha = 1f
             recycler?.translationX = 0f
@@ -217,10 +225,10 @@ class DiscoverFragment : Fragment() {
             recycler?.scaleY = 1f
         } else {
             recycler?.alpha = 0f
-            recycler?.translationX = if (currentFilter == "movies") -28f else 28f
-            recycler?.translationY = 14f
-            recycler?.scaleX = 0.985f
-            recycler?.scaleY = 0.985f
+            recycler?.translationX = if (movingForward) 54f else -54f
+            recycler?.translationY = 8f
+            recycler?.scaleX = 0.972f
+            recycler?.scaleY = 0.972f
         }
 
         adapter.hideLoading()
@@ -236,7 +244,8 @@ class DiscoverFragment : Fragment() {
                 ?.translationY(0f)
                 ?.scaleX(1f)
                 ?.scaleY(1f)
-                ?.setDuration(300)
+                ?.setDuration(250)
+                ?.withEndAction { recycler?.post { animateVisibleItems() } }
                 ?.start()
         }
     }
@@ -280,6 +289,34 @@ class DiscoverFragment : Fragment() {
                     recycler.scrollBy(0, finalDelta)
                 }
             }
+        }
+    }
+
+    private fun animateVisibleItems() {
+        val recycler = recyclerView ?: return
+        val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return
+        val first = layoutManager.findFirstVisibleItemPosition()
+        val last = layoutManager.findLastVisibleItemPosition()
+        if (first == RecyclerView.NO_POSITION || last == RecyclerView.NO_POSITION) return
+
+        var delay = 0L
+        for (position in first..minOf(last, first + 5)) {
+            val child = layoutManager.findViewByPosition(position) ?: continue
+            child.animate().cancel()
+            child.alpha = 0f
+            child.translationY = 18f
+            child.translationX = 0f
+            child.scaleX = 0.985f
+            child.scaleY = 0.985f
+            child.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(220)
+                .setStartDelay(delay)
+                .start()
+            delay += 24L
         }
     }
 

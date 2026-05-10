@@ -146,9 +146,10 @@ class DetailActivity : AppCompatActivity() {
 
         applyRating(null, null)
 
+        val ratingFetcher = RatingFetcher()
         thread {
             try {
-                val fetched = RatingFetcher().fetchRating(imdbId)
+                val fetched = ratingFetcher.fetchRating(imdbId)
                 if (fetched != null && fetched > 0f) {
                     runOnUiThread {
                         applyRating(null, fetched)
@@ -544,7 +545,8 @@ class DetailActivity : AppCompatActivity() {
                     metaView.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(150)
                         .setInterpolator(DecelerateInterpolator(1.5f)).start()
 
-                    details?.rating?.let { applyRating(null, it) }
+                    val preferredRating = ratingFetcher.fetchCachedOrChartRating(imdbId) ?: details?.rating
+                    preferredRating?.let { applyRating(null, it) }
                     ratingRow.visibility = View.VISIBLE
                     ratingView.visibility = View.VISIBLE
                     ratingRow.translationX = 80f
