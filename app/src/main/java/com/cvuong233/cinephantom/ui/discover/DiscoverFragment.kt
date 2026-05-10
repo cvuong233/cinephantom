@@ -9,8 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
-import android.view.animation.OvershootInterpolator
-import android.view.ViewTreeObserver
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
@@ -62,7 +60,6 @@ class DiscoverFragment : Fragment() {
         recycler.layoutManager = LinearLayoutManager(requireContext())
         recyclerView = recycler
         recycler.itemAnimator = null
-        recycler.overScrollMode = View.OVER_SCROLL_NEVER
         adapter = SearchResultsAdapter { posterView, title -> openImdbTitle(posterView, title) }
         adapter.onStremioClick = { openInStremio(it) }
         adapter.onRatingNeeded = { title -> loadVisibleRating(title) }
@@ -77,13 +74,6 @@ class DiscoverFragment : Fragment() {
         filterMovies.setOnClickListener { if (currentFilter != "movies") setFilter("movies") }
         filterTv.setOnClickListener { if (currentFilter != "tv") setFilter("tv") }
         swipe.setOnRefreshListener { loadCharts(forceRefresh = true) }
-
-        val observer = recycler.viewTreeObserver
-        observer.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
-            override fun onGlobalLayout() {
-                animateVisibleItems(recycler)
-            }
-        })
 
         setFilter("movies")
         if (!isLoaded) loadCharts() else showContent()
@@ -227,10 +217,10 @@ class DiscoverFragment : Fragment() {
             recycler?.scaleY = 1f
         } else {
             recycler?.alpha = 0f
-            recycler?.translationX = if (currentFilter == "movies") -34f else 34f
-            recycler?.translationY = 18f
-            recycler?.scaleX = 0.982f
-            recycler?.scaleY = 0.982f
+            recycler?.translationX = if (currentFilter == "movies") -28f else 28f
+            recycler?.translationY = 14f
+            recycler?.scaleX = 0.985f
+            recycler?.scaleY = 0.985f
         }
 
         adapter.hideLoading()
@@ -246,29 +236,8 @@ class DiscoverFragment : Fragment() {
                 ?.translationY(0f)
                 ?.scaleX(1f)
                 ?.scaleY(1f)
-                ?.setDuration(320)
-                ?.setInterpolator(OvershootInterpolator(0.42f))
+                ?.setDuration(300)
                 ?.start()
-        }
-    }
-
-    private fun animateVisibleItems(recycler: RecyclerView) {
-        for (i in 0 until recycler.childCount) {
-            val child = recycler.getChildAt(i) ?: continue
-            if (child.alpha >= 0.99f) continue
-            child.translationY = 54f
-            child.scaleX = 0.96f
-            child.scaleY = 0.96f
-            child.alpha = 0f
-            child.animate()
-                .translationY(0f)
-                .scaleX(1f)
-                .scaleY(1f)
-                .alpha(1f)
-                .setDuration(360)
-                .setStartDelay(i * 42L)
-                .setInterpolator(OvershootInterpolator(0.72f))
-                .start()
         }
     }
 

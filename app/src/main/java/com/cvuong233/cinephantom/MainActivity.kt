@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.content.Intent
 import android.app.SearchManager
 import android.view.inputmethod.InputMethodManager
-import android.view.animation.OvershootInterpolator
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
@@ -32,19 +31,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.bottomNav.setOnItemSelectedListener { item ->
-            binding.bottomNav.animate()
-                .scaleX(0.985f)
-                .scaleY(0.985f)
-                .setDuration(90)
-                .withEndAction {
-                    binding.bottomNav.animate()
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(220)
-                        .setInterpolator(OvershootInterpolator(0.75f))
-                        .start()
-                }
-                .start()
             when (item.itemId) {
                 R.id.nav_search -> showFragment(SearchFragment(), "search")
                 R.id.nav_discover -> showFragment(DiscoverFragment(), "discover")
@@ -99,11 +85,6 @@ class MainActivity : AppCompatActivity() {
         val existing = supportFragmentManager.findFragmentByTag(tag)
         if (tag == "discover") clearSearchFocusAndKeyboard()
 
-        binding.mainFragmentContainer.animate().cancel()
-        binding.mainFragmentContainer.alpha = 0.92f
-        binding.mainFragmentContainer.scaleX = 0.992f
-        binding.mainFragmentContainer.scaleY = 0.992f
-
         supportFragmentManager.commit {
             setCustomAnimations(
                 android.R.anim.fade_in,
@@ -120,13 +101,5 @@ class MainActivity : AppCompatActivity() {
                 add(R.id.main_fragment_container, fragment, tag)
             }
         }
-
-        binding.mainFragmentContainer.animate()
-            .alpha(1f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(220)
-            .setInterpolator(OvershootInterpolator(0.45f))
-            .start()
     }
 }

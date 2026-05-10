@@ -68,7 +68,6 @@ class SearchFragment : Fragment() {
     private fun setupView(binding: com.cvuong233.cinephantom.databinding.ActivitySearchBinding) {
         binding.resultsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.resultsRecyclerView.adapter = adapter
-        binding.resultsRecyclerView.overScrollMode = View.OVER_SCROLL_NEVER
 
         adapter.onStremioClick = { openInStremio(it) }
 
@@ -130,15 +129,6 @@ class SearchFragment : Fragment() {
                 true
             } else false
         }
-
-        binding.searchInputLayout.alpha = 0f
-        binding.searchInputLayout.translationY = -18f
-        binding.searchInputLayout.animate()
-            .alpha(1f)
-            .translationY(0f)
-            .setDuration(320)
-            .setInterpolator(OvershootInterpolator(0.55f))
-            .start()
     }
 
     private fun setFilter(binding: com.cvuong233.cinephantom.databinding.ActivitySearchBinding, type: String?) { return }  // disabled
@@ -185,19 +175,10 @@ class SearchFragment : Fragment() {
 
             activity?.runOnUiThread {
                 if (latestQuery != query) return@runOnUiThread
-                binding.resultsRecyclerView.animate().cancel()
-                binding.resultsRecyclerView.alpha = 0.75f
-                binding.resultsRecyclerView.translationY = 18f
                 adapter.submitList(filtered)
                 adapter.hideLoading()
                 updateEmptyState(binding)
                 adapter.onRatingFetchDone()
-                binding.resultsRecyclerView.animate()
-                    .alpha(1f)
-                    .translationY(0f)
-                    .setDuration(220)
-                    .setInterpolator(OvershootInterpolator(0.45f))
-                    .start()
                 if (filtered.isEmpty() && query.isNotEmpty()) {
                     updateEmptyState(binding)
                 }
