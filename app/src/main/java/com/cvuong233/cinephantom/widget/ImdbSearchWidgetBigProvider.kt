@@ -155,7 +155,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
             },
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        views.setOnClickPendingIntent(R.id.widget_featured, detailPi)
+        views.setOnClickPendingIntent(R.id.widget_poster, detailPi)
     }
 
     private fun downloadBitmap(url: String): Bitmap? {
