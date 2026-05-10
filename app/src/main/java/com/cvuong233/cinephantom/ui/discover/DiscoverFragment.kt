@@ -13,6 +13,7 @@ import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.cvuong233.cinephantom.R
@@ -254,45 +255,65 @@ class DiscoverFragment : Fragment() {
 
         val recycler = recyclerView ?: return
         val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return
+        val desiredTop = 120
+
         recycler.post {
-            layoutManager.scrollToPositionWithOffset(position, 120)
-            recycler.post {
-                alignAndHighlightTarget(recycler, layoutManager, imdbId, position)
+            val scroller = object : LinearSmoothScroller(recycler.context) {
+                override fun getVerticalSnapPreference(): Int = SNAP_TO_START
+
+                override fun calculateDtToFit(
+                    viewStart: Int,
+                    viewEnd: Int,
+                    boxStart: Int,
+                    boxEnd: Int,
+                    snapPreference: Int,
+                ): Int {
+                    return (boxStart + desiredTop) - viewStart
+                }
+
+                override fun onStop() {
+                    super.onStop()
+                    recycler.post {
+                        pinTargetExactly(recycler, layoutManager, imdbId, position, desiredTop)
+                    }
+                }
             }
+            scroller.targetPosition = position
+            layoutManager.startSmoothScroll(scroller)
         }
     }
 
-    private fun alignAndHighlightTarget(
+    private fun pinTargetExactly(
         recycler: RecyclerView,
         layoutManager: LinearLayoutManager,
         imdbId: String,
         position: Int,
-        attemptsLeft: Int = 8,
+        desiredTop: Int,
+        attemptsLeft: Int = 12,
     ) {
         val targetView = layoutManager.findViewByPosition(position)
-        if (targetView != null) {
-            val desiredTop = 120
-            val delta = targetView.top - desiredTop
-            if (kotlin.math.abs(delta) > 6) {
-                recycler.smoothScrollBy(0, delta)
-                recycler.postDelayed({
-                    alignAndHighlightTarget(recycler, layoutManager, imdbId, position, attemptsLeft - 1)
-                }, 80)
-            } else {
+        if (targetView == null) {
+            if (attemptsLeft <= 0) {
                 adapter.requestHighlight(imdbId, position)
+                return
             }
+            layoutManager.scrollToPositionWithOffset(position, desiredTop)
+            recycler.postDelayed({
+                pinTargetExactly(recycler, layoutManager, imdbId, position, desiredTop, attemptsLeft - 1)
+            }, 32)
             return
         }
 
-        if (attemptsLeft <= 0) {
+        val delta = targetView.top - desiredTop
+        if (kotlin.math.abs(delta) <= 2) {
             adapter.requestHighlight(imdbId, position)
             return
         }
 
-        layoutManager.scrollToPositionWithOffset(position, 120)
+        recycler.scrollBy(0, delta)
         recycler.postDelayed({
-            alignAndHighlightTarget(recycler, layoutManager, imdbId, position, attemptsLeft - 1)
-        }, 80)
+            pinTargetExactly(recycler, layoutManager, imdbId, position, desiredTop, attemptsLeft - 1)
+        }, 32)
     }
 
     private fun updateContentState(showError: Boolean = false) {
