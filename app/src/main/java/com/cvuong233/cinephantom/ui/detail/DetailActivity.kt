@@ -41,6 +41,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.concurrent.thread
+import java.util.concurrent.atomic.AtomicReference
 
 class DetailActivity : AppCompatActivity() {
 
@@ -145,17 +146,34 @@ class DetailActivity : AppCompatActivity() {
         }
 
         applyRating(null, null)
+        ratingRow.visibility = View.INVISIBLE
+        ratingView.visibility = View.INVISIBLE
 
         val ratingFetcher = RatingFetcher()
+        val preloadedRating = AtomicReference<Float?>(null)
+
+        fun revealRating(ratingValue: Float?, delay: Long = 0L) {
+            if (ratingValue == null || ratingValue <= 0f) return
+            applyRating(null, ratingValue)
+            ratingRow.visibility = View.VISIBLE
+            ratingView.visibility = View.VISIBLE
+            ratingRow.translationY = -18f
+            ratingRow.alpha = 0f
+            ratingRow.animate().cancel()
+            ratingRow.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(340)
+                .setStartDelay(delay)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+
         thread {
             try {
                 val fetched = ratingFetcher.fetchRating(imdbId)
                 if (fetched != null && fetched > 0f) {
-                    runOnUiThread {
-                        applyRating(null, fetched)
-                        ratingRow.visibility = View.VISIBLE
-                        ratingView.visibility = View.VISIBLE
-                    }
+                    preloadedRating.set(fetched)
                 }
             } catch (_: Exception) {}
         }
@@ -545,14 +563,8 @@ class DetailActivity : AppCompatActivity() {
                     metaView.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(150)
                         .setInterpolator(DecelerateInterpolator(1.5f)).start()
 
-                    val preferredRating = ratingFetcher.fetchCachedOrChartRating(imdbId) ?: details?.rating
-                    preferredRating?.let { applyRating(null, it) }
-                    ratingRow.visibility = View.VISIBLE
-                    ratingView.visibility = View.VISIBLE
-                    ratingRow.translationX = 80f
-                    ratingRow.alpha = 0f
-                    ratingRow.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(200)
-                        .setInterpolator(DecelerateInterpolator(1.5f)).start()
+                    val preferredRating = preloadedRating.get() ?: ratingFetcher.fetchCachedOrChartRating(imdbId) ?: details?.rating
+                    revealRating(preferredRating, 180)
 
                     val genres = details?.genres.orEmpty()
                     if (genres.isNotEmpty()) {
