@@ -135,8 +135,18 @@ class SearchResultsAdapter(
 
             val rating = item.rating
             val ratingText = item.ratingText?.trim().orEmpty()
-            binding.metaText.setTextColor(binding.root.context.getColor(R.color.imdb_yellow))
-            binding.metaText.background = binding.root.context.getDrawable(R.drawable.bg_rating_badge_pill)
+            val context = binding.root.context
+            val baseStroke = context.getColor(R.color.surface_border)
+            val glowStroke = context.getColor(R.color.neon_pink)
+            val baseMetaBg = context.getColor(R.color.imdb_yellow)
+            val pulseMetaBg = context.getColor(R.color.neon_pink)
+            binding.metaText.setTextColor(baseMetaBg)
+            binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)?.mutate()
+            binding.metaText.background?.setTint(baseMetaBg)
+            (binding.root as? MaterialCardView)?.apply {
+                strokeWidth = 1
+                strokeColor = baseStroke
+            }
             if (ratingText.isNotBlank()) {
                 binding.metaText.text = "IMDb $ratingText"
                 binding.metaText.visibility = View.VISIBLE
@@ -169,11 +179,8 @@ class SearchResultsAdapter(
                     val card = binding.root as? MaterialCardView
                     binding.root.animate().cancel()
                     binding.posterFrame.animate().cancel()
-
-                    val baseStroke = binding.root.context.getColor(R.color.surface_border)
-                    val glowStroke = binding.root.context.getColor(R.color.neon_pink)
-                    val baseMetaBg = binding.root.context.getColor(R.color.imdb_yellow)
-                    val pulseMetaBg = binding.root.context.getColor(R.color.neon_pink)
+                    binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)?.mutate()
+                    binding.metaText.background?.setTint(baseMetaBg)
 
                     binding.root.alpha = 0.86f
                     binding.root.scaleX = 0.972f
@@ -183,9 +190,9 @@ class SearchResultsAdapter(
                     binding.posterFrame.alpha = 0.92f
                     card?.strokeWidth = 2
                     card?.strokeColor = glowStroke
-                    binding.metaText.background?.mutate()?.setTint(pulseMetaBg)
+                    binding.metaText.background?.setTint(pulseMetaBg)
 
-                    val settle = AnimatorSet().apply {
+                    AnimatorSet().apply {
                         playTogether(
                             ObjectAnimator.ofFloat(binding.root, View.ALPHA, 0.86f, 1f),
                             ObjectAnimator.ofFloat(binding.root, View.SCALE_X, 0.972f, 1.012f, 1f),
@@ -197,7 +204,7 @@ class SearchResultsAdapter(
                                 addUpdateListener { card?.strokeColor = it.animatedValue as Int }
                             },
                             ValueAnimator.ofObject(ArgbEvaluator(), pulseMetaBg, baseMetaBg).apply {
-                                addUpdateListener { binding.metaText.background?.mutate()?.setTint(it.animatedValue as Int) }
+                                addUpdateListener { binding.metaText.background?.setTint(it.animatedValue as Int) }
                             }
                         )
                         duration = 680
@@ -207,7 +214,14 @@ class SearchResultsAdapter(
                     binding.root.postDelayed({
                         card?.strokeWidth = 1
                         card?.strokeColor = baseStroke
-                        binding.metaText.background?.mutate()?.setTint(baseMetaBg)
+                        binding.root.alpha = 1f
+                        binding.root.scaleX = 1f
+                        binding.root.scaleY = 1f
+                        binding.posterFrame.alpha = 1f
+                        binding.posterFrame.scaleX = 1f
+                        binding.posterFrame.scaleY = 1f
+                        binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)?.mutate()
+                        binding.metaText.background?.setTint(baseMetaBg)
                     }, 720)
                 }
             }
