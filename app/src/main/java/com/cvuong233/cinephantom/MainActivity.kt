@@ -5,11 +5,18 @@ import android.content.Intent
 import android.app.SearchManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.commit
 import com.cvuong233.cinephantom.databinding.ActivityMainBinding
 import com.cvuong233.cinephantom.ui.search.SearchFragment
 import com.cvuong233.cinephantom.ui.discover.DiscoverFragment
 
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        const val ACTION_OPEN_DISCOVER_TITLE = "cinephantom.intent.action.OPEN_DISCOVER_TITLE"
+        const val EXTRA_DISCOVER_IMDB_ID = "extra_discover_imdb_id"
+        const val EXTRA_DISCOVER_TYPE = "extra_discover_type"
+    }
 
     private lateinit var binding: ActivityMainBinding
 
@@ -30,18 +37,44 @@ class MainActivity : AppCompatActivity() {
             true
         }
 
-        // Handle incoming search intents
-        if (Intent.ACTION_SEARCH == intent?.action) {
-            val query = intent.getStringExtra(SearchManager.QUERY)
-            binding.bottomNav.selectedItemId = R.id.nav_search
-            // The SearchFragment will read this via its arguments or a callback
-            intent.removeExtra(SearchManager.QUERY)
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        when (intent?.action) {
+            Intent.ACTION_SEARCH -> {
+                intent.getStringExtra(SearchManager.QUERY)
+                binding.bottomNav.selectedItemId = R.id.nav_search
+                intent.removeExtra(SearchManager.QUERY)
+            }
+            ACTION_OPEN_DISCOVER_TITLE -> {
+                val imdbId = intent.getStringExtra(EXTRA_DISCOVER_IMDB_ID).orEmpty()
+                val type = intent.getStringExtra(EXTRA_DISCOVER_TYPE).orEmpty()
+                if (imdbId.isNotBlank()) {
+                    binding.bottomNav.selectedItemId = R.id.nav_discover
+                    supportFragmentManager.executePendingTransactions()
+                    (supportFragmentManager.findFragmentByTag("discover") as? DiscoverFragment)
+                        ?.focusOnTitle(imdbId, type)
+                }
+            }
         }
     }
 
     private fun showFragment(fragment: Fragment, tag: String) {
         val existing = supportFragmentManager.findFragmentByTag(tag)
-        supportFragmentManager.beginTransaction().apply {
+        supportFragmentManager.commit {
+            setCustomAnimations(
+                android.R.anim.fade_in,
+                android.R.anim.fade_out,
+                android.R.anim.fade_in,
+                android.R.anim.fade_out
+            )
             supportFragmentManager.fragments.forEach {
                 if (it.tag != tag && !it.isHidden) hide(it)
             }
@@ -50,7 +83,6 @@ class MainActivity : AppCompatActivity() {
             } else {
                 add(R.id.main_fragment_container, fragment, tag)
             }
-            commit()
         }
     }
 }

@@ -20,21 +20,30 @@ class SearchResultsAdapter(
 
     private val items = mutableListOf<ImdbTitle>()
     private val pendingRatings = mutableSetOf<String>()
+    private val requestedRatings = mutableSetOf<String>()
     private var isLoading = false
     private val skeletonCount = 5
+    private var highlightId: String? = null
 
     var onStremioClick: ((ImdbTitle) -> Unit)? = null
+    var onRatingNeeded: ((ImdbTitle) -> Unit)? = null
 
     fun showLoading() { isLoading = true; notifyDataSetChanged() }
     fun hideLoading() { isLoading = false; notifyDataSetChanged() }
 
     fun isLoading(): Boolean = isLoading
 
+    fun requestHighlight(imdbId: String, position: Int) {
+        highlightId = imdbId
+        if (position in items.indices) notifyItemChanged(position, "highlight")
+    }
+
     fun submitList(newList: List<ImdbTitle>) {
         items.clear()
         items.addAll(newList)
         pendingRatings.clear()
-        pendingRatings.addAll(newList.map { it.id })
+        requestedRatings.clear()
+        pendingRatings.addAll(newList.filter { it.rating == null || it.rating <= 0f }.map { it.id })
         notifyDataSetChanged()
     }
 
@@ -85,9 +94,18 @@ class SearchResultsAdapter(
         }
     }
 
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (holder is ResultViewHolder && payloads.contains("highlight")) {
+            holder.bind(items[position], position)
+            return
+        }
+        super.onBindViewHolder(holder, position, payloads)
+    }
+
     override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
         if (holder is ResultViewHolder) {
-            holder.binding.posterPlaceholder.stopAndHide()
+            holder.binding.posterPlaceholder.visibility = View.VISIBLE
+            holder.binding.posterImage.visibility = View.GONE
         }
     }
 
@@ -110,47 +128,58 @@ class SearchResultsAdapter(
             // Title
             binding.titleText.text = item.title
 
-            // Type + year meta chip
-            val meta = listOfNotNull(item.typeLabel, item.year).joinToString(" • ")
-            binding.metaText.text = meta
-            binding.metaText.visibility = if (meta.isBlank()) View.GONE else View.VISIBLE
-
-            // Rating badge — IMDb style, rolling digits
             val rating = item.rating
-            if (rating != null && rating > 0f) {
-                binding.ratingBadge.visibility = View.VISIBLE
-                binding.ratingBadge.text = "IMDb "
-                RatingAnimation.animateRolling(binding.ratingBadge, rating)
+            val ratingText = item.ratingText?.trim().orEmpty()
+            binding.metaText.setTextColor(binding.root.context.getColor(R.color.imdb_yellow))
+            binding.metaText.background = binding.root.context.getDrawable(R.drawable.bg_rating_badge_pill)
+            if (ratingText.isNotBlank()) {
+                binding.metaText.text = "IMDb $ratingText"
+                binding.metaText.visibility = View.VISIBLE
+            } else if (rating != null && rating > 0f) {
+                binding.metaText.text = String.format(java.util.Locale.US, "IMDb %.1f", rating)
+                binding.metaText.visibility = View.VISIBLE
             } else if (pendingRatings.contains(item.id)) {
-                // Still waiting for rating — show rolling placeholder
-                binding.ratingBadge.visibility = View.VISIBLE
-                binding.ratingBadge.text = "IMDb --"
-                RatingAnimation.startContinuousRoll(binding.ratingBadge)
+                binding.metaText.text = "IMDb --"
+                binding.metaText.visibility = View.VISIBLE
+                if (requestedRatings.add(item.id)) {
+                    onRatingNeeded?.invoke(item)
+                }
             } else {
-                // Rating fetch completed with no result — hide badge
-                binding.ratingBadge.visibility = View.GONE
-                RatingAnimation.stop(binding.ratingBadge)
+                binding.metaText.visibility = View.GONE
             }
 
-            // Genres — hidden by default
-            binding.genresContainer.visibility = View.GONE
+            val rankLabel = item.rankLabel?.trim().orEmpty()
+            if (rankLabel.isNotBlank()) {
+                binding.rankText.text = rankLabel
+                binding.rankText.visibility = View.VISIBLE
+            } else {
+                binding.rankText.visibility = View.GONE
+            }
 
-            // Cast label
-            val hasCast = !item.cast.isNullOrBlank()
-            binding.castLabelText.visibility = if (hasCast) View.VISIBLE else View.GONE
+            binding.ratingBadge.visibility = View.GONE
 
-            // Cast text
-            binding.castText.text = item.cast ?: "Tap to open detail page"
-            binding.castText.alpha = if (hasCast) 1f else 0.72f
+            if (item.id == highlightId) {
+                highlightId = null
+                binding.root.post {
+                    binding.root.animate().cancel()
+                    binding.root.alpha = 0.5f
+                    binding.root.scaleX = 0.985f
+                    binding.root.scaleY = 0.985f
+                    binding.root.animate()
+                        .alpha(1f)
+                        .scaleX(1f)
+                        .scaleY(1f)
+                        .setDuration(420)
+                        .start()
+                }
+            }
 
             // Poster — load manually
             if (item.imageUrl.isNullOrBlank()) {
                 binding.posterImage.visibility = View.GONE
                 binding.posterPlaceholder.visibility = View.VISIBLE
-                binding.posterPlaceholder.startShimmer()
             } else {
                 binding.posterPlaceholder.visibility = View.VISIBLE
-                binding.posterPlaceholder.startShimmer()
                 binding.posterImage.visibility = View.GONE
                 binding.posterImage.setImageDrawable(null)
                 SimpleImageLoader.load(
@@ -158,10 +187,11 @@ class SearchResultsAdapter(
                     imageView = binding.posterImage,
                     onSuccess = {
                         binding.posterImage.visibility = View.VISIBLE
-                        binding.posterPlaceholder.stopAndHide()
+                        binding.posterPlaceholder.visibility = View.GONE
                     },
                     onError = {
-                        binding.posterPlaceholder.stopAndHide()
+                        binding.posterImage.visibility = View.GONE
+                        binding.posterPlaceholder.visibility = View.VISIBLE
                     },
                 )
             }

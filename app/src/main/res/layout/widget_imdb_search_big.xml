@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Hero poster widget: poster fills featured area, rank overlaid bottom-right, search bar below. -->
+<!-- Hero poster widget: poster fills featured area, search bar below. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FF0A0F1E">
 
-    <!-- Featured area: poster fills space, rank overlaid -->
+    <!-- Featured area: poster fills space -->
     <FrameLayout
         android:id="@+id/widget_featured"
         android:layout_width="match_parent"
@@ -20,23 +20,6 @@
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
             android:background="#FF0D1526" />
-
-        <!-- Rank badge: bottom-right, semitransparent -->
-        <TextView
-            android:id="@+id/widget_rank_badge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:layout_marginEnd="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="#CC000000"
-            android:paddingLeft="8dp"
-            android:paddingRight="8dp"
-            android:paddingTop="3dp"
-            android:paddingBottom="3dp"
-            android:textColor="#FFF5F7FF"
-            android:textSize="16sp"
-            android:textStyle="bold" />
     </FrameLayout>
 
     <!-- Divider -->

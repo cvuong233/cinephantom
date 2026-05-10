@@ -19,7 +19,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.ScrollView
+import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import com.cvuong233.cinephantom.ui.FuturisticAnim
 import com.cvuong233.cinephantom.R
@@ -29,6 +31,7 @@ import org.json.JSONObject
 import java.net.URL
 import com.cvuong233.cinephantom.data.TMDBApi
 import com.cvuong233.cinephantom.data.TMDBCastMember
+import com.cvuong233.cinephantom.data.TMDBCrewMember
 import com.cvuong233.cinephantom.data.TMDBShowDetails
 import com.cvuong233.cinephantom.data.WatchlistDatabase
 import com.cvuong233.cinephantom.model.WatchlistItem
@@ -47,6 +50,9 @@ class DetailActivity : AppCompatActivity() {
         const val EXTRA_CAST = "extra_cast"
         const val EXTRA_YEAR = "extra_year"
         const val EXTRA_TYPE = "extra_type"
+        const val EXTRA_TRANSITION_NAME = "extra_transition_name"
+        const val EXTRA_FROM_WIDGET = "extra_from_widget"
+        const val EXTRA_RETURN_DISCOVER_TYPE = "extra_return_discover_type"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,6 +65,7 @@ class DetailActivity : AppCompatActivity() {
         val year = intent?.getStringExtra(EXTRA_YEAR) ?: ""
         val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
         val intentCast = intent?.getStringExtra(EXTRA_CAST)
+        val launchedFromWidget = intent?.getBooleanExtra(EXTRA_FROM_WIDGET, false) == true
 
         // Normalize type early — needed by trailer button and metadata threads
         val typeLower = type?.lowercase() ?: ""
@@ -68,22 +75,29 @@ class DetailActivity : AppCompatActivity() {
         val apiType = if (isSeries) "series" else "movie"
 
         // Views
-        val backBtn = findViewById<TextView>(R.id.detail_back)
-        val heroImage = findViewById<ImageView>(R.id.detail_hero)
-        ViewCompat.setTransitionName(heroImage, "poster_$imdbId")
+        val backBtn = findViewById<ImageView>(R.id.detail_back)
+        val posterImage = findViewById<ImageView>(R.id.detail_hero)
+        val backdropImage = findViewById<ImageView>(R.id.detail_backdrop)
+        val incomingTransitionName = intent?.getStringExtra(EXTRA_TRANSITION_NAME)
+        ViewCompat.setTransitionName(posterImage, incomingTransitionName ?: "poster_$imdbId")
         val heroShimmer = findViewById<View>(R.id.detail_hero_shimmer)
-        val shimmerBar = findViewById<View>(R.id.detail_shimmer_bar)
         val titleView = findViewById<TextView>(R.id.detail_title)
         val titleRow = findViewById<LinearLayout>(R.id.detail_title_row)
         val metaView = findViewById<TextView>(R.id.detail_meta)
         val ratingView = findViewById<TextView>(R.id.detail_rating)
-        val directorView = findViewById<TextView>(R.id.detail_director)
+        val ratingRow = findViewById<LinearLayout>(R.id.detail_rating_row)
+        val directorHeader = findViewById<LinearLayout>(R.id.detail_director_header)
+        val directorLabelView = findViewById<TextView>(R.id.detail_director_label)
+        val directorScroll = findViewById<HorizontalScrollView>(R.id.detail_director_scroll)
+        val directorContainer = findViewById<LinearLayout>(R.id.detail_director_container)
         val descView = findViewById<TextView>(R.id.detail_description)
         val genresContainer = findViewById<FlowLayout>(R.id.detail_genres_container)
         val castContainer = findViewById<LinearLayout>(R.id.detail_cast_container)
         val castScroll = findViewById<HorizontalScrollView>(R.id.detail_cast_scroll)
         val aboutLabel = findViewById<TextView>(R.id.detail_about_label)
+        val castHeader = findViewById<LinearLayout>(R.id.detail_cast_header)
         val castLabel = findViewById<TextView>(R.id.detail_cast_label)
+        val castViewAll = findViewById<TextView>(R.id.detail_cast_view_all)
         val divider = findViewById<View>(R.id.detail_divider)
         val shareBtn = findViewById<ImageView>(R.id.detail_share_button)
         val stremioBtn = findViewById<ImageView>(R.id.detail_stremio_button)
@@ -94,14 +108,30 @@ class DetailActivity : AppCompatActivity() {
         val tvEpisodes = findViewById<TextView>(R.id.detail_tv_episodes)
         val tvStatus = findViewById<TextView>(R.id.detail_tv_status)
 
-        // Back button — fade in. If launched from widget, go to app search screen.
+        // Back button — if launched from widget, return to Top IMDb and focus the title.
         backBtn.setOnClickListener {
-            if (isTaskRoot) {
+            if (launchedFromWidget) {
+                navigateBackToDiscover(imdbId)
+            } else if (isTaskRoot) {
                 startActivity(Intent(this, MainActivity::class.java))
+                finish()
+            } else {
+                finishAfterTransition()
             }
-            finish()
         }
         backBtn.animate().alpha(1f).setDuration(300).start()
+
+        onBackPressedDispatcher.addCallback(this) {
+            if (launchedFromWidget) {
+                navigateBackToDiscover(imdbId)
+            } else if (isTaskRoot) {
+                startActivity(Intent(this@DetailActivity, MainActivity::class.java))
+                finish()
+            } else {
+                isEnabled = false
+                finishAfterTransition()
+            }
+        }
 
         // Share button
         shareBtn.setOnClickListener {
@@ -166,39 +196,45 @@ class DetailActivity : AppCompatActivity() {
         // Set title early (will animate in after data loads)
         titleView.text = title
 
-        // Hero: start zoomed out, animate in when ready
-        heroImage.scaleX = 0.92f
-        heroImage.scaleY = 0.92f
-        heroImage.alpha = 0f
+        // Shared element target must exist immediately using the incoming portrait image.
+        // Backdrop stays independent and can load later.
+        posterImage.alpha = 1f
+        posterImage.scaleX = 1f
+        posterImage.scaleY = 1f
+        backdropImage.alpha = 0f
+        heroShimmer.visibility = View.GONE
 
-        // Shimmer pulse animation while Cinemeta loads
-        shimmerPulse(shimmerBar)
-        var heroLoaded = false
+        var posterLoaded = false
 
-        val heroIn = {
-            if (!heroLoaded) {
-                heroLoaded = true
-                heroShimmer.animate().alpha(0f).setDuration(200).start()
-                heroImage.visibility = View.VISIBLE
-                heroImage.animate()
-                    .scaleX(1f).scaleY(1f).alpha(1f)
-                    .setDuration(700)
-                    .setInterpolator(OvershootInterpolator(1.05f))
-                    .start()
-
+        val posterIn = {
+            if (!posterLoaded) {
+                posterLoaded = true
+                posterImage.visibility = View.VISIBLE
             }
         }
 
-        // Fallback: if Cinemeta takes >4s, show poster from intent extras
-        val posterFallback = {
-            if (!heroLoaded && imageUrl.isNotBlank()) {
-                SimpleImageLoader.load(imageUrl, heroImage,
-                    onSuccess = { heroIn() },
-                    onError = { heroIn() }
-                )
+        if (imageUrl.isNotBlank()) {
+            SimpleImageLoader.load(imageUrl, posterImage,
+                onSuccess = { posterIn() },
+                onError = { posterIn() }
+            )
+        } else {
+            posterIn()
+        }
+
+        var currentCastForViewAll: List<TMDBCastMember> = emptyList()
+
+        castViewAll.setOnClickListener {
+            if (currentCastForViewAll.isNotEmpty()) {
+                startActivity(Intent(this, FullCastActivity::class.java).apply {
+                    putExtra(FullCastActivity.EXTRA_TITLE, title)
+                    putStringArrayListExtra(FullCastActivity.EXTRA_NAMES, ArrayList(currentCastForViewAll.map { it.name }))
+                    putStringArrayListExtra(FullCastActivity.EXTRA_CHARACTERS, ArrayList(currentCastForViewAll.map { it.character ?: "" }))
+                    putStringArrayListExtra(FullCastActivity.EXTRA_PROFILES, ArrayList(currentCastForViewAll.map { it.profilePath ?: "" }))
+                    putIntegerArrayListExtra(FullCastActivity.EXTRA_IDS, ArrayList(currentCastForViewAll.map { it.id }))
+                })
             }
         }
-        Handler(Looper.getMainLooper()).postDelayed(posterFallback, 4000)
 
         // Stremio button
         stremioBtn.setOnClickListener {
@@ -218,7 +254,8 @@ class DetailActivity : AppCompatActivity() {
         val scrollView = findViewById<ScrollView>(R.id.detail_scroll)
         scrollView.setOnScrollChangeListener { _, _, scrollY, _, _ ->
             val parallax = scrollY * 0.4f
-            heroImage.translationY = parallax
+            backdropImage.translationY = parallax
+            posterImage.translationY = parallax * 0.18f
             // Fade out back button + hero as you scroll
             val fadeThreshold = 300f
             val alpha = (1f - scrollY / fadeThreshold).coerceIn(0f, 1f)
@@ -229,7 +266,7 @@ class DetailActivity : AppCompatActivity() {
         thread {
             Thread.sleep(800)
             runOnUiThread {
-                FuturisticAnim.glowPulse(trailerBtn, 0.97f, 1.03f)
+                FuturisticAnim.glowPulse(stremioBtn, 0.97f, 1.03f)
             }
         }
 
@@ -240,10 +277,43 @@ class DetailActivity : AppCompatActivity() {
         var creditsFetched = false
         val creditsLock = Any()
         var cachedTmdbCast: List<TMDBCastMember>? = null
+        var cachedTmdbDirectors: List<TMDBCrewMember>? = null
         var cachedTmdbShow: TMDBShowDetails? = null
 
+        fun animateSectionHeader(view: View, delay: Long = 0L) {
+            view.visibility = View.VISIBLE
+            view.translationY = 20f
+            view.alpha = 0f
+            view.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(320)
+                .setStartDelay(delay)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+
+        fun animateHorizontalItems(container: LinearLayout, delay: Long = 0L) {
+            for (i in 0 until container.childCount) {
+                val child = container.getChildAt(i)
+                child.translationY = 28f
+                child.scaleX = 0.94f
+                child.scaleY = 0.94f
+                child.alpha = 0f
+                child.animate()
+                    .translationY(0f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .alpha(1f)
+                    .setDuration(360)
+                    .setStartDelay(delay + i * 55L)
+                    .setInterpolator(OvershootInterpolator(1.08f))
+                    .start()
+            }
+        }
+
         // Apply cached TMDB credits to cast views (idempotent, called from UI thread)
-        fun applyCreditsToUi(tmdbCast: List<TMDBCastMember>, tmdbShow: TMDBShowDetails?) {
+        fun applyCreditsToUi(tmdbCast: List<TMDBCastMember>, tmdbDirectors: List<TMDBCrewMember>, tmdbShow: TMDBShowDetails?) {
             if (tmdbShow != null && tmdbShow.seasons > 0) {
                 val showParts = mutableListOf<String>()
                 showParts.add("${tmdbShow.seasons} season${if (tmdbShow.seasons != 1) "s" else ""}")
@@ -265,26 +335,120 @@ class DetailActivity : AppCompatActivity() {
                 tvStatus.setTextColor(if (statusText == "Returning") Color.parseColor("#4CAF50") else Color.parseColor("#4DA6FF"))
                 tvCard.visibility = View.VISIBLE
             }
-            if (tmdbCast.isNotEmpty() && castContainer.childCount > 0) {
-                for (tmbdMember in tmdbCast) {
-                    if (tmbdMember.profilePath == null) continue
-                    for (j in 0 until castContainer.childCount) {
-                        val item = castContainer.getChildAt(j)
-                        val nameView = item.findViewById<TextView>(R.id.cast_name)
-                        if (nameView.text == tmbdMember.name) {
-                            val photoView = item.findViewById<ImageView>(R.id.cast_photo)
-                            val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
-                            val photoUrl = TMDBApi.profileImageUrl(tmbdMember.profilePath)
-                            SimpleImageLoader.loadCastPhoto(photoUrl, photoView,
-                                onSuccess = {
-                                    photoView.visibility = View.VISIBLE
-                                    avatarView.visibility = View.GONE
-                                }
-                            )
-                            break
+            if (tmdbCast.isNotEmpty()) {
+                currentCastForViewAll = tmdbCast
+                animateSectionHeader(castHeader, 90)
+                castScroll.visibility = View.VISIBLE
+                castScroll.alpha = 0f
+                castScroll.translationX = 24f
+                castContainer.removeAllViews()
+                for (member in tmdbCast.take(3)) {
+                    val item = layoutInflater.inflate(R.layout.item_cast_member, castContainer, false)
+                    val frame = item.findViewById<FrameLayout>(R.id.cast_avatar_frame)
+                    val photoView = item.findViewById<ImageView>(R.id.cast_photo)
+                    val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
+                    val nameView = item.findViewById<TextView>(R.id.cast_name)
+
+                    frame.outlineProvider = object : ViewOutlineProvider() {
+                        override fun getOutline(view: View, outline: Outline) {
+                            outline.setOval(0, 0, view.width, view.height)
                         }
                     }
+                    frame.clipToOutline = true
+
+                    avatarView.text = member.name.firstOrNull()?.uppercase() ?: "?"
+                    nameView.text = member.name
+
+                    if (!member.profilePath.isNullOrBlank()) {
+                        val photoUrl = TMDBApi.profileImageLargeUrl(member.profilePath)
+                        item.setOnClickListener {
+                            if (member.id > 0) {
+                                startActivity(Intent(this@DetailActivity, CastDetailActivity::class.java).apply {
+                                    putExtra(CastDetailActivity.EXTRA_PERSON_ID, member.id)
+                                    putExtra(CastDetailActivity.EXTRA_PERSON_NAME, member.name)
+                                    putExtra(CastDetailActivity.EXTRA_PERSON_PHOTO, member.profilePath)
+                                })
+                            }
+                        }
+                        SimpleImageLoader.loadCastPhoto(photoUrl, photoView,
+                            onSuccess = {
+                                photoView.visibility = View.VISIBLE
+                                avatarView.visibility = View.GONE
+                            }
+                        )
+                    } else {
+                        item.isClickable = false
+                        item.isFocusable = false
+                    }
+
+                    castContainer.addView(item)
                 }
+                castScroll.animate()
+                    .translationX(0f)
+                    .alpha(1f)
+                    .setDuration(260)
+                    .setStartDelay(110)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+                animateHorizontalItems(castContainer, 130)
+            }
+
+            if (tmdbDirectors.isNotEmpty()) {
+                animateSectionHeader(directorHeader, 40)
+                directorScroll.visibility = View.VISIBLE
+                directorScroll.alpha = 0f
+                directorScroll.translationX = 24f
+                directorContainer.removeAllViews()
+                for (member in tmdbDirectors.take(3)) {
+                    val item = layoutInflater.inflate(R.layout.item_cast_member, directorContainer, false)
+                    val frame = item.findViewById<FrameLayout>(R.id.cast_avatar_frame)
+                    val photoView = item.findViewById<ImageView>(R.id.cast_photo)
+                    val avatarView = item.findViewById<TextView>(R.id.cast_avatar)
+                    val nameView = item.findViewById<TextView>(R.id.cast_name)
+
+                    frame.outlineProvider = object : ViewOutlineProvider() {
+                        override fun getOutline(view: View, outline: Outline) {
+                            outline.setOval(0, 0, view.width, view.height)
+                        }
+                    }
+                    frame.clipToOutline = true
+
+                    avatarView.text = member.name.firstOrNull()?.uppercase() ?: "?"
+                    nameView.text = member.name
+
+                    if (!member.profilePath.isNullOrBlank()) {
+                        val photoUrl = TMDBApi.profileImageLargeUrl(member.profilePath)
+                        SimpleImageLoader.loadCastPhoto(photoUrl, photoView,
+                            onSuccess = {
+                                photoView.visibility = View.VISIBLE
+                                avatarView.visibility = View.GONE
+                            }
+                        )
+                    }
+
+                    if (member.id > 0) {
+                        item.setOnClickListener {
+                            startActivity(Intent(this@DetailActivity, CastDetailActivity::class.java).apply {
+                                putExtra(CastDetailActivity.EXTRA_PERSON_ID, member.id)
+                                putExtra(CastDetailActivity.EXTRA_PERSON_NAME, member.name)
+                                putExtra(CastDetailActivity.EXTRA_PERSON_PHOTO, member.profilePath)
+                            })
+                        }
+                    } else {
+                        item.isClickable = false
+                        item.isFocusable = false
+                    }
+
+                    directorContainer.addView(item)
+                }
+                directorScroll.animate()
+                    .translationX(0f)
+                    .alpha(1f)
+                    .setDuration(260)
+                    .setStartDelay(70)
+                    .setInterpolator(DecelerateInterpolator())
+                    .start()
+                animateHorizontalItems(directorContainer, 90)
             }
         }
 
@@ -297,10 +461,12 @@ class DetailActivity : AppCompatActivity() {
             try {
                 val tmdbApi = TMDBApi()
                 val tmdbCast = tmdbApi.fetchCredits(tmdbId, isSeries)
+                val tmdbDirectors = tmdbApi.fetchDirectors(tmdbId, isSeries)
                 val tmdbShow = if (isSeries) tmdbApi.fetchShowDetails(tmdbId) else null
                 cachedTmdbCast = tmdbCast
+                cachedTmdbDirectors = tmdbDirectors
                 cachedTmdbShow = tmdbShow
-                runOnUiThread { applyCreditsToUi(tmdbCast, tmdbShow) }
+                runOnUiThread { applyCreditsToUi(tmdbCast, tmdbDirectors, tmdbShow) }
             } catch (_: Exception) {
                 synchronized(creditsLock) { creditsFetched = false }
             }
@@ -377,11 +543,25 @@ class DetailActivity : AppCompatActivity() {
                     // Show Cinemeta data immediately
                     val landscapeUrl = if (bgUrl.isNotBlank()) bgUrl else posterUrl
                     if (landscapeUrl.isNotBlank()) {
-                        SimpleImageLoader.load(landscapeUrl, heroImage,
-                            onSuccess = { heroIn() },
-                            onError = { heroIn() }
+                        SimpleImageLoader.load(landscapeUrl, backdropImage,
+                            onSuccess = {
+                                backdropImage.animate().alpha(1f).setDuration(350).start()
+                            },
+                            onError = {
+                                if (imageUrl.isNotBlank()) {
+                                    SimpleImageLoader.load(imageUrl, backdropImage,
+                                        onSuccess = { backdropImage.animate().alpha(1f).setDuration(350).start() },
+                                        onError = { backdropImage.alpha = 1f }
+                                    )
+                                } else {
+                                    backdropImage.alpha = 1f
+                                }
+                            }
                         )
                     }
+                    // Keep the portrait poster locked to the incoming source image so
+                    // shared-element transitions from search/discover stay visually identical.
+                    posterIn()
 
                     // Meta: show basic info now (TMDB seasons may update later)
                     val metaParts = mutableListOf<String>()
@@ -400,27 +580,16 @@ class DetailActivity : AppCompatActivity() {
                     } else {
                         ratingView.text = "IMDb --"
                     }
+                    ratingRow.visibility = View.VISIBLE
                     ratingView.visibility = View.VISIBLE
-                    ratingView.translationX = 80f
-                    ratingView.alpha = 0f
-                    ratingView.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(200)
+                    ratingRow.translationX = 80f
+                    ratingRow.alpha = 0f
+                    ratingRow.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(200)
                         .setInterpolator(DecelerateInterpolator(1.5f)).start()
 
-                    // Director
                     if (directors.isNotEmpty()) {
-                        directorView.text = "🎬 ${directors.joinToString(", ")}"
+                        animateSectionHeader(directorHeader, 540)
                     }
-                    directorView.visibility = View.VISIBLE
-                    directorView.translationX = -60f
-                    directorView.alpha = 0f
-                    directorView.animate().translationX(0f).alpha(1f).setDuration(350).setStartDelay(250)
-                        .setInterpolator(DecelerateInterpolator()).start()
-
-                    // Show trailer button
-                    trailerBtn.visibility = View.VISIBLE
-                    trailerBtn.scaleX = 0f; trailerBtn.scaleY = 0f
-                    trailerBtn.animate().scaleX(1f).scaleY(1f).setDuration(300).setStartDelay(280)
-                        .setInterpolator(OvershootInterpolator(1.15f)).start()
 
                     // Genres
                     if (genres.isNotEmpty()) {
@@ -487,24 +656,21 @@ class DetailActivity : AppCompatActivity() {
                             } catch (_: Exception) {}
 
                             nameView.text = member.name
+                            item.isClickable = false
+                            item.isFocusable = false
 
                             castContainer.addView(item)
                         }
 
-                        castLabel.visibility = View.VISIBLE
-                        castLabel.translationX = -40f; castLabel.alpha = 0f
-                        castLabel.animate().translationX(0f).alpha(1f)
-                            .setDuration(300).setStartDelay(560)
-                            .setInterpolator(DecelerateInterpolator()).start()
+                        animateSectionHeader(castHeader, 560)
 
                         castScroll.visibility = View.VISIBLE
-                        for (i in 0 until castContainer.childCount) {
-                            val child = castContainer.getChildAt(i)
-                            child.translationY = 50f; child.alpha = 0f
-                            child.animate().translationY(0f).alpha(1f)
-                                .setDuration(350).setStartDelay(580 + i * 55L)
-                                .setInterpolator(OvershootInterpolator(1.1f)).start()
-                        }
+                        castScroll.alpha = 0f
+                        castScroll.translationX = 24f
+                        castScroll.animate().translationX(0f).alpha(1f)
+                            .setDuration(260).setStartDelay(575)
+                            .setInterpolator(DecelerateInterpolator()).start()
+                        animateHorizontalItems(castContainer, 580)
                     }
 
                     // Animate title row
@@ -519,7 +685,7 @@ class DetailActivity : AppCompatActivity() {
                 }
 
                 // Apply TMDB credits if parallel thread already fetched them
-                cachedTmdbCast?.let { cast -> runOnUiThread { applyCreditsToUi(cast, cachedTmdbShow) } }
+                cachedTmdbCast?.let { cast -> runOnUiThread { applyCreditsToUi(cast, cachedTmdbDirectors ?: emptyList(), cachedTmdbShow) } }
                 // Fire TMDB credits using Cinemeta's tmdb_id (other thread may have already done it)
                 if (tmdbId > 0) fetchCreditsAndUpdatePhotos(tmdbId)
             } catch (_: Exception) {
@@ -534,6 +700,17 @@ class DetailActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun navigateBackToDiscover(imdbId: String) {
+        val discoverType = intent?.getStringExtra(EXTRA_RETURN_DISCOVER_TYPE).orEmpty()
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_OPEN_DISCOVER_TITLE
+            putExtra(MainActivity.EXTRA_DISCOVER_IMDB_ID, imdbId)
+            putExtra(MainActivity.EXTRA_DISCOVER_TYPE, discoverType)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        })
+        finish()
     }
 
     private fun shimmerPulse(view: View) {

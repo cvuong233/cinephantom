@@ -1,29 +1,31 @@
 package com.cvuong233.cinephantom.ui.discover
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.AnimationUtils
-import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.cvuong233.cinephantom.R
+import com.cvuong233.cinephantom.data.RatingFetcher
+import com.cvuong233.cinephantom.model.ImdbTitle
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
-import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
+import com.cvuong233.cinephantom.ui.search.SearchResultsAdapter
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.concurrent.thread
 
 class DiscoverFragment : Fragment() {
 
@@ -36,7 +38,12 @@ class DiscoverFragment : Fragment() {
     private var allMovies = listOf<ChartItem>()
     private var allTv = listOf<ChartItem>()
     private var isLoaded = false
-    private lateinit var adapter: DiscoverAdapter
+    private val ratingFetcher = RatingFetcher()
+    private val inFlightRatings = ConcurrentHashMap.newKeySet<String>()
+    private lateinit var adapter: SearchResultsAdapter
+    private var recyclerView: RecyclerView? = null
+    private var pendingFocusImdbId: String? = null
+    private var pendingFocusType: String? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -50,30 +57,68 @@ class DiscoverFragment : Fragment() {
         val swipe = view.findViewById<SwipeRefreshLayout>(R.id.discover_swipe)
         val recycler = view.findViewById<RecyclerView>(R.id.discover_recycler)
 
-        recycler.layoutManager = GridLayoutManager(requireContext(), 2)
-        adapter = DiscoverAdapter { view, item ->
-            val intent = Intent(requireContext(), DetailActivity::class.java).apply {
-                putExtra(DetailActivity.EXTRA_IMDB_ID, item.imdbId)
-                putExtra(DetailActivity.EXTRA_TITLE, item.title)
-                putExtra(DetailActivity.EXTRA_IMAGE_URL, item.poster)
-                putExtra(DetailActivity.EXTRA_TYPE, if (item.type == "tv") "TV Series" else "Movie")
-                putExtra(DetailActivity.EXTRA_YEAR, "")
-                putExtra(DetailActivity.EXTRA_CAST, "")
-            }
-            ViewCompat.setTransitionName(view, "poster_${item.imdbId}")
-            val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-                requireActivity(), view, "poster_${item.imdbId}"
-            )
-            startActivity(intent, options.toBundle())
-        }
+        recycler.layoutManager = LinearLayoutManager(requireContext())
+        recyclerView = recycler
+        recycler.itemAnimator = null
+        adapter = SearchResultsAdapter { posterView, title -> openImdbTitle(posterView, title) }
+        adapter.onStremioClick = { openInStremio(it) }
+        adapter.onRatingNeeded = { title -> loadVisibleRating(title) }
         recycler.adapter = adapter
 
-        filterMovies.setOnClickListener { setFilter("movies") }
-        filterTv.setOnClickListener { setFilter("tv") }
-        swipe.setOnRefreshListener { loadCharts() }
+        adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
+            override fun onChanged() { updateContentState() }
+            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) { updateContentState() }
+            override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) { updateContentState() }
+        })
+
+        filterMovies.setOnClickListener { if (currentFilter != "movies") setFilter("movies") }
+        filterTv.setOnClickListener { if (currentFilter != "tv") setFilter("tv") }
+        swipe.setOnRefreshListener { loadCharts(forceRefresh = true) }
 
         setFilter("movies")
-        loadCharts()
+        if (!isLoaded) loadCharts() else showContent()
+    }
+
+    fun focusOnTitle(imdbId: String, type: String?) {
+        pendingFocusImdbId = imdbId
+        pendingFocusType = type
+        val targetFilter = if (type.equals("series", ignoreCase = true) || type.equals("tv", ignoreCase = true)) "tv" else "movies"
+        if (currentFilter != targetFilter) {
+            setFilter(targetFilter)
+        } else if (isLoaded) {
+            showContent()
+        } else {
+            loadCharts()
+        }
+    }
+
+    private fun openImdbTitle(posterView: View, title: ImdbTitle) {
+        val intent = Intent(requireContext(), DetailActivity::class.java).apply {
+            putExtra(DetailActivity.EXTRA_IMDB_ID, title.id)
+            putExtra(DetailActivity.EXTRA_TITLE, title.title)
+            putExtra(DetailActivity.EXTRA_IMAGE_URL, title.imageUrl)
+            putExtra(DetailActivity.EXTRA_CAST, title.cast)
+            putExtra(DetailActivity.EXTRA_YEAR, title.year)
+            putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
+        }
+        ViewCompat.setTransitionName(posterView, "poster_${title.id}")
+        val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
+            requireActivity(), posterView, "poster_${title.id}"
+        )
+        startActivity(intent, options.toBundle())
+    }
+
+    private fun openInStremio(title: ImdbTitle) {
+        val stremioType = when (title.typeLabel) {
+            "TV Series", "TV Mini Series", "TV Series (mini)" -> "series"
+            "TV Episode" -> "episode"
+            else -> "movie"
+        }
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("stremio://detail/$stremioType/${title.id}")))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(requireContext(), R.string.stremio_not_installed, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun setFilter(type: String) {
@@ -81,30 +126,50 @@ class DiscoverFragment : Fragment() {
         val view = view ?: return
         val filterMovies = view.findViewById<TextView>(R.id.discover_filter_movies)
         val filterTv = view.findViewById<TextView>(R.id.discover_filter_tv)
+        val selected = if (type == "movies") filterMovies else filterTv
+        val unselected = if (type == "movies") filterTv else filterMovies
 
-        if (type == "movies") {
-            filterMovies.setBackgroundResource(R.drawable.bg_search_glow)
-            filterMovies.setTextColor(0xFFFFFFFF.toInt())
-            filterTv.setBackgroundResource(R.drawable.bg_glass_card)
-            filterTv.setTextColor(0xFF7C8AAF.toInt())
-        } else {
-            filterTv.setBackgroundResource(R.drawable.bg_search_glow)
-            filterTv.setTextColor(0xFFFFFFFF.toInt())
-            filterMovies.setBackgroundResource(R.drawable.bg_glass_card)
-            filterMovies.setTextColor(0xFF7C8AAF.toInt())
-        }
+        selected.animate().cancel()
+        unselected.animate().cancel()
+
+        selected.setBackgroundResource(R.drawable.bg_discover_tab_selected)
+        selected.setTextColor(0xFFFFFFFF.toInt())
+        unselected.setBackgroundResource(R.drawable.bg_discover_tab_unselected)
+        unselected.setTextColor(0xFF8F7E8F.toInt())
+
+        selected.scaleX = 0.92f
+        selected.scaleY = 0.92f
+        selected.alpha = 0.82f
+        selected.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(240)
+            .start()
+
+        unselected.animate()
+            .scaleX(0.98f)
+            .scaleY(0.98f)
+            .alpha(0.9f)
+            .setDuration(180)
+            .withEndAction {
+                unselected.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(140).start()
+            }
+            .start()
+
         showContent()
     }
 
-    private fun loadCharts() {
+    private fun loadCharts(forceRefresh: Boolean = false) {
         val view = view ?: return
-        val loading = view.findViewById<LinearLayout>(R.id.discover_loading)
         val error = view.findViewById<TextView>(R.id.discover_error)
         val swipe = view.findViewById<SwipeRefreshLayout>(R.id.discover_swipe)
 
-        loading.visibility = View.VISIBLE
         error.visibility = View.GONE
-        animateDots()
+        if (!forceRefresh && !isLoaded) {
+            adapter.showLoading()
+            updateContentState()
+        }
 
         Thread {
             try {
@@ -120,77 +185,93 @@ class DiscoverFragment : Fragment() {
                 val tvShows = parseItems(root, "tv")
 
                 activity?.runOnUiThread {
-                    loading.visibility = View.GONE
-                    swipe?.isRefreshing = false
+                    swipe.isRefreshing = false
                     allMovies = movies
                     allTv = tvShows
                     isLoaded = true
-                    adapter.submitList(if (currentFilter == "movies") allMovies else allTv)
                     showContent()
                 }
             } catch (_: Exception) {
                 activity?.runOnUiThread {
-                    loading.visibility = View.GONE
-                    swipe?.isRefreshing = false
-                    if (!isLoaded) error.visibility = View.VISIBLE
+                    swipe.isRefreshing = false
+                    adapter.hideLoading()
+                    updateContentState(showError = !isLoaded)
                 }
             }
         }.start()
     }
 
-    private fun animateDots() {
-        val view = view ?: return
-        val dots = listOf(
-            view.findViewById<View>(R.id.dot_1),
-            view.findViewById<View>(R.id.dot_2),
-            view.findViewById<View>(R.id.dot_3)
-        )
-        dots.forEachIndexed { i, dot ->
-            dot.animate().cancel()
-            dot.alpha = 0.3f
-            dot.animate()
-                .alpha(1f)
-                .setDuration(400)
-                .setStartDelay(i * 150L)
-                .withEndAction {
-                    dot.animate().alpha(0.3f).setDuration(400).withEndAction {
-                        if (view.findViewById<LinearLayout>(R.id.discover_loading).visibility == View.VISIBLE) {
-                            animateDots()
-                        }
+    private fun showContent() {
+        val items = if (currentFilter == "movies") allMovies else allTv
+        val titles = items.map { it.toImdbTitle() }
+        val recycler = view?.findViewById<RecyclerView>(R.id.discover_recycler)
+        inFlightRatings.clear()
+        recycler?.animate()?.cancel()
+        recycler?.alpha = 0f
+        recycler?.translationX = if (currentFilter == "movies") -28f else 28f
+        recycler?.translationY = 14f
+        recycler?.scaleX = 0.985f
+        recycler?.scaleY = 0.985f
+        adapter.hideLoading()
+        adapter.submitList(titles)
+        updateContentState(showError = items.isEmpty() && isLoaded)
+        applyPendingFocus(items)
+        recycler?.animate()
+            ?.alpha(1f)
+            ?.translationX(0f)
+            ?.translationY(0f)
+            ?.scaleX(1f)
+            ?.scaleY(1f)
+            ?.setDuration(300)
+            ?.start()
+    }
+
+    private fun loadVisibleRating(title: ImdbTitle) {
+        if (!inFlightRatings.add(title.id)) return
+        thread {
+            try {
+                val rating = ratingFetcher.fetchRating(title.id)
+                if (rating != null && rating > 0f) {
+                    activity?.runOnUiThread {
+                        adapter.updateRating(title.copy(rating = rating, ratingText = String.format(java.util.Locale.US, "%.1f", rating)))
                     }
                 }
+            } finally {
+                inFlightRatings.remove(title.id)
+            }
         }
     }
 
-    private fun showContent() {
+    private fun applyPendingFocus(items: List<ChartItem>) {
+        val imdbId = pendingFocusImdbId ?: return
+        val expectedFilter = if (pendingFocusType.equals("series", ignoreCase = true) || pendingFocusType.equals("tv", ignoreCase = true)) "tv" else "movies"
+        if (currentFilter != expectedFilter) return
+        val position = items.indexOfFirst { it.imdbId == imdbId }
+        if (position < 0) return
+
+        pendingFocusImdbId = null
+        pendingFocusType = null
+
+        val recycler = recyclerView ?: return
+        recycler.post {
+            (recycler.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(position, 24)
+            recycler.postDelayed({
+                adapter.requestHighlight(imdbId, position)
+            }, 180)
+        }
+    }
+
+    private fun updateContentState(showError: Boolean = false) {
         val view = view ?: return
         val recycler = view.findViewById<RecyclerView>(R.id.discover_recycler)
         val error = view.findViewById<TextView>(R.id.discover_error)
 
-        val items = if (currentFilter == "movies") allMovies else allTv
-
-        if (items.isEmpty() && isLoaded) {
+        if (showError) {
             error.visibility = View.VISIBLE
             recycler.visibility = View.GONE
         } else {
             error.visibility = View.GONE
             recycler.visibility = View.VISIBLE
-            adapter.submitList(items)
-            recycler.scheduleLayoutAnimation()
-            Handler(Looper.getMainLooper()).postDelayed({
-                // Animate each child for staggered entrance
-                val anim = AnimationUtils.loadAnimation(requireContext(), android.R.anim.fade_in)
-                anim.duration = 300
-                for (i in 0 until recycler.childCount) {
-                    val child = recycler.getChildAt(i)
-                    child.alpha = 0f
-                    child.animate()
-                        .alpha(1f)
-                        .setDuration(250)
-                        .setStartDelay((i * 40).toLong())
-                        .start()
-                }
-            }, 100)
         }
     }
 
@@ -199,68 +280,19 @@ class DiscoverFragment : Fragment() {
         val items = mutableListOf<ChartItem>()
         for (i in 0 until arr.length()) {
             val obj = arr.optJSONObject(i) ?: continue
-            items.add(ChartItem(
-                imdbId = obj.optString("imdb_id", ""),
-                title = obj.optString("title", ""),
-                rank = obj.optInt("rank", i + 1),
-                rating = obj.optString("rating", ""),
-                votes = obj.optString("votes", ""),
-                poster = obj.optString("poster", ""),
-                type = key
-            ))
+            items.add(
+                ChartItem(
+                    imdbId = obj.optString("imdb_id", ""),
+                    title = obj.optString("title", ""),
+                    rank = obj.optInt("rank", i + 1),
+                    rating = obj.optString("rating", ""),
+                    votes = obj.optString("votes", ""),
+                    poster = obj.optString("poster", ""),
+                    type = key
+                )
+            )
         }
         return items
-    }
-
-    private class DiscoverAdapter(
-        private val onItemClick: (View, ChartItem) -> Unit
-    ) : RecyclerView.Adapter<DiscoverAdapter.ViewHolder>() {
-
-        private var items: List<ChartItem> = emptyList()
-
-        fun submitList(newItems: List<ChartItem>) {
-            items = newItems
-            notifyDataSetChanged()
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_discover_card, parent, false)
-            return ViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val item = items[position]
-            holder.bind(item)
-            holder.itemView.setOnClickListener { onItemClick(holder.posterView, item) }
-        }
-
-        override fun getItemCount(): Int = items.size
-
-        class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val posterView: ImageView = itemView.findViewById(R.id.discover_poster)
-            private val rankView: TextView = itemView.findViewById(R.id.discover_rank)
-            private val titleView: TextView = itemView.findViewById(R.id.discover_title)
-            private val metaView: TextView = itemView.findViewById(R.id.discover_meta)
-
-            fun bind(item: ChartItem) {
-                rankView.text = "#${item.rank}"
-                titleView.text = item.title
-
-                val metaParts = mutableListOf<String>()
-                if (item.rating.isNotBlank()) metaParts.add("⭐ ${item.rating}")
-                if (item.votes.isNotBlank()) metaParts.add(item.votes)
-                metaView.text = metaParts.joinToString(" · ")
-                metaView.visibility = if (metaParts.isEmpty()) View.GONE else View.VISIBLE
-
-                if (item.poster.isNotBlank()) {
-                    SimpleImageLoader.load(item.poster, posterView)
-                } else {
-                    val fallback = "https://images.metahub.space/poster/small/${item.imdbId}/img"
-                    SimpleImageLoader.load(fallback, posterView)
-                }
-            }
-        }
     }
 
     private data class ChartItem(
@@ -271,5 +303,20 @@ class DiscoverFragment : Fragment() {
         val votes: String,
         val poster: String,
         val type: String
-    )
+    ) {
+        fun toImdbTitle(): ImdbTitle {
+            val typeLabel = if (type == "tv") "TV Series" else "Movie"
+            return ImdbTitle(
+                id = imdbId,
+                title = title,
+                typeLabel = typeLabel,
+                year = null,
+                cast = votes.ifBlank { "Top IMDb" },
+                imageUrl = poster.ifBlank { "https://images.metahub.space/poster/small/$imdbId/img" },
+                rating = rating.toFloatOrNull(),
+                ratingText = rating.ifBlank { null },
+                rankLabel = "#${rank}"
+            )
+        }
+    }
 }

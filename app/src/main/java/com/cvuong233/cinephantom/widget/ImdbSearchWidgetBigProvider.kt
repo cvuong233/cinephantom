@@ -68,10 +68,8 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
     ) {
         val result = loadPosterBitmap(context, seed) ?: return
         val effectiveSeed = result.seed  // may be cached seed if poster fell back to cache
-        val typeIcon = if (effectiveSeed.type == "movie") "\uD83C\uDFAC" else "\uD83D\uDCFA"
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, effectiveSeed)
-        views.setTextViewText(R.id.widget_rank_badge, "$typeIcon  #${effectiveSeed.rank}")
         views.setImageViewBitmap(R.id.widget_poster, result.bitmap)
 
         for (id in ids) appWidgetManager.updateAppWidget(id, views)
@@ -142,7 +140,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(R.id.widget_search_bar, searchPi)
 
         val detailPi = PendingIntent.getActivity(
-            context, System.currentTimeMillis().toInt() and 0xFFFF,
+            context, seed.id.hashCode(),
             Intent(context, DetailActivity::class.java).apply {
                 action = "cinephantom.intent.action.DETAIL_${seed.id}"
                 data = android.net.Uri.parse("cinephantom://detail/${seed.id}")
@@ -151,9 +149,11 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                 putExtra(DetailActivity.EXTRA_IMAGE_URL, seed.posterUrl)
                 putExtra(DetailActivity.EXTRA_YEAR, "")
                 putExtra(DetailActivity.EXTRA_TYPE, if (seed.type == "movie") "Movie" else "Series")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(DetailActivity.EXTRA_FROM_WIDGET, true)
+                putExtra(DetailActivity.EXTRA_RETURN_DISCOVER_TYPE, seed.type)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             },
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         views.setOnClickPendingIntent(R.id.widget_featured, detailPi)
     }
