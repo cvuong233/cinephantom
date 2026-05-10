@@ -206,25 +206,40 @@ class DiscoverFragment : Fragment() {
         val items = if (currentFilter == "movies") allMovies else allTv
         val titles = items.map { it.toImdbTitle() }
         val recycler = view?.findViewById<RecyclerView>(R.id.discover_recycler)
+        val hasPendingFocus = pendingFocusImdbId != null
         inFlightRatings.clear()
         recycler?.animate()?.cancel()
-        recycler?.alpha = 0f
-        recycler?.translationX = if (currentFilter == "movies") -28f else 28f
-        recycler?.translationY = 14f
-        recycler?.scaleX = 0.985f
-        recycler?.scaleY = 0.985f
+
+        if (hasPendingFocus) {
+            recycler?.alpha = 1f
+            recycler?.translationX = 0f
+            recycler?.translationY = 0f
+            recycler?.scaleX = 1f
+            recycler?.scaleY = 1f
+        } else {
+            recycler?.alpha = 0f
+            recycler?.translationX = if (currentFilter == "movies") -28f else 28f
+            recycler?.translationY = 14f
+            recycler?.scaleX = 0.985f
+            recycler?.scaleY = 0.985f
+        }
+
         adapter.hideLoading()
         adapter.submitList(titles)
         updateContentState(showError = items.isEmpty() && isLoaded)
-        applyPendingFocus(items)
-        recycler?.animate()
-            ?.alpha(1f)
-            ?.translationX(0f)
-            ?.translationY(0f)
-            ?.scaleX(1f)
-            ?.scaleY(1f)
-            ?.setDuration(300)
-            ?.start()
+
+        if (hasPendingFocus) {
+            recycler?.post { applyPendingFocus(items) }
+        } else {
+            recycler?.animate()
+                ?.alpha(1f)
+                ?.translationX(0f)
+                ?.translationY(0f)
+                ?.scaleX(1f)
+                ?.scaleY(1f)
+                ?.setDuration(300)
+                ?.start()
+        }
     }
 
     private fun loadVisibleRating(title: ImdbTitle) {
