@@ -13,6 +13,7 @@ import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.cvuong233.cinephantom.R
@@ -270,60 +271,70 @@ class DiscoverFragment : Fragment() {
         val recycler = recyclerView ?: return
         val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return
         val desiredTop = 120
-        val anchorPosition = (position - 3).coerceAtLeast(0)
+        val anchorPosition = (position - 8).coerceAtLeast(0)
 
         recycler.post {
             layoutManager.scrollToPositionWithOffset(anchorPosition, 0)
             recycler.post {
-                smoothScrollTargetIntoPlace(recycler, layoutManager, imdbId, position, desiredTop)
+                startVisibleReturnScroll(recycler, layoutManager, imdbId, position, desiredTop)
             }
         }
     }
 
-    private fun smoothScrollTargetIntoPlace(
+    private fun startVisibleReturnScroll(
         recycler: RecyclerView,
         layoutManager: LinearLayoutManager,
         imdbId: String,
         position: Int,
         desiredTop: Int,
-        attemptsLeft: Int = 6,
+    ) {
+        val scroller = object : LinearSmoothScroller(recycler.context) {
+            override fun getVerticalSnapPreference(): Int = SNAP_TO_START
+
+            override fun calculateDtToFit(
+                viewStart: Int,
+                viewEnd: Int,
+                boxStart: Int,
+                boxEnd: Int,
+                snapPreference: Int,
+            ): Int {
+                return (boxStart + desiredTop) - viewStart
+            }
+
+            override fun calculateSpeedPerPixel(displayMetrics: android.util.DisplayMetrics): Float {
+                return 120f / displayMetrics.densityDpi
+            }
+
+            override fun onStop() {
+                super.onStop()
+                recycler.post {
+                    finalizeReturnScroll(recycler, layoutManager, imdbId, position, desiredTop)
+                }
+            }
+        }
+        scroller.targetPosition = position
+        layoutManager.startSmoothScroll(scroller)
+    }
+
+    private fun finalizeReturnScroll(
+        recycler: RecyclerView,
+        layoutManager: LinearLayoutManager,
+        imdbId: String,
+        position: Int,
+        desiredTop: Int,
     ) {
         val targetView = layoutManager.findViewByPosition(position)
         if (targetView == null) {
-            if (attemptsLeft <= 0) {
-                layoutManager.scrollToPositionWithOffset(position, desiredTop)
-                recycler.post { adapter.requestHighlight(imdbId, position) }
-                return
-            }
-            recycler.postDelayed({
-                smoothScrollTargetIntoPlace(recycler, layoutManager, imdbId, position, desiredTop, attemptsLeft - 1)
-            }, 40)
+            layoutManager.scrollToPositionWithOffset(position, desiredTop)
+            recycler.post { adapter.requestHighlight(imdbId, position) }
             return
         }
 
-        val delta = targetView.top - desiredTop
-        if (kotlin.math.abs(delta) <= 2) {
-            adapter.requestHighlight(imdbId, position)
-            return
+        val finalDelta = targetView.top - desiredTop
+        if (kotlin.math.abs(finalDelta) > 2) {
+            recycler.scrollBy(0, finalDelta)
         }
-
-        val animatedDelta = when {
-            delta > 0 -> maxOf(delta - 24, 0)
-            else -> minOf(delta + 24, 0)
-        }
-
-        if (animatedDelta != 0) {
-            recycler.smoothScrollBy(0, animatedDelta)
-        }
-
-        recycler.postDelayed({
-            val refreshedView = layoutManager.findViewByPosition(position)
-            val finalDelta = (refreshedView?.top ?: desiredTop) - desiredTop
-            if (kotlin.math.abs(finalDelta) > 2) {
-                recycler.scrollBy(0, finalDelta)
-            }
-            adapter.requestHighlight(imdbId, position)
-        }, 260)
+        adapter.requestHighlight(imdbId, position)
     }
 
     private fun updateContentState(showError: Boolean = false) {
