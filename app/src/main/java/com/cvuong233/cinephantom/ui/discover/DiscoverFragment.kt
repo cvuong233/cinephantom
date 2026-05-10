@@ -13,7 +13,6 @@ import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.LinearSmoothScroller
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.cvuong233.cinephantom.R
@@ -271,68 +270,17 @@ class DiscoverFragment : Fragment() {
         val recycler = recyclerView ?: return
         val layoutManager = recycler.layoutManager as? LinearLayoutManager ?: return
         val desiredTop = 120
-        val anchorPosition = (position - 12).coerceAtLeast(0)
 
         recycler.post {
-            layoutManager.scrollToPositionWithOffset(anchorPosition, 0)
-            recycler.postDelayed({
-                startVisibleReturnScroll(recycler, layoutManager, imdbId, position, desiredTop)
-            }, 40)
-        }
-    }
-
-    private fun startVisibleReturnScroll(
-        recycler: RecyclerView,
-        layoutManager: LinearLayoutManager,
-        imdbId: String,
-        position: Int,
-        desiredTop: Int,
-        attemptsLeft: Int = 8,
-    ) {
-        val targetView = layoutManager.findViewByPosition(position)
-        if (targetView == null) {
-            if (attemptsLeft <= 0) {
-                layoutManager.scrollToPositionWithOffset(position, desiredTop)
-                recycler.post { adapter.requestHighlight(imdbId, position) }
-                return
-            }
-            recycler.postDelayed({
-                startVisibleReturnScroll(recycler, layoutManager, imdbId, position, desiredTop, attemptsLeft - 1)
-            }, 32)
-            return
-        }
-
-        val delta = targetView.top - desiredTop
-        if (kotlin.math.abs(delta) <= 2) {
-            adapter.requestHighlight(imdbId, position)
-            return
-        }
-
-        recycler.smoothScrollBy(0, delta)
-        recycler.postDelayed({
-            finalizeReturnScroll(recycler, layoutManager, imdbId, position, desiredTop)
-        }, 260)
-    }
-
-    private fun finalizeReturnScroll(
-        recycler: RecyclerView,
-        layoutManager: LinearLayoutManager,
-        imdbId: String,
-        position: Int,
-        desiredTop: Int,
-    ) {
-        val targetView = layoutManager.findViewByPosition(position)
-        if (targetView == null) {
             layoutManager.scrollToPositionWithOffset(position, desiredTop)
-            recycler.post { adapter.requestHighlight(imdbId, position) }
-            return
+            recycler.post {
+                val targetView = layoutManager.findViewByPosition(position)
+                val finalDelta = (targetView?.top ?: desiredTop) - desiredTop
+                if (kotlin.math.abs(finalDelta) > 2) {
+                    recycler.scrollBy(0, finalDelta)
+                }
+            }
         }
-
-        val finalDelta = targetView.top - desiredTop
-        if (kotlin.math.abs(finalDelta) > 2) {
-            recycler.scrollBy(0, finalDelta)
-        }
-        adapter.requestHighlight(imdbId, position)
     }
 
     private fun updateContentState(showError: Boolean = false) {
