@@ -1,88 +1,91 @@
 #!/usr/bin/env python3
-"""Scrape IMDb Most Popular Movies and TV Shows charts (top 100 each).
-Captures title, poster, IMDb rating, vote count, ranking, and IMDb ID.
-Posters are upscaled to UX500 for good quality on mobile widgets.
+"""Fetch IMDb Most Popular Movies and TV Shows using TMDB API (reliable, no browser needed).
+Outputs top-100 movies and top-100 TV shows with IMDb IDs, TMDB ratings, and posters.
 Output: JSON to stdout.
+
+Replaces the old Playwright-based scraper which was blocked by IMDb on GH Actions IPs.
 """
-import asyncio, json, re, sys
+import json
+import sys
 from datetime import datetime, timezone
-from playwright.async_api import async_playwright
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
-def upscale_poster(url: str) -> str:
-    """Transform IMDb CDN poster URL from tiny UX90 thumbnail to UX500 full poster.
-    Strips the CR (crop) parameters so the full poster is shown, not a zoomed-in crop."""
-    # Remove crop region and quality params, keep only the image ID and UX500
-    url = re.sub(r'@\._.*', '@._V1_UX500_.jpg', url)
-    url = re.sub(r'\._V1_.*?\.jpg$', '._V1_UX500_.jpg', url)
-    return url
+TMDB_API_KEY = "1f54bd990f1cdfb230adb312546d765d"
+TMDB_BASE = "https://api.themoviedb.org/3"
+POSTER_BASE = "https://image.tmdb.org/t/p/w500"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36"
 
-async def scrape():
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=['--disable-blink-features=AutomationControlled', '--no-sandbox']
-        )
-        context = await browser.new_context(
-            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36',
-            viewport={'width': 1920, 'height': 1080},
-            locale='en-US',
-        )
-        page = await context.new_page()
-        await page.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
-        """)
-        
-        all_data = {"updated": "", "movies": [], "tv": []}
-        
-        for chart_type, url in [
-            ("movies", "https://www.imdb.com/chart/moviemeter/"),
-            ("tv", "https://www.imdb.com/chart/tvmeter/")
-        ]:
-            await page.goto(url, timeout=30000, wait_until="networkidle")
-            await page.wait_for_timeout(5000)
-            
-            items = await page.evaluate(r"""() => {
-                const results = [];
-                document.querySelectorAll('ul.ipc-metadata-list > li').forEach((li, i) => {
-                    if (i >= 100) return;
-                    const titleEl = li.querySelector('h3.ipc-title__text');
-                    const title = titleEl ? titleEl.textContent.replace(/^\\d+\\.\\s*/, '').trim() : '';
-                    const linkEl = li.querySelector('a[href*="/title/tt"]');
-                    const href = linkEl?.getAttribute('href') || linkEl?.href || '';
-                    const imdbId = href ? (href.match(/tt\d+/)?.[0] || '') : '';
-                    const posterEl = li.querySelector('img');
 
-                    const allText = Array.from(li.querySelectorAll('span'))
-                      .map(el => (el.textContent || '').trim())
-                      .filter(Boolean);
-                    const ratingNode = li.querySelector('[aria-label*="IMDb rating"]');
-                    const ratingText = ratingNode ? (ratingNode.textContent || '').replace(/\u00A0/g, ' ').trim() : '';
-                    let rating = '';
-                    let votes = '';
-                    const ratingMatch = ratingText.match(/(\d\.\d)/);
-                    const votesMatch = ratingText.match(/\(([^)]+)\)/);
-                    if (ratingMatch) rating = ratingMatch[1];
-                    if (votesMatch) votes = votesMatch[1];
-                    if (!rating) {
-                      rating = allText.find(t => /^\d\.\d$/.test(t)) || '';
-                    }
-                    if (!votes) {
-                      votes = allText.find(t => /^\d+(?:\.\d+)?[KMB]$/.test(t.replace(/,/g, ''))) || '';
-                    }
-                    if (title) results.push({rank: i+1, title, imdb_id: imdbId, poster: posterEl?.src || '', rating, votes});
-                });
-                return results;
-            }""")
-            
-            # Upscale poster URLs
-            for item in items:
-                item["poster"] = upscale_poster(item["poster"])
-            
-            all_data[chart_type] = items
-        
-        await browser.close()
-        return all_data
+def http_get_json(url: str):
+    req = Request(url, headers={"User-Agent": USER_AGENT})
+    with urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8", "ignore"))
 
-data = asyncio.run(scrape())
-data["updated"] = datetime.now(timezone.utc).isoformat()
+
+def get_popular(media_type: str, pages: int = 5) -> list[dict]:
+    """Fetch up to pages*20 popular items from TMDB."""
+    items = []
+    for page in range(1, pages + 1):
+        url = f"{TMDB_BASE}/{media_type}/popular?api_key={TMDB_API_KEY}&language=en-US&page={page}"
+        try:
+            data = http_get_json(url)
+            items.extend(data.get("results", []))
+        except Exception as e:
+            print(f"Warning: page {page} failed: {e}", file=sys.stderr)
+    return items
+
+
+def get_external_ids(media_type: str, tmdb_id: int) -> str | None:
+    """Get IMDb ID for a TMDB item."""
+    url = f"{TMDB_BASE}/{media_type}/{tmdb_id}/external_ids?api_key={TMDB_API_KEY}"
+    try:
+        data = http_get_json(url)
+        return data.get("imdb_id") or None
+    except Exception:
+        return None
+
+
+def build_items(tmdb_items: list[dict], media_type: str, limit: int = 100) -> list[dict]:
+    results = []
+    for i, item in enumerate(tmdb_items[:limit]):
+        tmdb_id = item.get("id")
+        title = item.get("title") or item.get("name") or ""
+        poster_path = item.get("poster_path") or ""
+        poster = f"{POSTER_BASE}{poster_path}" if poster_path else ""
+        rating = str(round(item.get("vote_average", 0.0), 1))
+        votes_raw = item.get("vote_count", 0)
+        # Format votes like IMDb: 1.2K, 3.4M etc.
+        if votes_raw >= 1_000_000:
+            votes = f"{votes_raw/1_000_000:.1f}M"
+        elif votes_raw >= 1_000:
+            votes = f"{votes_raw/1_000:.1f}K"
+        else:
+            votes = str(votes_raw)
+
+        imdb_id = get_external_ids(media_type, tmdb_id)
+
+        results.append({
+            "rank": i + 1,
+            "title": title,
+            "imdb_id": imdb_id or "",
+            "tmdb_id": tmdb_id,
+            "poster": poster,
+            "rating": rating,
+            "votes": votes,
+            "source": "TMDB",
+        })
+    return results
+
+
+movies = get_popular("movie", pages=5)
+tv = get_popular("tv", pages=5)
+
+data = {
+    "updated": datetime.now(timezone.utc).isoformat(),
+    "source": "TMDB Popular",
+    "movies": build_items(movies, "movie", 100),
+    "tv": build_items(tv, "tv", 100),
+}
+
 print(json.dumps(data, indent=2))
