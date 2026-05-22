@@ -1,1 +1,1 @@
-playwright
+# No external dependencies - all scrapers use Python stdlib only
