@@ -14,4 +14,4 @@ local.properties
 .cxx
 app/build/
 deliveries/
-.github/
+# .github workflows are tracked — do not ignore
