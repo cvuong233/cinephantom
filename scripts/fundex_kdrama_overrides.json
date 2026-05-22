@@ -1,0 +1,22 @@
+{
+  "유미의 세포들3|2026": {
+    "imdb_id": "tt14596630",
+    "tmdb_id": 128995,
+    "tmdb_name": "Yumi's Cells",
+    "original_name": "유미의 세포들",
+    "first_air_date": "2021-09-17",
+    "match_confidence": "manual-verified",
+    "match_method": "override-base-series",
+    "match_notes": "Season-specific entry not indexed reliably; use base-series IMDb/TMDB mapping for Yumi's Cells."
+  },
+  "사냥개들 시즌2|2026": {
+    "imdb_id": "tt26315487",
+    "tmdb_id": 127529,
+    "tmdb_name": "Bloodhounds",
+    "original_name": "사냥개들",
+    "first_air_date": "2023-06-09",
+    "match_confidence": "manual-verified",
+    "match_method": "override-base-series",
+    "match_notes": "Season-specific entry not indexed reliably; use base-series IMDb/TMDB mapping for Bloodhounds."
+  }
+}
