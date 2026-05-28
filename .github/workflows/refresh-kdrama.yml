@@ -28,6 +28,15 @@ jobs:
       - name: Run FUNdex K-drama scraper
         run: python scripts/scrape_fundex_kdramas.py > /tmp/kdrama_charts.json
 
+      - name: Validate scraper output
+        run: |
+          COUNT=$(python3 -c "import json; d=json.load(open('/tmp/kdrama_charts.json')); print(d.get('count', 0))")
+          echo "Scraper returned $COUNT results"
+          if [ "$COUNT" = "0" ]; then
+            echo "ERROR: Scraper returned 0 results — FUNdex may be rate-limiting. Aborting push to protect existing data."
+            exit 1
+          fi
+
       - name: Push to agent-presentation
         env:
           PAGES_TOKEN: ${{ secrets.PAGES_TOKEN }}
