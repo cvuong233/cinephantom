@@ -2,7 +2,7 @@ name: Refresh IMDb Charts
 
 on:
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
@@ -24,6 +24,15 @@ jobs:
 
       - name: Run IMDb scraper (TMDB-based, no browser needed)
         run: python scripts/scrape_imdb_charts.py > /tmp/imdb_charts.json
+
+      - name: Validate scraper output
+        run: |
+          MOVIES=$(python3 -c "import json; d=json.load(open('/tmp/imdb_charts.json')); print(len(d.get('movies', [])))")
+          echo "Scraper returned $MOVIES movies"
+          if [ "$MOVIES" = "0" ]; then
+            echo "ERROR: Scraper returned 0 movies — aborting push to protect existing data."
+            exit 1
+          fi
 
       - name: Push to agent-presentation
         env:
