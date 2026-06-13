@@ -14,20 +14,44 @@ import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.cvuong233.cinephantom.R
+import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.data.RatingFetcher
+import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
 import com.cvuong233.cinephantom.model.ImdbTitle
+import com.cvuong233.cinephantom.ui.account.AuthActivity
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
-import com.cvuong233.cinephantom.ui.search.SearchResultsAdapter
+import com.google.firebase.auth.FirebaseAuth
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 class DiscoverFragment : Fragment() {
+
+    companion object {
+        private const val ARG_INITIAL_IMDB_ID = "arg_initial_imdb_id"
+        private const val ARG_INITIAL_TYPE = "arg_initial_type"
+
+        val INSTANCE = DiscoverFragmentFactory()
+
+        class DiscoverFragmentFactory {
+            fun newInstance(imdbId: String? = null, type: String? = null): DiscoverFragment {
+                return DiscoverFragment().apply {
+                    arguments = Bundle().apply {
+                        putString(ARG_INITIAL_IMDB_ID, imdbId)
+                        putString(ARG_INITIAL_TYPE, type)
+                    }
+                }
+            }
+        }
+    }
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
@@ -40,12 +64,25 @@ class DiscoverFragment : Fragment() {
     private var isLoaded = false
     private val ratingFetcher = RatingFetcher()
     private val inFlightRatings = ConcurrentHashMap.newKeySet<String>()
-    private lateinit var adapter: SearchResultsAdapter
+    private lateinit var adapter: DiscoverResultsAdapter
     private var recyclerView: RecyclerView? = null
     private var pendingFocusImdbId: String? = null
     private var pendingFocusType: String? = null
     private var lastFilter: String = "movies"
     private var hasAnimatedFirstFilterSwap = false
+    private var lastUpdatedLabel: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val initialImdbId = arguments?.getString(ARG_INITIAL_IMDB_ID)
+        val initialType = arguments?.getString(ARG_INITIAL_TYPE)
+        if (!initialImdbId.isNullOrBlank()) {
+            pendingFocusImdbId = initialImdbId
+            pendingFocusType = initialType
+            currentFilter = if (initialType.equals("series", ignoreCase = true) || initialType.equals("tv", ignoreCase = true)) "tv" else "movies"
+            lastFilter = currentFilter
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -56,28 +93,28 @@ class DiscoverFragment : Fragment() {
 
         val filterMovies = view.findViewById<TextView>(R.id.discover_filter_movies)
         val filterTv = view.findViewById<TextView>(R.id.discover_filter_tv)
-        val swipe = view.findViewById<SwipeRefreshLayout>(R.id.discover_swipe)
         val recycler = view.findViewById<RecyclerView>(R.id.discover_recycler)
 
+        updateTimestamp(view)
         recycler.layoutManager = LinearLayoutManager(requireContext())
         recyclerView = recycler
         recycler.itemAnimator = null
-        adapter = SearchResultsAdapter { posterView, title -> openImdbTitle(posterView, title) }
+
+        adapter = DiscoverResultsAdapter(
+            skeletonLayoutRes = R.layout.item_discover_skeleton,
+            showRankLabel = true,
+            showFeaturedMetricLabel = false,
+            onClick = { posterView, title -> openImdbTitle(posterView, title) }
+        )
         adapter.onStremioClick = { openInStremio(it) }
+        adapter.onFavoriteClick = { toggleFavorite(it, adapter) }
         adapter.onRatingNeeded = { title -> loadVisibleRating(title) }
         recycler.adapter = adapter
 
-        adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
-            override fun onChanged() { updateContentState() }
-            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) { updateContentState() }
-            override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) { updateContentState() }
-        })
-
         filterMovies.setOnClickListener { if (currentFilter != "movies") setFilter("movies") }
         filterTv.setOnClickListener { if (currentFilter != "tv") setFilter("tv") }
-        swipe.setOnRefreshListener { loadCharts(forceRefresh = true) }
 
-        setFilter("movies")
+        setFilter(currentFilter)
         if (!isLoaded) loadCharts() else showContent()
     }
 
@@ -110,6 +147,18 @@ class DiscoverFragment : Fragment() {
         startActivity(intent, options.toBundle())
     }
 
+    private fun toggleFavorite(title: ImdbTitle, adapter: DiscoverResultsAdapter) {
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            Toast.makeText(requireContext(), "Sign in to save to Wishlist", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(requireContext(), AuthActivity::class.java))
+            return
+        }
+        val wasInWishlist = FavoritesRepository.isFavorite(title.id)
+        FavoritesRepository.toggle(title)
+        adapter.notifyFavoriteChanged(title.id)
+        if (wasInWishlist) WishlistNotificationScheduler.cancel(requireContext(), title.id)
+    }
+
     private fun openInStremio(title: ImdbTitle) {
         val stremioType = when (title.typeLabel) {
             "TV Series", "TV Mini Series", "TV Series (mini)" -> "series"
@@ -138,29 +187,16 @@ class DiscoverFragment : Fragment() {
         selected.setBackgroundResource(R.drawable.bg_discover_tab_selected)
         selected.setTextColor(0xFFFFFFFF.toInt())
         unselected.setBackgroundResource(R.drawable.bg_discover_tab_unselected)
-        unselected.setTextColor(0xFF8F7E8F.toInt())
+        unselected.setTextColor(resources.getColor(R.color.text_muted, null))
 
         selected.scaleX = 0.9f
         selected.scaleY = 0.9f
         selected.alpha = 0.78f
         selected.translationY = 4f
-        selected.animate()
-            .scaleX(1f)
-            .scaleY(1f)
-            .alpha(1f)
-            .translationY(0f)
-            .setDuration(220)
-            .start()
+        selected.animate().scaleX(1f).scaleY(1f).alpha(1f).translationY(0f).setDuration(220).start()
 
-        unselected.animate()
-            .scaleX(0.97f)
-            .scaleY(0.97f)
-            .alpha(0.88f)
-            .translationY(2f)
-            .setDuration(150)
-            .withEndAction {
-                unselected.animate().scaleX(1f).scaleY(1f).alpha(1f).translationY(0f).setDuration(120).start()
-            }
+        unselected.animate().scaleX(0.97f).scaleY(0.97f).alpha(0.88f).translationY(2f).setDuration(150)
+            .withEndAction { unselected.animate().scaleX(1f).scaleY(1f).alpha(1f).translationY(0f).setDuration(120).start() }
             .start()
 
         lastFilter = previousFilter
@@ -170,8 +206,6 @@ class DiscoverFragment : Fragment() {
     private fun loadCharts(forceRefresh: Boolean = false) {
         val view = view ?: return
         val error = view.findViewById<TextView>(R.id.discover_error)
-        val swipe = view.findViewById<SwipeRefreshLayout>(R.id.discover_swipe)
-
         error.visibility = View.GONE
         if (!forceRefresh && !isLoaded) {
             adapter.showLoading()
@@ -188,19 +222,20 @@ class DiscoverFragment : Fragment() {
                 val body = resp.body?.string() ?: throw Exception("Empty response")
                 val root = JSONObject(body)
 
+                val updated = root.optString("updated").trim().ifBlank { null }
                 val movies = parseItems(root, "movies")
                 val tvShows = parseItems(root, "tv")
 
                 activity?.runOnUiThread {
-                    swipe.isRefreshing = false
                     allMovies = movies
                     allTv = tvShows
+                    lastUpdatedLabel = formatUpdatedLabel(updated)
                     isLoaded = true
+                    view.let { updateTimestamp(it) }
                     showContent()
                 }
             } catch (_: Exception) {
                 activity?.runOnUiThread {
-                    swipe.isRefreshing = false
                     adapter.hideLoading()
                     updateContentState(showError = !isLoaded)
                 }
@@ -240,14 +275,8 @@ class DiscoverFragment : Fragment() {
         if (hasPendingFocus) {
             recycler?.post { applyPendingFocus(items) }
         } else if (shouldAnimateSwap) {
-            recycler?.animate()
-                ?.alpha(1f)
-                ?.translationX(0f)
-                ?.translationY(0f)
-                ?.scaleX(1f)
-                ?.scaleY(1f)
-                ?.setDuration(if (hasAnimatedFirstFilterSwap) 180 else 220)
-                ?.start()
+            recycler?.animate()?.alpha(1f)?.translationX(0f)?.translationY(0f)?.scaleX(1f)?.scaleY(1f)
+                ?.setDuration(if (hasAnimatedFirstFilterSwap) 180 else 220)?.start()
             hasAnimatedFirstFilterSwap = true
         }
     }
@@ -259,7 +288,13 @@ class DiscoverFragment : Fragment() {
                 val rating = ratingFetcher.fetchRating(title.id)
                 if (rating != null && rating > 0f) {
                     activity?.runOnUiThread {
-                        adapter.updateRating(title.copy(rating = rating, ratingText = String.format(java.util.Locale.US, "%.1f", rating)))
+                        adapter.updateRating(
+                            title.copy(
+                                rating = rating,
+                                ratingText = String.format(Locale.US, "%.1f", rating),
+                                ratingSourceLabel = "IMDb"
+                            )
+                        )
                     }
                 }
             } finally {
@@ -284,12 +319,11 @@ class DiscoverFragment : Fragment() {
 
         recycler.post {
             layoutManager.scrollToPositionWithOffset(position, desiredTop)
+            adapter.requestHighlight(imdbId, position)
             recycler.post {
                 val targetView = layoutManager.findViewByPosition(position)
                 val finalDelta = (targetView?.top ?: desiredTop) - desiredTop
-                if (kotlin.math.abs(finalDelta) > 2) {
-                    recycler.scrollBy(0, finalDelta)
-                }
+                if (kotlin.math.abs(finalDelta) > 2) recycler.scrollBy(0, finalDelta)
             }
         }
     }
@@ -298,13 +332,35 @@ class DiscoverFragment : Fragment() {
         val view = view ?: return
         val recycler = view.findViewById<RecyclerView>(R.id.discover_recycler)
         val error = view.findViewById<TextView>(R.id.discover_error)
-
         if (showError) {
             error.visibility = View.VISIBLE
             recycler.visibility = View.GONE
         } else {
             error.visibility = View.GONE
             recycler.visibility = View.VISIBLE
+        }
+    }
+
+    private fun updateTimestamp(rootView: View) {
+        val updatedView = rootView.findViewById<TextView>(R.id.discover_updated) ?: return
+        val label = lastUpdatedLabel
+        if (label.isNullOrBlank()) {
+            updatedView.visibility = View.GONE
+        } else {
+            updatedView.text = getString(R.string.discover_updated, label)
+            updatedView.visibility = View.VISIBLE
+        }
+    }
+
+    private fun formatUpdatedLabel(rawValue: String?): String? {
+        val value = rawValue?.trim().orEmpty()
+        if (value.isBlank()) return null
+        return try {
+            val instant = Instant.parse(value)
+            val formatter = DateTimeFormatter.ofPattern("MMM d, h:mm a", Locale.US).withZone(ZoneId.systemDefault())
+            formatter.format(instant)
+        } catch (_: Exception) {
+            value
         }
     }
 
@@ -344,11 +400,12 @@ class DiscoverFragment : Fragment() {
                 title = title,
                 typeLabel = typeLabel,
                 year = null,
-                cast = votes.ifBlank { "Top IMDb" },
+                cast = votes.ifBlank { null },
                 imageUrl = poster.ifBlank { "https://images.metahub.space/poster/small/$imdbId/img" },
                 rating = rating.toFloatOrNull(),
                 ratingText = rating.ifBlank { null },
-                rankLabel = "#${rank}"
+                ratingSourceLabel = "IMDb",
+                rankLabel = "#$rank",
             )
         }
     }

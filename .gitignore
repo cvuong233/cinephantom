@@ -14,4 +14,6 @@ local.properties
 .cxx
 app/build/
 deliveries/
+# APK build artifacts at repo root
+*.apk
 # .github workflows are tracked — do not ignore

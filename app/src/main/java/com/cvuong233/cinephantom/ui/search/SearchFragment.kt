@@ -1,10 +1,6 @@
 package com.cvuong233.cinephantom.ui.search
 
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -28,7 +24,11 @@ import android.net.Uri
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.appcompat.content.res.AppCompatResources
+import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.data.WatchlistDatabase
+import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
+import com.cvuong233.cinephantom.ui.account.AuthActivity
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,8 +39,6 @@ class SearchFragment : Fragment() {
 
     private val api = TMDBApi()
     private val adapter by lazy { SearchResultsAdapter { view, title -> openImdbTitle(view, title) } }
-    private val debounceHandler = Handler(Looper.getMainLooper())
-    private val debounceDelayMs = 400L
     private var searchJob: Thread? = null
     private var latestQuery = ""
     private var bindingRef: com.cvuong233.cinephantom.databinding.ActivitySearchBinding? = null
@@ -51,6 +49,27 @@ class SearchFragment : Fragment() {
         val binding = com.cvuong233.cinephantom.databinding.ActivitySearchBinding.inflate(inflater, container, false)
         bindingRef = binding
         return binding.root.also { setupView(binding) }
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // Show keyboard on initial creation (only if still on Search tab after 300ms)
+        view.postDelayed({
+            if (!isHidden && isAdded) openKeyboard()
+        }, 300)
+    }
+
+    override fun onHiddenChanged(hidden: Boolean) {
+        super.onHiddenChanged(hidden)
+        if (!hidden) openKeyboard() else clearSearchFocus()
+    }
+
+    private fun openKeyboard() {
+        val binding = bindingRef ?: return
+        binding.searchEditText.requestFocus()
+        binding.searchEditText.isCursorVisible = true
+        val imm = context?.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.showSoftInput(binding.searchEditText, InputMethodManager.SHOW_IMPLICIT)
     }
 
     fun clearSearchFocus() {
@@ -70,6 +89,17 @@ class SearchFragment : Fragment() {
         binding.resultsRecyclerView.adapter = adapter
 
         adapter.onStremioClick = { openInStremio(it) }
+        adapter.onFavoriteClick = {
+            if (FirebaseAuth.getInstance().currentUser == null) {
+                Toast.makeText(requireContext(), "Sign in to save to Wishlist", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(requireContext(), AuthActivity::class.java))
+            } else {
+                val wasInWishlist = FavoritesRepository.isFavorite(it.id)
+                FavoritesRepository.toggle(it)
+                adapter.notifyFavoriteChanged(it.id)
+                if (wasInWishlist) WishlistNotificationScheduler.cancel(requireContext(), it.id)
+            }
+        }
 
         adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
             override fun onChanged() { updateEmptyState(binding) }
@@ -82,22 +112,6 @@ class SearchFragment : Fragment() {
         binding.filterMoviesChip.setOnClickListener { setFilter(binding, "movie") }
         binding.filterTvChip.setOnClickListener { setFilter(binding, "series") }
         setFilter(binding, null)
-
-        binding.searchEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                debounceHandler.removeCallbacksAndMessages(null)
-                debounceHandler.postDelayed({ performSearch(binding) }, debounceDelayMs)
-            }
-        })
-
-        binding.searchEditText.requestFocus()
-        binding.searchEditText.isCursorVisible = true
-        binding.searchEditText.postDelayed({
-            val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(binding.searchEditText, InputMethodManager.SHOW_IMPLICIT)
-        }, 300)
 
         // Search bar focus state
         binding.searchEditText.setOnFocusChangeListener { _, hasFocus ->
@@ -126,6 +140,9 @@ class SearchFragment : Fragment() {
         binding.searchEditText.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 performSearch(binding)
+                val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.hideSoftInputFromWindow(binding.searchEditText.windowToken, 0)
+                binding.searchEditText.clearFocus()
                 true
             } else false
         }
@@ -245,11 +262,6 @@ class SearchFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         bindingRef = null
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        debounceHandler.removeCallbacksAndMessages(null)
     }
 
     private fun animateVisibleItems(binding: com.cvuong233.cinephantom.databinding.ActivitySearchBinding) {

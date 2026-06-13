@@ -71,8 +71,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
         val views = RemoteViews(context.packageName, R.layout.widget_imdb_search_big)
         setupClicks(context, views, effectiveSeed)
         views.setImageViewBitmap(R.id.widget_poster, result.bitmap)
-        val rating = effectiveSeed.ratingText.trim()
-        views.setTextViewText(R.id.widget_rating, if (rating.isNotBlank()) "IMDb $rating" else "IMDb --")
+        views.setTextViewText(R.id.widget_rating, effectiveSeed.displayRating)
 
         for (id in ids) appWidgetManager.updateAppWidget(id, views)
     }
@@ -108,6 +107,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     put("rank", seed.rank)
                     put("posterUrl", seed.posterUrl)
                     put("ratingText", seed.ratingText)
+                    put("source", seed.source)
                 }.toString())
             } catch (_: Exception) { /* non-critical */ }
             return PosterResult(bmp, seed)
@@ -125,6 +125,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     rank = json.optInt("rank", 0),
                     posterUrl = json.optString("posterUrl", ""),
                     ratingText = json.optString("ratingText", ""),
+                    source = json.optString("source", "imdb"),
                 )
             } else null
         } catch (_: Exception) { null }
@@ -155,6 +156,9 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                 putExtra(DetailActivity.EXTRA_TYPE, if (seed.type == "movie") "Movie" else "Series")
                 putExtra(DetailActivity.EXTRA_FROM_WIDGET, true)
                 putExtra(DetailActivity.EXTRA_RETURN_DISCOVER_TYPE, seed.type)
+                if (seed.source == "kdrama" && seed.ratingText.isNotBlank()) {
+                    putExtra(DetailActivity.EXTRA_FUNDEX_RATING, seed.ratingText)
+                }
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             },
             PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,

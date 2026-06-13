@@ -3,19 +3,14 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- Badge outline (stroke only — tints cleanly) -->
     <path
-        android:pathData="M6,7.5h12c1.38,0 2.5,1.12 2.5,2.5v4c0,1.38 -1.12,2.5 -2.5,2.5H6c-1.38,0 -2.5,-1.12 -2.5,-2.5v-4c0,-1.38 1.12,-2.5 2.5,-2.5z"
+        android:pathData="M3,7C3,5.9 3.9,5 5,5L19,5C20.1,5 21,5.9 21,7L21,17C21,18.1 20.1,19 19,19L5,19C3.9,19 3,18.1 3,17Z"
         android:fillColor="#00000000"
         android:strokeColor="#FFF7FD"
-        android:strokeLineJoin="round"
-        android:strokeWidth="1.8" />
+        android:strokeWidth="1.9" />
+    <!-- Solid 5-point star inside badge (filled — same tint color, visible as solid shape) -->
     <path
-        android:pathData="M8,5.2h8"
-        android:fillColor="#00000000"
-        android:strokeColor="#B78BE2"
-        android:strokeLineCap="round"
-        android:strokeWidth="1.8" />
-    <path
-        android:pathData="M12,10l0.88,1.79 1.97,0.29 -1.42,1.39 0.33,1.95L12,14.5l-1.76,0.92 0.33,-1.95 -1.42,-1.39 1.97,-0.29z"
-        android:fillColor="#F5C451" />
+        android:pathData="M12,8L13.1,10.5L15.8,10.8L13.7,12.6L14.4,15.2L12,13.8L9.6,15.2L10.3,12.6L8.2,10.8L10.9,10.5Z"
+        android:fillColor="#FFF7FD" />
 </vector>

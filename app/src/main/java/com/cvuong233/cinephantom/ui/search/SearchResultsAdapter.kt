@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
+import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.databinding.ItemSearchResultBinding
 import com.cvuong233.cinephantom.model.ImdbTitle
 import com.google.android.material.card.MaterialCardView
@@ -28,12 +29,18 @@ class SearchResultsAdapter(
     private var highlightId: String? = null
 
     var onStremioClick: ((ImdbTitle) -> Unit)? = null
+    var onFavoriteClick: ((ImdbTitle) -> Unit)? = null
     var onRatingNeeded: ((ImdbTitle) -> Unit)? = null
 
     fun showLoading() { isLoading = true; notifyDataSetChanged() }
     fun hideLoading() { isLoading = false; notifyDataSetChanged() }
 
     fun isLoading(): Boolean = isLoading
+
+    fun notifyFavoriteChanged(imdbId: String) {
+        val idx = items.indexOfFirst { it.id == imdbId }
+        if (idx >= 0) notifyItemChanged(idx, "favorite")
+    }
 
     fun requestHighlight(imdbId: String, position: Int) {
         highlightId = imdbId
@@ -49,9 +56,6 @@ class SearchResultsAdapter(
         notifyDataSetChanged()
     }
 
-    /**
-     * Update a single item's rating when fetched asynchronously.
-     */
     fun updateRating(updated: ImdbTitle) {
         val index = items.indexOfFirst { it.id == updated.id }
         if (index >= 0) {
@@ -61,10 +65,6 @@ class SearchResultsAdapter(
         }
     }
 
-    /**
-     * Called when all pending rating fetches are done.
-     * Finalizes any remaining "---" badges to show nothing instead of rolling forever.
-     */
     fun onRatingFetchDone() {
         pendingRatings.clear()
         notifyItemRangeChanged(0, items.size, "rating_done")
@@ -78,14 +78,8 @@ class SearchResultsAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
-            VIEW_TYPE_SKELETON -> {
-                val view = inflater.inflate(R.layout.item_search_skeleton, parent, false)
-                SkeletonViewHolder(view)
-            }
-            else -> {
-                val binding = ItemSearchResultBinding.inflate(inflater, parent, false)
-                ResultViewHolder(binding)
-            }
+            VIEW_TYPE_SKELETON -> SkeletonViewHolder(inflater.inflate(R.layout.item_search_skeleton, parent, false))
+            else -> ResultViewHolder(ItemSearchResultBinding.inflate(inflater, parent, false))
         }
     }
 
@@ -97,6 +91,11 @@ class SearchResultsAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (holder is ResultViewHolder && payloads.contains("favorite")) {
+            val isFav = FavoritesRepository.isFavorite(items[position].id)
+            holder.binding.favoriteButton.setImageResource(if (isFav) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
+            return
+        }
         if (holder is ResultViewHolder && payloads.contains("highlight")) {
             holder.bind(items[position], position)
             return
@@ -112,11 +111,8 @@ class SearchResultsAdapter(
     }
 
     class SkeletonViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val shimmerPoster = itemView.findViewById<com.cvuong233.cinephantom.ui.search.ShimmerView>(R.id.skeleton_poster)
-
-        fun bind() {
-            shimmerPoster?.startShimmer()
-        }
+        private val shimmerPoster = itemView.findViewById<ShimmerView>(R.id.skeleton_poster)
+        fun bind() { shimmerPoster?.startShimmer() }
     }
 
     inner class ResultViewHolder(
@@ -127,46 +123,36 @@ class SearchResultsAdapter(
             ViewCompat.setTransitionName(binding.posterImage, "poster_${item.id}")
             binding.root.setOnClickListener { onClick(binding.posterImage, item) }
 
-            // Title
             binding.titleText.text = item.title
 
-            val rating = item.rating
             val ratingText = item.ratingText?.trim().orEmpty()
-            val context = binding.root.context
-            val baseStroke = context.getColor(R.color.surface_border)
-            val glowStroke = context.getColor(R.color.neon_pink)
-            val baseMetaBg = context.getColor(R.color.imdb_yellow)
-            binding.metaText.setTextColor(baseMetaBg)
-            binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)
+            val baseStroke = binding.root.context.getColor(R.color.surface_border)
+            val glowStroke = binding.root.context.getColor(R.color.neon_pink)
+
             (binding.root as? MaterialCardView)?.apply {
                 strokeWidth = 1
                 strokeColor = baseStroke
             }
-            if (ratingText.isNotBlank()) {
-                binding.metaText.text = "IMDb $ratingText"
-                binding.metaText.visibility = View.VISIBLE
-            } else if (rating != null && rating > 0f) {
-                binding.metaText.text = String.format(java.util.Locale.US, "IMDb %.1f", rating)
-                binding.metaText.visibility = View.VISIBLE
-            } else if (pendingRatings.contains(item.id)) {
-                binding.metaText.text = "IMDb --"
-                binding.metaText.visibility = View.VISIBLE
-                if (requestedRatings.add(item.id)) {
-                    onRatingNeeded?.invoke(item)
+
+            when {
+                ratingText.isNotBlank() -> {
+                    binding.ratingBadge.text = "IMDb $ratingText"
+                    binding.ratingBadge.visibility = View.VISIBLE
                 }
-            } else {
-                binding.metaText.visibility = View.GONE
+                (item.rating ?: 0f) > 0f -> {
+                    binding.ratingBadge.text = String.format(java.util.Locale.US, "IMDb %.1f", item.rating)
+                    binding.ratingBadge.visibility = View.VISIBLE
+                }
+                pendingRatings.contains(item.id) -> {
+                    binding.ratingBadge.text = "IMDb --"
+                    binding.ratingBadge.visibility = View.VISIBLE
+                    if (requestedRatings.add(item.id)) onRatingNeeded?.invoke(item)
+                }
+                else -> binding.ratingBadge.visibility = View.GONE
             }
 
-            val rankLabel = item.rankLabel?.trim().orEmpty()
-            if (rankLabel.isNotBlank()) {
-                binding.rankText.text = rankLabel
-                binding.rankText.visibility = View.VISIBLE
-            } else {
-                binding.rankText.visibility = View.GONE
-            }
-
-            binding.ratingBadge.visibility = View.GONE
+            binding.rankText.visibility = View.GONE
+            binding.secondaryText.visibility = View.GONE
 
             if (item.id == highlightId) {
                 highlightId = null
@@ -181,57 +167,30 @@ class SearchResultsAdapter(
                     binding.posterFrame.scaleX = 0.984f
                     binding.posterFrame.scaleY = 0.984f
                     binding.posterFrame.alpha = 0.9f
-                    binding.metaText.alpha = 0.72f
-                    binding.rankText.alpha = 0.72f
+                    binding.ratingBadge.alpha = 0.72f
                     card?.strokeWidth = 3
                     card?.strokeColor = glowStroke
 
-                    binding.root.animate()
-                        .alpha(1f)
-                        .scaleX(1.012f)
-                        .scaleY(1.012f)
-                        .setDuration(220)
-                        .withEndAction {
-                            binding.root.animate().scaleX(1f).scaleY(1f).setDuration(180).start()
-                        }
+                    binding.root.animate().alpha(1f).scaleX(1.012f).scaleY(1.012f).setDuration(220)
+                        .withEndAction { binding.root.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }
                         .start()
-
-                    binding.posterFrame.animate()
-                        .alpha(1f)
-                        .scaleX(1.018f)
-                        .scaleY(1.018f)
-                        .setDuration(220)
-                        .withEndAction {
-                            binding.posterFrame.animate().scaleX(1f).scaleY(1f).setDuration(180).start()
-                        }
+                    binding.posterFrame.animate().alpha(1f).scaleX(1.018f).scaleY(1.018f).setDuration(220)
+                        .withEndAction { binding.posterFrame.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }
                         .start()
-
-                    binding.metaText.animate().alpha(1f).setDuration(260).start()
-                    binding.rankText.animate().alpha(1f).setDuration(260).start()
-
+                    binding.ratingBadge.animate().alpha(1f).setDuration(260).start()
                     ObjectAnimator.ofArgb(card, "strokeColor", glowStroke, baseStroke).apply {
-                        duration = 620
-                        start()
+                        duration = 620; start()
                     }
-
                     binding.root.postDelayed({
                         card?.strokeWidth = 1
                         card?.strokeColor = baseStroke
-                        binding.root.alpha = 1f
-                        binding.root.scaleX = 1f
-                        binding.root.scaleY = 1f
-                        binding.posterFrame.alpha = 1f
-                        binding.posterFrame.scaleX = 1f
-                        binding.posterFrame.scaleY = 1f
-                        binding.metaText.alpha = 1f
-                        binding.rankText.alpha = 1f
-                        binding.metaText.background = context.getDrawable(R.drawable.bg_rating_badge_pill)
-                        binding.metaText.setTextColor(baseMetaBg)
+                        binding.root.alpha = 1f; binding.root.scaleX = 1f; binding.root.scaleY = 1f
+                        binding.posterFrame.alpha = 1f; binding.posterFrame.scaleX = 1f; binding.posterFrame.scaleY = 1f
+                        binding.ratingBadge.alpha = 1f
                     }, 680)
                 }
             }
 
-            // Poster — load manually
             if (item.imageUrl.isNullOrBlank()) {
                 binding.posterImage.visibility = View.GONE
                 binding.posterPlaceholder.visibility = View.VISIBLE
@@ -253,13 +212,12 @@ class SearchResultsAdapter(
                 )
             }
 
-            // Stremio button
             binding.stremioButton.visibility = View.VISIBLE
-            binding.stremioButton.setOnClickListener {
-                onStremioClick?.invoke(item)
-            }
+            binding.stremioButton.setOnClickListener { onStremioClick?.invoke(item) }
 
-
+            val isFav = FavoritesRepository.isFavorite(item.id)
+            binding.favoriteButton.setImageResource(if (isFav) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
+            binding.favoriteButton.setOnClickListener { onFavoriteClick?.invoke(item) }
         }
     }
 }

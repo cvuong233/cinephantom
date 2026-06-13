@@ -15,7 +15,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.cvuong233.cinephantom.R
+import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.data.WatchlistDatabase
+import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
+import com.cvuong233.cinephantom.ui.account.AuthActivity
+import com.google.firebase.auth.FirebaseAuth
 import com.cvuong233.cinephantom.model.WatchlistItem
 import com.cvuong233.cinephantom.ui.FuturisticAnim
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
@@ -30,12 +34,14 @@ class WatchlistFragment : Fragment() {
     private val toWatchAdapter by lazy {
         SearchResultsAdapter { _, title -> openTitle(title) }.apply {
             onStremioClick = { /* no-op */ }
+            onFavoriteClick = { toggleFavorite(it, this) }
         }
     }
 
     private val watchedAdapter by lazy {
         SearchResultsAdapter { _, title -> openTitle(title) }.apply {
             onStremioClick = { /* no-op */ }
+            onFavoriteClick = { toggleFavorite(it, this) }
         }
     }
 
@@ -112,6 +118,18 @@ class WatchlistFragment : Fragment() {
         val empty = view.findViewById<View>(R.id.watchlist_empty)
         empty.visibility = if (toWatchSection.visibility == View.GONE && watchedSection.visibility == View.GONE)
             View.VISIBLE else View.GONE
+    }
+
+    private fun toggleFavorite(title: ImdbTitle, adapter: com.cvuong233.cinephantom.ui.search.SearchResultsAdapter) {
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            Toast.makeText(requireContext(), "Sign in to save to Wishlist", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(requireContext(), AuthActivity::class.java))
+            return
+        }
+        val wasInWishlist = FavoritesRepository.isFavorite(title.id)
+        FavoritesRepository.toggle(title)
+        adapter.notifyFavoriteChanged(title.id)
+        if (wasInWishlist) WishlistNotificationScheduler.cancel(requireContext(), title.id)
     }
 
     private fun openTitle(title: ImdbTitle) {

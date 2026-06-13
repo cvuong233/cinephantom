@@ -3,19 +3,35 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <!-- TV screen outline -->
     <path
-        android:pathData="M12,4.2l6.9,2.8 -2.8,6.9L9.2,16.8 12,4.2z"
+        android:pathData="M3.5,4.5C3.5,3.7 4.2,3 5,3L19,3C19.8,3 20.5,3.7 20.5,4.5L20.5,15C20.5,15.8 19.8,16.5 19,16.5L5,16.5C4.2,16.5 3.5,15.8 3.5,15Z"
         android:fillColor="#00000000"
         android:strokeColor="#FFF7FD"
-        android:strokeLineJoin="round"
-        android:strokeWidth="1.8" />
+        android:strokeWidth="1.9" />
+    <!-- Stand left leg -->
     <path
-        android:pathData="M10.9,10.9m-1.4,0a1.4,1.4 0 1,0 2.8,0a1.4,1.4 0 1,0 -2.8,0"
-        android:fillColor="#B78BE2" />
-    <path
-        android:pathData="M6,18l4,-4"
+        android:pathData="M9.5,16.5L8.5,20"
         android:fillColor="#00000000"
         android:strokeColor="#FFF7FD"
         android:strokeLineCap="round"
-        android:strokeWidth="1.8" />
+        android:strokeWidth="1.7" />
+    <!-- Stand right leg -->
+    <path
+        android:pathData="M14.5,16.5L15.5,20"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFF7FD"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.7" />
+    <!-- Base -->
+    <path
+        android:pathData="M7.5,20L16.5,20"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFF7FD"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.7" />
+    <!-- Solid heart — sized to fit clearly inside screen with visible padding on all sides -->
+    <path
+        android:pathData="M12,14C10,12 8,10.5 8,8.5C8,7.3 9,6.5 10,6.5C11,6.5 11.5,7 12,7.5C12.5,7 13,6.5 14,6.5C15,6.5 16,7.3 16,8.5C16,10.5 14,12 12,14Z"
+        android:fillColor="#FFF7FD" />
 </vector>

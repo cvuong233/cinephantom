@@ -2,7 +2,9 @@ name: Refresh K-Drama Charts
 
 on:
   schedule:
-    - cron: "0 0 * * *"
+    # Every 6 hours: 01:11, 07:11, 13:11, 19:11 UTC
+    # Staggered from IMDb workflow by 11 min to avoid concurrent runs
+    - cron: "11 1,7,13,19 * * *"
   workflow_dispatch:
 
 permissions:
@@ -23,7 +25,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r scripts/requirements.txt
+        run: |
+          pip install -r scripts/requirements.txt
+          playwright install chromium --with-deps
 
       - name: Run FUNdex K-drama scraper
         run: python scripts/scrape_fundex_kdramas.py > /tmp/kdrama_charts.json

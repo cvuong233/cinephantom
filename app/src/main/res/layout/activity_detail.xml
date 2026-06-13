@@ -85,27 +85,53 @@
                 android:padding="8dp"
                 android:src="@drawable/ic_share" />
 
-            <FrameLayout
+            <LinearLayout
                 android:layout_width="126dp"
-                android:layout_height="189dp"
+                android:layout_height="wrap_content"
                 android:layout_gravity="top|start"
                 android:layout_marginStart="20dp"
                 android:layout_marginTop="122dp"
-                android:background="@drawable/bg_glass_card"
-                android:clipToOutline="true"
-                android:elevation="16dp"
-                android:outlineProvider="background"
-                android:padding="2dp">
+                android:orientation="vertical"
+                android:elevation="16dp">
 
-                <ImageView
-                    android:id="@+id/detail_hero"
+                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:alpha="0"
-                    android:contentDescription="@null"
-                    android:scaleType="centerCrop"
-                    android:transitionName="poster_transition" />
-            </FrameLayout>
+                    android:layout_height="189dp"
+                    android:background="@drawable/bg_glass_card"
+                    android:clipToOutline="true"
+                    android:outlineProvider="background"
+                    android:padding="2dp">
+
+                    <ImageView
+                        android:id="@+id/detail_hero"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:alpha="0"
+                        android:contentDescription="@null"
+                        android:scaleType="centerCrop"
+                        android:transitionName="poster_transition" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/detail_rating"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_rating_pill"
+                    android:gravity="center"
+                    android:minHeight="28dp"
+                    android:paddingLeft="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingRight="10dp"
+                    android:paddingBottom="4dp"
+                    android:textColor="@color/widget_imdb"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:visibility="gone" />
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -146,45 +172,37 @@
 
                 <LinearLayout
                     android:id="@+id/detail_rating_row"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:baselineAligned="false"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:paddingTop="4dp"
                     android:paddingBottom="4dp"
                     android:visibility="gone">
 
-                    <TextView
-                        android:id="@+id/detail_rating"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_vertical"
-                        android:background="@drawable/bg_rating_pill"
-                        android:gravity="center_vertical"
-                        android:minHeight="32dp"
-                        android:paddingLeft="10dp"
-                        android:paddingTop="4dp"
-                        android:paddingRight="10dp"
-                        android:paddingBottom="4dp"
-                        android:textAlignment="viewStart"
-                        android:textColor="@color/widget_imdb"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:visibility="gone" />
-
                     <ImageView
                         android:id="@+id/detail_stremio_button"
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center_vertical"
-                        android:layout_marginStart="12dp"
                         android:background="@drawable/bg_back_button"
                         android:contentDescription="@string/stremio_open_button"
                         android:elevation="12dp"
                         android:padding="10dp"
                         android:src="@drawable/ic_stremio_brand" />
+
+                    <ImageView
+                        android:id="@+id/detail_favorite_button"
+                        android:layout_width="52dp"
+                        android:layout_height="52dp"
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_back_button"
+                        android:contentDescription="Add to Wishlist"
+                        android:elevation="12dp"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_heart_outline" />
                 </LinearLayout>
             </LinearLayout>
         </FrameLayout>
@@ -366,6 +384,124 @@
                         android:text="Status"
                         android:textColor="@color/text_muted"
                         android:textSize="11sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Movie release date card — mutually exclusive with next episode card -->
+            <LinearLayout
+                android:id="@+id/detail_movie_release_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_tv_stats_card"
+                android:clipToOutline="true"
+                android:outlineProvider="background"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="match_parent"
+                    android:background="@color/secondary_accent" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp">
+
+                    <TextView
+                        android:id="@+id/detail_movie_release_label"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.1"
+                        android:text="RELEASE DATE"
+                        android:textColor="@color/secondary_link"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/detail_movie_release_date"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Next episode card — shown below stats card for returning series only -->
+            <LinearLayout
+                android:id="@+id/detail_next_episode_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_tv_stats_card"
+                android:clipToOutline="true"
+                android:outlineProvider="background"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <View
+                    android:layout_width="4dp"
+                    android:layout_height="match_parent"
+                    android:background="@color/secondary_accent" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="14dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:letterSpacing="0.1"
+                            android:text="NEXT EPISODE"
+                            android:textColor="@color/secondary_link"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/detail_next_episode_code"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/secondary_link"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/detail_next_episode_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/detail_next_episode_date"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp" />
                 </LinearLayout>
             </LinearLayout>
 

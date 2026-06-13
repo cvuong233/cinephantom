@@ -24,6 +24,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import com.cvuong233.cinephantom.ui.FuturisticAnim
+import com.cvuong233.cinephantom.widget.WidgetDataFetcher
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.MainActivity
 import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
@@ -34,8 +35,13 @@ import com.cvuong233.cinephantom.data.TMDBApi
 import com.cvuong233.cinephantom.data.TMDBCastMember
 import com.cvuong233.cinephantom.data.TMDBCrewMember
 import com.cvuong233.cinephantom.data.TMDBShowDetails
+import com.cvuong233.cinephantom.data.FavoritesRepository
+import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
 import com.cvuong233.cinephantom.data.WatchlistDatabase
+import com.cvuong233.cinephantom.model.ImdbTitle
 import com.cvuong233.cinephantom.model.WatchlistItem
+import com.cvuong233.cinephantom.ui.account.AuthActivity
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -55,6 +61,8 @@ class DetailActivity : AppCompatActivity() {
         const val EXTRA_TRANSITION_NAME = "extra_transition_name"
         const val EXTRA_FROM_WIDGET = "extra_from_widget"
         const val EXTRA_RETURN_DISCOVER_TYPE = "extra_return_discover_type"
+        const val EXTRA_FUNDEX_RATING = "extra_fundex_rating"
+        const val EXTRA_TMDB_ID = "extra_tmdb_id"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +76,8 @@ class DetailActivity : AppCompatActivity() {
         val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
         val intentCast = intent?.getStringExtra(EXTRA_CAST)
         val launchedFromWidget = intent?.getBooleanExtra(EXTRA_FROM_WIDGET, false) == true
+        val fundexRatingFromIntent = intent?.getStringExtra(EXTRA_FUNDEX_RATING)
+        val seedTmdbId = intent?.getIntExtra(EXTRA_TMDB_ID, -1)?.takeIf { it > 0 } ?: -1
 
         // Normalize type early — needed by trailer button and metadata threads
         val typeLower = type?.lowercase() ?: ""
@@ -109,6 +119,11 @@ class DetailActivity : AppCompatActivity() {
         val tvSeasons = findViewById<TextView>(R.id.detail_tv_seasons)
         val tvEpisodes = findViewById<TextView>(R.id.detail_tv_episodes)
         val tvStatus = findViewById<TextView>(R.id.detail_tv_status)
+        val nextEpCard = findViewById<LinearLayout>(R.id.detail_next_episode_card)
+        val nextEpCodeView = findViewById<TextView>(R.id.detail_next_episode_code)
+        val nextEpNameView = findViewById<TextView>(R.id.detail_next_episode_name)
+        val nextEpDateView = findViewById<TextView>(R.id.detail_next_episode_date)
+        val favBtn = findViewById<ImageView>(R.id.detail_favorite_button)
 
         fun applyRating(rawRatingText: String?, fallbackRating: Float? = null) {
             val cleanText = rawRatingText?.trim().orEmpty()
@@ -169,13 +184,35 @@ class DetailActivity : AppCompatActivity() {
                 .start()
         }
 
-        thread {
-            try {
-                val fetched = ratingFetcher.fetchRating(imdbId)
-                if (fetched != null && fetched > 0f) {
-                    preloadedRating.set(fetched)
-                }
-            } catch (_: Exception) {}
+        fun revealFundexRating(text: String, delay: Long = 0L) {
+            val numeric = text.trim().removeSuffix("%").toFloatOrNull()
+            val formatted = if (numeric != null)
+                "★ ${String.format(java.util.Locale.US, "%.1f", numeric)}% FUNdex"
+            else "★ ${text.trim()} FUNdex"
+            ratingView.text = formatted
+            ratingRow.visibility = View.VISIBLE
+            ratingView.visibility = View.VISIBLE
+            ratingRow.translationY = -18f
+            ratingRow.alpha = 0f
+            ratingRow.animate().cancel()
+            ratingRow.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(340)
+                .setStartDelay(delay)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+
+        if (fundexRatingFromIntent == null) {
+            thread {
+                try {
+                    val fetched = ratingFetcher.fetchRating(imdbId)
+                    if (fetched != null && fetched > 0f) {
+                        preloadedRating.set(fetched)
+                    }
+                } catch (_: Exception) {}
+            }
         }
 
         // Share button
@@ -203,7 +240,7 @@ class DetailActivity : AppCompatActivity() {
         }
 
         // Trailer button: fetch TMDB video and open YouTube
-        var tmdbTrailerId = -1
+        var tmdbTrailerId = seedTmdbId  // pre-seeded if caller knows TMDB ID (e.g. K-drama)
         trailerBtn.setOnClickListener {
             trailerBtn.text = "Loading..."
             thread {
@@ -281,6 +318,53 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
+        // Favorite/Wishlist button — captures TMDB air date once loaded (see below)
+        val titleObj = ImdbTitle(
+            id = imdbId, title = title, typeLabel = type, year = year,
+            cast = null, imageUrl = imageUrl,
+            tmdbId = seedTmdbId.takeIf { it > 0 }
+        )
+        // Populated by TMDB callbacks below so the heart click can schedule the notification
+        var wishlistMovieReleaseDate: String? = null
+        var wishlistNextEpisode: com.cvuong233.cinephantom.data.TMDBNextEpisode? = null
+
+        fun refreshFavIcon() {
+            favBtn.setImageResource(
+                if (FavoritesRepository.isFavorite(imdbId)) R.drawable.ic_heart_filled
+                else R.drawable.ic_heart_outline
+            )
+        }
+        refreshFavIcon()
+        favBtn.setOnClickListener {
+            if (FirebaseAuth.getInstance().currentUser == null) {
+                Toast.makeText(this, "Sign in to save to Wishlist", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this, AuthActivity::class.java))
+                return@setOnClickListener
+            }
+            val wasInWishlist = FavoritesRepository.isFavorite(imdbId)
+            FavoritesRepository.toggle(titleObj)
+            refreshFavIcon()
+            if (!wasInWishlist) {
+                // Added — schedule notification if we already have the date
+                val airDate = if (isSeries) wishlistNextEpisode?.airDate else wishlistMovieReleaseDate
+                if (!airDate.isNullOrBlank()) {
+                    WishlistNotificationScheduler.schedule(
+                        context = this,
+                        imdbId = imdbId,
+                        title = title,
+                        isTV = isSeries,
+                        airDate = airDate,
+                        season = wishlistNextEpisode?.seasonNumber ?: 0,
+                        episode = wishlistNextEpisode?.episodeNumber ?: 0,
+                        imageUrl = imageUrl,
+                    )
+                }
+            } else {
+                // Removed — cancel any scheduled notification
+                WishlistNotificationScheduler.cancel(this, imdbId)
+            }
+        }
+
         // Stremio button
         stremioBtn.setOnClickListener {
             val stremioType = when (type) {
@@ -320,10 +404,6 @@ class DetailActivity : AppCompatActivity() {
         // Shared state: whichever thread gets tmdbId first fetches credits
         var creditsFetched = false
         val creditsLock = Any()
-        var cachedTmdbCast: List<TMDBCastMember>? = null
-        var cachedTmdbDirectors: List<TMDBCrewMember>? = null
-        var cachedTmdbShow: TMDBShowDetails? = null
-        var tmdbCreditsApplied = false
         val fallbackHandler = Handler(Looper.getMainLooper())
 
         fun animateSectionHeader(view: View, delay: Long = 0L) {
@@ -360,7 +440,6 @@ class DetailActivity : AppCompatActivity() {
 
         // Apply cached TMDB credits to cast views (idempotent, called from UI thread)
         fun applyCreditsToUi(tmdbCast: List<TMDBCastMember>, tmdbDirectors: List<TMDBCrewMember>, tmdbShow: TMDBShowDetails?) {
-            tmdbCreditsApplied = true
             fallbackHandler.removeCallbacksAndMessages(null)
             if (tmdbShow != null && tmdbShow.seasons > 0) {
                 val showParts = mutableListOf<String>()
@@ -382,6 +461,51 @@ class DetailActivity : AppCompatActivity() {
                 tvStatus.text = statusText
                 tvStatus.setTextColor(if (statusText == "Returning") Color.parseColor("#4CAF50") else Color.parseColor("#4DA6FF"))
                 tvCard.visibility = View.VISIBLE
+
+                val nextEp = tmdbShow.nextEpisode
+                wishlistNextEpisode = nextEp  // capture for notification scheduling
+                val isReturning = tmdbShow.status?.lowercase()?.let {
+                    it == "returning series" || it == "in production" || it == "planned"
+                } == true
+                if (isReturning && nextEp != null) {
+                    nextEpCodeView.text = "S${nextEp.seasonNumber} · E${nextEp.episodeNumber}"
+                    nextEpNameView.text = nextEp.name?.takeIf { it.isNotBlank() } ?: "Episode ${nextEp.episodeNumber}"
+                    val airDateStr = nextEp.airDate
+                    if (!airDateStr.isNullOrBlank()) {
+                        try {
+                            val airDate = java.time.LocalDate.parse(airDateStr)
+                            val today = java.time.LocalDate.now()
+                            val days = java.time.temporal.ChronoUnit.DAYS.between(today, airDate).toInt()
+                            val displayDate = airDate.format(
+                                java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy", java.util.Locale.US)
+                            )
+                            val countdown = when {
+                                days < -1 -> "aired"
+                                days == -1 -> "yesterday"
+                                days == 0 -> "Today"
+                                days == 1 -> "Tomorrow"
+                                else -> "in $days days"
+                            }
+                            nextEpDateView.text = "$displayDate  ·  $countdown"
+                        } catch (_: Exception) {
+                            nextEpDateView.text = airDateStr
+                        }
+                    } else {
+                        nextEpDateView.visibility = View.GONE
+                    }
+                    nextEpCard.visibility = View.VISIBLE
+                    nextEpCard.alpha = 0f
+                    nextEpCard.translationY = 18f
+                    nextEpCard.animate()
+                        .alpha(1f)
+                        .translationY(0f)
+                        .setDuration(340)
+                        .setStartDelay(60)
+                        .setInterpolator(DecelerateInterpolator())
+                        .start()
+                } else {
+                    nextEpCard.visibility = View.GONE
+                }
             }
             if (tmdbCast.isNotEmpty()) {
                 currentCastForViewAll = tmdbCast
@@ -511,20 +635,61 @@ class DetailActivity : AppCompatActivity() {
                 val tmdbCast = tmdbApi.fetchCredits(tmdbId, isSeries)
                 val tmdbDirectors = tmdbApi.fetchDirectors(tmdbId, isSeries)
                 val tmdbShow = if (isSeries) tmdbApi.fetchShowDetails(tmdbId) else null
-                cachedTmdbCast = tmdbCast
-                cachedTmdbDirectors = tmdbDirectors
-                cachedTmdbShow = tmdbShow
                 runOnUiThread { applyCreditsToUi(tmdbCast, tmdbDirectors, tmdbShow) }
             } catch (_: Exception) {
                 synchronized(creditsLock) { creditsFetched = false }
             }
         }
 
+        // If the caller already knows the TMDB ID (e.g., K-drama list), fetch credits immediately
+        // in parallel — don't wait for the IMDb→TMDB lookup to complete first.
+        if (seedTmdbId > 0) thread { fetchCreditsAndUpdatePhotos(seedTmdbId) }
+
         thread {
             try {
                 val details = TMDBApi().fetchTitleDetailsByImdb(imdbId, preferSeries = isSeries)
+                val effectiveFundexRating = fundexRatingFromIntent
+                    ?: WidgetDataFetcher.findKdramaSeed(this@DetailActivity, imdbId)
+                        ?.ratingText?.takeIf { it.isNotBlank() }
 
                 runOnUiThread {
+                    // Capture release date for movie wishlist notification scheduling
+                    if (!isSeries) wishlistMovieReleaseDate = details?.releaseDate
+
+                    // Movie release date card
+                    if (!isSeries) {
+                        val movieReleaseCard = findViewById<LinearLayout>(R.id.detail_movie_release_card)
+                        val movieReleaseLabelView = findViewById<android.widget.TextView>(R.id.detail_movie_release_label)
+                        val movieReleaseDateView = findViewById<android.widget.TextView>(R.id.detail_movie_release_date)
+                        val relDate = details?.releaseDate
+                        if (!relDate.isNullOrBlank()) {
+                            try {
+                                val releaseDate = java.time.LocalDate.parse(relDate)
+                                val today = java.time.LocalDate.now()
+                                val days = java.time.temporal.ChronoUnit.DAYS.between(today, releaseDate).toInt()
+                                val displayDate = releaseDate.format(
+                                    java.time.format.DateTimeFormatter.ofPattern("MMM d, yyyy", java.util.Locale.US)
+                                )
+                                val countdown = when {
+                                    days < 0 -> "Released"
+                                    days == 0 -> "Today"
+                                    days == 1 -> "Tomorrow"
+                                    else -> "in $days days"
+                                }
+                                movieReleaseLabelView.text = if (days < 0) "RELEASED" else "RELEASES"
+                                movieReleaseDateView.text = "$displayDate  ·  $countdown"
+                                movieReleaseCard.visibility = View.VISIBLE
+                                movieReleaseCard.alpha = 0f
+                                movieReleaseCard.translationY = 18f
+                                movieReleaseCard.animate()
+                                    .alpha(1f).translationY(0f)
+                                    .setDuration(340).setStartDelay(60)
+                                    .setInterpolator(DecelerateInterpolator())
+                                    .start()
+                            } catch (_: Exception) { /* no-op */ }
+                        }
+                    }
+
                     val backdropPath = details?.backdropPath
                     val posterPath = details?.posterPath
                     val landscapeUrl = when {
@@ -563,8 +728,12 @@ class DetailActivity : AppCompatActivity() {
                     metaView.animate().translationX(0f).alpha(1f).setDuration(400).setStartDelay(150)
                         .setInterpolator(DecelerateInterpolator(1.5f)).start()
 
-                    val preferredRating = preloadedRating.get() ?: ratingFetcher.fetchCachedOrChartRating(imdbId) ?: details?.rating
-                    revealRating(preferredRating, 180)
+                    if (effectiveFundexRating != null) {
+                        revealFundexRating(effectiveFundexRating, 180)
+                    } else {
+                        val preferredRating = preloadedRating.get() ?: ratingFetcher.fetchCachedOrChartRating(imdbId) ?: details?.rating
+                        revealRating(preferredRating, 180)
+                    }
 
                     val genres = details?.genres.orEmpty()
                     if (genres.isNotEmpty()) {
@@ -612,7 +781,6 @@ class DetailActivity : AppCompatActivity() {
                         .setInterpolator(OvershootInterpolator(1.3f)).start()
                 }
 
-                details?.showDetails?.let { cachedTmdbShow = it }
                 details?.tmdbId?.takeIf { it > 0 }?.let { fetchCreditsAndUpdatePhotos(it) }
 
             } catch (_: Exception) {

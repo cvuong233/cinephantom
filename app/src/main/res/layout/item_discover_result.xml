@@ -41,7 +41,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="@drawable/search_poster_placeholder_bg" />
-
         </FrameLayout>
 
         <LinearLayout
@@ -138,11 +137,7 @@
                     android:textSize="26sp"
                     android:textStyle="bold"
                     android:visibility="gone" />
-
             </LinearLayout>
-
         </LinearLayout>
-
     </LinearLayout>
-
 </com.google.android.material.card.MaterialCardView>

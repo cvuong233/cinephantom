@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/screen_bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="28dp"
+        android:paddingBottom="32dp">
+
+        <!-- Back button row -->
+        <ImageView
+            android:id="@+id/auth_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_back_button"
+            android:clickable="true"
+            android:contentDescription="Back"
+            android:focusable="true"
+            android:padding="9dp"
+            android:src="@drawable/ic_back" />
+
+        <!-- Header -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="CinePhantom"
+            android:textColor="@color/text_primary"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Sign in to sync your account"
+            android:textColor="@color/text_muted"
+            android:textSize="14sp" />
+
+        <!-- Google Sign-In button -->
+        <TextView
+            android:id="@+id/auth_google_btn"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="40dp"
+            android:background="@drawable/bg_rating_pill"
+            android:drawableStart="@drawable/ic_google_g"
+            android:drawablePadding="10dp"
+            android:gravity="center"
+            android:text="Continue with Google"
+            android:textColor="@color/secondary_link"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Status / error message -->
+        <TextView
+            android:id="@+id/auth_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</ScrollView>

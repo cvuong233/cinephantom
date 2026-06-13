@@ -24,7 +24,10 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_gravity="center"
+            android:background="@drawable/bg_cast_avatar"
+            android:clipToOutline="true"
             android:contentDescription="@null"
+            android:outlineProvider="background"
             android:scaleType="centerCrop"
             android:visibility="gone" />
 

@@ -4,13 +4,21 @@ import com.cvuong233.cinephantom.model.ImdbTitle
 import org.json.JSONObject
 import java.net.URLEncoder
 
+data class TMDBNextEpisode(
+    val name: String?,
+    val seasonNumber: Int,
+    val episodeNumber: Int,
+    val airDate: String?
+)
+
 data class TMDBShowDetails(
     val seasons: Int = 0,
     val episodes: Int = 0,
     val episodeRuntime: List<Int> = emptyList(),
     val status: String? = null,
     val firstAirDate: String? = null,
-    val lastAirDate: String? = null
+    val lastAirDate: String? = null,
+    val nextEpisode: TMDBNextEpisode? = null
 )
 
 data class TMDBTitleDetails(
@@ -24,6 +32,7 @@ data class TMDBTitleDetails(
     val runtimeMinutes: Int? = null,
     val rating: Float? = null,
     val year: String? = null,
+    val releaseDate: String? = null,
     val showDetails: TMDBShowDetails? = null
 )
 
@@ -99,7 +108,17 @@ class TMDBApi {
                 },
                 status = root.optString("status").ifBlank { null },
                 firstAirDate = root.optString("first_air_date").ifBlank { null },
-                lastAirDate = root.optString("last_air_date").ifBlank { null }
+                lastAirDate = root.optString("last_air_date").ifBlank { null },
+                nextEpisode = root.optJSONObject("next_episode_to_air")?.let { ep ->
+                    val s = ep.optInt("season_number", 0)
+                    val e = ep.optInt("episode_number", 0)
+                    if (s <= 0 && e <= 0) null else TMDBNextEpisode(
+                        name = ep.optString("name").ifBlank { null },
+                        seasonNumber = s,
+                        episodeNumber = e,
+                        airDate = ep.optString("air_date").ifBlank { null }
+                    )
+                }
             )
         } catch (_: Exception) { null }
     }
@@ -236,7 +255,17 @@ class TMDBApi {
                     },
                     status = detailRoot.optString("status").ifBlank { null },
                     firstAirDate = detailRoot.optString("first_air_date").ifBlank { null },
-                    lastAirDate = detailRoot.optString("last_air_date").ifBlank { null }
+                    lastAirDate = detailRoot.optString("last_air_date").ifBlank { null },
+                    nextEpisode = detailRoot.optJSONObject("next_episode_to_air")?.let { ep ->
+                        val s = ep.optInt("season_number", 0)
+                        val e = ep.optInt("episode_number", 0)
+                        if (s <= 0 && e <= 0) null else TMDBNextEpisode(
+                            name = ep.optString("name").ifBlank { null },
+                            seasonNumber = s,
+                            episodeNumber = e,
+                            airDate = ep.optString("air_date").ifBlank { null }
+                        )
+                    }
                 )
             } else null
 
@@ -253,6 +282,9 @@ class TMDBApi {
                 year = detailRoot.optString("release_date").ifBlank { detailRoot.optString("first_air_date") }
                     .takeIf { it.isNotBlank() }
                     ?.take(4) ?: year,
+                releaseDate = if (resolvedMediaType == "movie")
+                    detailRoot.optString("release_date").ifBlank { null }
+                else null,
                 showDetails = showDetails
             )
         } catch (_: Exception) { null }

@@ -95,12 +95,12 @@
             android:paddingHorizontal="48dp"
             android:visibility="visible">
 
-            <TextView
+            <ImageView
                 android:id="@+id/empty_state_icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🎬"
-                android:textSize="48sp" />
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:src="@drawable/ic_search_empty"
+                android:contentDescription="@null" />
 
             <TextView
                 android:id="@+id/empty_state_title"

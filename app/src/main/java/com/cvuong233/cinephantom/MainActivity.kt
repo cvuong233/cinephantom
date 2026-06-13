@@ -1,15 +1,29 @@
 package com.cvuong233.cinephantom
 
-import android.os.Bundle
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.app.SearchManager
+import android.os.Build
+import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.databinding.ActivityMainBinding
-import com.cvuong233.cinephantom.ui.search.SearchFragment
+import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
+import com.cvuong233.cinephantom.notifications.WishlistRefreshWorker
+import com.cvuong233.cinephantom.ui.account.AccountFragment
 import com.cvuong233.cinephantom.ui.discover.DiscoverFragment
+import com.cvuong233.cinephantom.ui.kdrama.KDramaFragment
+import com.cvuong233.cinephantom.ui.search.SearchFragment
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,15 +31,26 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_OPEN_DISCOVER_TITLE = "cinephantom.intent.action.OPEN_DISCOVER_TITLE"
         const val EXTRA_DISCOVER_IMDB_ID = "extra_discover_imdb_id"
         const val EXTRA_DISCOVER_TYPE = "extra_discover_type"
+        private const val WORK_WISHLIST_REFRESH = "wishlist_refresh"
     }
 
     private lateinit var binding: ActivityMainBinding
     private var currentTabTag: String = "search"
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* granted or denied — notifications will work/not work accordingly */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FavoritesRepository.init()
+        WishlistNotificationScheduler.createChannel(this)
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        requestNotificationPermissionIfNeeded()
+        enqueueWishlistRefresh()
 
         if (savedInstanceState == null) {
             showFragment(SearchFragment(), "search")
@@ -36,12 +61,32 @@ class MainActivity : AppCompatActivity() {
         binding.bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_search -> showFragment(SearchFragment(), "search")
-                R.id.nav_discover -> showFragment(DiscoverFragment(), "discover")
+                R.id.nav_discover -> showFragment(DiscoverFragment.INSTANCE.newInstance(), "discover")
+                R.id.nav_kdrama -> showFragment(KDramaFragment(), "kdrama")
+                R.id.nav_account -> showFragment(AccountFragment(), "account")
             }
             true
         }
 
         handleIntent(intent)
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
+    private fun enqueueWishlistRefresh() {
+        val request = PeriodicWorkRequestBuilder<WishlistRefreshWorker>(1, TimeUnit.DAYS).build()
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            WORK_WISHLIST_REFRESH,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -86,13 +131,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun showFragment(fragment: Fragment, tag: String) {
         val existing = supportFragmentManager.findFragmentByTag(tag)
-        if (tag == "discover") clearSearchFocusAndKeyboard()
+        if (tag != "search") clearSearchFocusAndKeyboard()
 
-        val movingForward = when {
-            currentTabTag == tag -> true
-            currentTabTag == "search" && tag == "discover" -> true
-            else -> false
-        }
+        val tabOrder = listOf("search", "discover", "kdrama", "account")
+        val fromIndex = tabOrder.indexOf(currentTabTag)
+        val toIndex = tabOrder.indexOf(tag)
+        val movingForward = toIndex >= fromIndex
 
         supportFragmentManager.commit {
             setCustomAnimations(

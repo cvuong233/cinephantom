@@ -30,7 +30,7 @@
             android:elevation="8dp"
             android:theme="@style/Theme.CinePhantom"
             app:menu="@menu/bottom_nav_menu"
-            app:labelVisibilityMode="selected"
+            app:labelVisibilityMode="unlabeled"
             app:itemIconTint="@color/bottom_nav_tint"
             app:itemTextColor="@color/bottom_nav_tint"
             app:itemActiveIndicatorStyle="@style/NavActiveIndicator"

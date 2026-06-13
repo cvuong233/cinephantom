@@ -5,10 +5,6 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
@@ -16,6 +12,7 @@ import android.widget.Toast
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
@@ -32,8 +29,6 @@ class SearchActivity : AppCompatActivity() {
     private val api = ImdbSuggestionApi()
     private val adapter = SearchResultsAdapter { view, title -> openImdbTitle(view, title) }
 
-    private val debounceHandler = Handler(Looper.getMainLooper())
-    private val debounceDelayMs = 400L
     private var searchJob: Thread? = null
     private var ratingLoader: SearchRatingLoader? = null
     private var latestQuery = ""
@@ -64,15 +59,6 @@ class SearchActivity : AppCompatActivity() {
         // Initial empty state
         updateEmptyState()
 
-        binding.searchEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                debounceHandler.removeCallbacksAndMessages(null)
-                debounceHandler.postDelayed({ performSearch() }, debounceDelayMs)
-            }
-        })
-
         binding.searchEditText.requestFocus()
         binding.searchEditText.postDelayed({
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
@@ -100,11 +86,6 @@ class SearchActivity : AppCompatActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        debounceHandler.removeCallbacksAndMessages(null)
-    }
-
     private fun updateEmptyState() {
         val query = binding.searchEditText.text?.toString().orEmpty().trim()
         val hasResults = adapter.itemCount > 0 && !adapter.isLoading()
@@ -112,13 +93,15 @@ class SearchActivity : AppCompatActivity() {
         if (query.isEmpty()) {
             // No query entered yet — show guidance
             binding.emptyStateContainer.visibility = View.VISIBLE
-            binding.emptyStateIcon.text = "🎬"
+            binding.emptyStateIcon.setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.ic_search_empty))
+            binding.emptyStateIcon.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.secondary_accent))
             binding.emptyStateTitle.text = getString(R.string.search_guidance)
             binding.emptyStateSubtitle.text = getString(R.string.search_empty_subtitle)
         } else if (!hasResults && !adapter.isLoading()) {
             // Search returned no results
             binding.emptyStateContainer.visibility = View.VISIBLE
-            binding.emptyStateIcon.text = "🔍"
+            binding.emptyStateIcon.setImageDrawable(AppCompatResources.getDrawable(this, R.drawable.ic_search_empty_active))
+            binding.emptyStateIcon.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.neon_pink))
             binding.emptyStateTitle.text = getString(R.string.search_no_results_title)
             binding.emptyStateSubtitle.text = getString(R.string.search_no_results_subtitle)
         } else {
