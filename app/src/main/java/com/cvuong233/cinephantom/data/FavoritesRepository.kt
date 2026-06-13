@@ -44,6 +44,7 @@ object FavoritesRepository {
                             tmdbId = doc.getLong("tmdbId")?.toInt(),
                             rating = doc.getDouble("rating")?.toFloat(),
                             ratingText = doc.getString("ratingText"),
+                            ratingSourceLabel = doc.getString("ratingSourceLabel"),
                         )
                     } catch (_: Exception) { null }
                 }.sortedByDescending { doc ->
@@ -81,6 +82,7 @@ object FavoritesRepository {
                 "tmdbId" to title.tmdbId,
                 "rating" to title.rating,
                 "ratingText" to title.ratingText,
+                "ratingSourceLabel" to title.ratingSourceLabel,
                 "addedAt" to System.currentTimeMillis(),
             )
             ref.set(data)

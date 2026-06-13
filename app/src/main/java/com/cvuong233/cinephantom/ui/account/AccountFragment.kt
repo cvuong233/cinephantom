@@ -13,13 +13,8 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.data.FavoritesRepository
-import com.cvuong233.cinephantom.model.ImdbTitle
-import com.cvuong233.cinephantom.ui.detail.DetailActivity
-import com.cvuong233.cinephantom.ui.search.SearchResultsAdapter
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
@@ -29,7 +24,6 @@ import kotlinx.coroutines.launch
 class AccountFragment : Fragment() {
 
     private val auth = FirebaseAuth.getInstance()
-    private var favoritesAdapter: SearchResultsAdapter? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
         inflater.inflate(R.layout.fragment_account, container, false)
@@ -43,33 +37,15 @@ class AccountFragment : Fragment() {
         view.findViewById<TextView>(R.id.account_sign_out_btn).setOnClickListener {
             signOut(view)
         }
-
-        val recycler = view.findViewById<RecyclerView>(R.id.favorites_recycler)
-        recycler.layoutManager = LinearLayoutManager(requireContext())
-        recycler.isNestedScrollingEnabled = false
-        favoritesAdapter = SearchResultsAdapter { _, title -> openTitle(title) }.apply {
-            onStremioClick = { /* no-op */ }
-            onFavoriteClick = {
-                FavoritesRepository.toggle(it)
-                notifyFavoriteChanged(it.id)
-            }
+        view.findViewById<LinearLayout>(R.id.account_wishlist_row).setOnClickListener {
+            startActivity(Intent(requireContext(), WishlistActivity::class.java))
         }
-        recycler.adapter = favoritesAdapter
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 FavoritesRepository.favorites.collect { titles ->
-                    val emptyText = view.findViewById<TextView>(R.id.favorites_empty_text) ?: return@collect
-                    if (auth.currentUser == null) return@collect
-                    if (titles.isEmpty()) {
-                        emptyText.visibility = View.VISIBLE
-                        recycler.visibility = View.GONE
-                    } else {
-                        emptyText.visibility = View.GONE
-                        recycler.visibility = View.VISIBLE
-                        favoritesAdapter?.submitList(titles)
-                        favoritesAdapter?.hideLoading()
-                    }
+                    val countView = view.findViewById<TextView>(R.id.account_wishlist_count) ?: return@collect
+                    countView.text = if (titles.isEmpty()) "" else "${titles.size}"
                 }
             }
         }
@@ -128,18 +104,6 @@ class AccountFragment : Fragment() {
         } catch (_: Exception) {}
         Toast.makeText(requireContext(), "Signed out", Toast.LENGTH_SHORT).show()
         refreshUi(view)
-    }
-
-    private fun openTitle(title: ImdbTitle) {
-        val intent = Intent(requireContext(), DetailActivity::class.java).apply {
-            putExtra(DetailActivity.EXTRA_IMDB_ID, title.id)
-            putExtra(DetailActivity.EXTRA_TITLE, title.title)
-            putExtra(DetailActivity.EXTRA_IMAGE_URL, title.imageUrl)
-            putExtra(DetailActivity.EXTRA_YEAR, title.year)
-            putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
-            title.tmdbId?.takeIf { it > 0 }?.let { putExtra(DetailActivity.EXTRA_TMDB_ID, it) }
-        }
-        startActivity(intent)
     }
 
     private fun fadeIn(view: View) {

@@ -2,7 +2,6 @@ package com.cvuong233.cinephantom.ui.detail
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Outline
 import android.net.Uri
 import android.os.Bundle
@@ -115,10 +114,6 @@ class DetailActivity : AppCompatActivity() {
         val stremioBtn = findViewById<ImageView>(R.id.detail_stremio_button)
         val db = WatchlistDatabase.get(this) // still used for auto-history
         val trailerBtn = findViewById<TextView>(R.id.detail_trailer_button)
-        val tvCard = findViewById<LinearLayout>(R.id.detail_tv_card)
-        val tvSeasons = findViewById<TextView>(R.id.detail_tv_seasons)
-        val tvEpisodes = findViewById<TextView>(R.id.detail_tv_episodes)
-        val tvStatus = findViewById<TextView>(R.id.detail_tv_status)
         val nextEpCard = findViewById<LinearLayout>(R.id.detail_next_episode_card)
         val nextEpCodeView = findViewById<TextView>(R.id.detail_next_episode_code)
         val nextEpNameView = findViewById<TextView>(R.id.detail_next_episode_name)
@@ -448,19 +443,6 @@ class DetailActivity : AppCompatActivity() {
                     showParts.add("${tmdbShow.episodes} episode${if (tmdbShow.episodes != 1) "s" else ""}")
                 }
                 metaView.text = showParts.joinToString(" · ")
-
-                // Populate TV details card
-                tvSeasons.text = "${tmdbShow.seasons}"
-                tvEpisodes.text = "${tmdbShow.episodes}"
-                val statusText = when (tmdbShow.status?.lowercase()) {
-                    "returning series" -> "Returning"
-                    "ended" -> "Ended"
-                    "canceled" -> "Canceled"
-                    else -> tmdbShow.status ?: "-"
-                }
-                tvStatus.text = statusText
-                tvStatus.setTextColor(if (statusText == "Returning") Color.parseColor("#4CAF50") else Color.parseColor("#4DA6FF"))
-                tvCard.visibility = View.VISIBLE
 
                 val nextEp = tmdbShow.nextEpisode
                 wishlistNextEpisode = nextEp  // capture for notification scheduling

@@ -136,7 +136,8 @@ class SearchResultsAdapter(
 
             when {
                 ratingText.isNotBlank() -> {
-                    binding.ratingBadge.text = "IMDb $ratingText"
+                    val source = item.ratingSourceLabel?.takeIf { it.isNotBlank() } ?: "IMDb"
+                    binding.ratingBadge.text = "$source $ratingText"
                     binding.ratingBadge.visibility = View.VISIBLE
                 }
                 (item.rating ?: 0f) > 0f -> {

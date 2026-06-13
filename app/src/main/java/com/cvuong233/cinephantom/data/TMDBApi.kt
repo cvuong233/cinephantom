@@ -350,9 +350,9 @@ class TMDBApi {
                 name = detailsRoot.optString("name", ""),
                 biography = detailsRoot.optString("biography").ifBlank { null },
                 knownForDepartment = detailsRoot.optString("known_for_department").ifBlank { null },
-                birthday = detailsRoot.optString("birthday").ifBlank { null },
-                deathday = detailsRoot.optString("deathday").ifBlank { null },
-                placeOfBirth = detailsRoot.optString("place_of_birth").ifBlank { null },
+                birthday = detailsRoot.optString("birthday").takeIf { it.isNotBlank() && it != "null" },
+                deathday = detailsRoot.optString("deathday").takeIf { it.isNotBlank() && it != "null" },
+                placeOfBirth = detailsRoot.optString("place_of_birth").takeIf { it.isNotBlank() && it != "null" },
                 profilePath = detailsRoot.optString("profile_path", "").ifBlank { null },
                 knownFor = credits
             )
