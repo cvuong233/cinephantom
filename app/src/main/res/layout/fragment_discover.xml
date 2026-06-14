@@ -5,99 +5,124 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <TextView
+    <!-- 3-pill top nav -->
+    <LinearLayout
+        android:id="@+id/discover_tab_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="48dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
-        android:text="@string/discover_title"
-        android:textColor="@color/text_primary"
-        android:textSize="26sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/discover_updated"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
-        android:text="@string/discover_updated_placeholder"
-        android:textColor="@color/text_muted"
-        android:textSize="12sp"
-        android:visibility="gone" />
-
-    <LinearLayout
-        android:id="@+id/discover_filter_row"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
         android:background="@drawable/bg_discover_tab_bar"
         android:orientation="horizontal"
         android:padding="4dp">
 
         <TextView
-            android:id="@+id/discover_filter_movies"
+            android:id="@+id/tab_imdb_movies"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="@drawable/bg_discover_tab_selected"
             android:clickable="true"
-            android:drawablePadding="8dp"
-            android:drawableStart="@drawable/ic_tab_movies"
             android:focusable="true"
             android:gravity="center"
-            android:minHeight="44dp"
-            android:paddingHorizontal="16dp"
+            android:minHeight="42dp"
+            android:paddingHorizontal="6dp"
             android:paddingVertical="10dp"
-            android:text="Movies"
+            android:text="IMDb Movies"
             android:textColor="#ffffff"
-            android:textSize="13sp"
+            android:textSize="11sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/discover_filter_tv"
+            android:id="@+id/tab_imdb_tv"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="5dp"
             android:background="@drawable/bg_discover_tab_unselected"
             android:clickable="true"
-            android:drawablePadding="8dp"
-            android:drawableStart="@drawable/ic_tab_tv"
             android:focusable="true"
             android:gravity="center"
-            android:minHeight="44dp"
-            android:paddingHorizontal="16dp"
+            android:minHeight="42dp"
+            android:paddingHorizontal="6dp"
             android:paddingVertical="10dp"
-            android:text="TV Shows"
+            android:text="IMDb TV"
             android:textColor="@color/text_muted"
-            android:textSize="13sp"
+            android:textSize="11sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tab_kdrama"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="5dp"
+            android:background="@drawable/bg_discover_tab_unselected"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:minHeight="42dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="10dp"
+            android:text="K-Dramas"
+            android:textColor="@color/text_muted"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
     </LinearLayout>
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/discover_recycler"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginTop="16dp"
-        android:clipToPadding="false"
-        android:paddingLeft="16dp"
-        android:paddingRight="16dp"
-        android:paddingBottom="80dp" />
-
+    <!-- Dynamic title reflecting active tab -->
     <TextView
-        android:id="@+id/discover_error"
+        android:id="@+id/discover_tab_title"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:padding="40dp"
-        android:text="@string/discover_error"
-        android:textColor="@color/text_secondary"
-        android:textSize="14sp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:text="Top IMDb Movies"
+        android:textColor="@color/text_primary"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <!-- Updated timestamp for active tab -->
+    <TextView
+        android:id="@+id/discover_tab_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:textColor="@color/text_muted"
+        android:textSize="12sp"
         android:visibility="gone" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/discover_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="12dp"
+            android:clipToPadding="false"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:paddingBottom="80dp" />
+
+        <TextView
+            android:id="@+id/discover_error"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:padding="40dp"
+            android:text="@string/discover_error"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
 </LinearLayout>

@@ -21,7 +21,6 @@ import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
 import com.cvuong233.cinephantom.notifications.WishlistRefreshWorker
 import com.cvuong233.cinephantom.ui.account.AccountFragment
 import com.cvuong233.cinephantom.ui.discover.DiscoverFragment
-import com.cvuong233.cinephantom.ui.kdrama.KDramaFragment
 import com.cvuong233.cinephantom.ui.search.SearchFragment
 import java.util.concurrent.TimeUnit
 
@@ -69,7 +68,6 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.nav_search -> showFragment(SearchFragment(), "search")
                 R.id.nav_discover -> showFragment(DiscoverFragment.INSTANCE.newInstance(), "discover")
-                R.id.nav_kdrama -> showFragment(KDramaFragment(), "kdrama")
                 R.id.nav_account -> showFragment(AccountFragment(), "account")
             }
             true
@@ -140,7 +138,7 @@ class MainActivity : AppCompatActivity() {
         val existing = supportFragmentManager.findFragmentByTag(tag)
         if (tag != "search") clearSearchFocusAndKeyboard()
 
-        val tabOrder = listOf("search", "discover", "kdrama", "account")
+        val tabOrder = listOf("search", "discover", "account")
         val fromIndex = tabOrder.indexOf(currentTabTag)
         val toIndex = tabOrder.indexOf(tag)
         val movingForward = toIndex >= fromIndex
