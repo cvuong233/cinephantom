@@ -157,7 +157,7 @@ class DetailActivity : AppCompatActivity() {
         }
 
         applyRating(null, null)
-        ratingRow.visibility = View.INVISIBLE
+        ratingRow.visibility = View.VISIBLE
         ratingView.visibility = View.INVISIBLE
 
         val ratingFetcher = RatingFetcher()
@@ -166,13 +166,10 @@ class DetailActivity : AppCompatActivity() {
         fun revealRating(ratingValue: Float?, delay: Long = 0L) {
             if (ratingValue == null || ratingValue <= 0f) return
             applyRating(null, ratingValue)
-            ratingRow.visibility = View.VISIBLE
+            ratingView.alpha = 0f
             ratingView.visibility = View.VISIBLE
-            ratingRow.translationY = -18f
-            ratingRow.alpha = 0f
-            ratingRow.animate().cancel()
-            ratingRow.animate()
-                .translationY(0f)
+            ratingView.animate().cancel()
+            ratingView.animate()
                 .alpha(1f)
                 .setDuration(340)
                 .setStartDelay(delay)
@@ -186,13 +183,10 @@ class DetailActivity : AppCompatActivity() {
                 "★ ${String.format(java.util.Locale.US, "%.1f", numeric)}% FUNdex"
             else "★ ${text.trim()} FUNdex"
             ratingView.text = formatted
-            ratingRow.visibility = View.VISIBLE
+            ratingView.alpha = 0f
             ratingView.visibility = View.VISIBLE
-            ratingRow.translationY = -18f
-            ratingRow.alpha = 0f
-            ratingRow.animate().cancel()
-            ratingRow.animate()
-                .translationY(0f)
+            ratingView.animate().cancel()
+            ratingView.animate()
                 .alpha(1f)
                 .setDuration(340)
                 .setStartDelay(delay)
