@@ -290,7 +290,7 @@ class DiscoverFragment : Fragment() {
                     imdbUpdatedLabel = formatUpdatedLabel(updated)
                     imdbLoaded = true
                     if (currentTab == "imdb_movies" || currentTab == "imdb_tv") {
-                        updateHeader(v, animate = false)
+                        updateHeader(v, animate = true)
                         showContent()
                     }
                 }
@@ -319,7 +319,7 @@ class DiscoverFragment : Fragment() {
                     kdramaLoaded = true
                     allKDramas = list
                     if (currentTab == "kdrama") {
-                        updateHeader(v, animate = false)
+                        updateHeader(v, animate = true)
                         showContent()
                     }
                 } else {

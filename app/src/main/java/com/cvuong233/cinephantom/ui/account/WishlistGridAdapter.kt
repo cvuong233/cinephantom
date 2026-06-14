@@ -49,7 +49,7 @@ class WishlistGridAdapter(
         if (pos == RecyclerView.NO_ID.toInt()) return
         val item = if (pos in items.indices) items[pos] else return
         if (animated.add(item.id)) {
-            val delay = (pos % 9) * 22L
+            val delay = (pos % 9) * 65L
             holder.itemView.alpha = 0f
             holder.itemView.scaleX = 0.84f
             holder.itemView.scaleY = 0.84f
