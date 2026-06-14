@@ -34,7 +34,7 @@ class AccountFragment : Fragment() {
         view.findViewById<TextView>(R.id.account_sign_in_btn).setOnClickListener {
             startActivity(Intent(requireContext(), AuthActivity::class.java))
         }
-        view.findViewById<TextView>(R.id.account_sign_out_btn).setOnClickListener {
+        view.findViewById<View>(R.id.account_sign_out_btn).setOnClickListener {
             signOut(view)
         }
         view.findViewById<LinearLayout>(R.id.account_wishlist_row).setOnClickListener {

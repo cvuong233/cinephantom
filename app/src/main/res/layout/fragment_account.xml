@@ -9,12 +9,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center_horizontal"
-        android:paddingHorizontal="28dp"
-        android:paddingTop="48dp"
-        android:paddingBottom="32dp">
+        android:paddingHorizontal="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="40dp">
 
-        <!-- Signed-out state -->
+        <!-- ═══════════════════════════════════════════
+             SIGNED-OUT STATE
+             ═══════════════════════════════════════════ -->
         <LinearLayout
             android:id="@+id/account_signed_out"
             android:layout_width="match_parent"
@@ -24,165 +25,206 @@
             android:visibility="gone">
 
             <ImageView
-                android:layout_width="72dp"
-                android:layout_height="72dp"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
                 android:src="@drawable/ic_account"
-                android:alpha="0.28"
+                android:alpha="0.22"
                 android:contentDescription="@null"
-                android:padding="10dp" />
+                android:layout_marginTop="40dp"
+                android:padding="8dp" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="CinePhantom Account"
-                android:textColor="@color/text_primary"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Sign in to sync your watchlist and wishlist"
-                android:textColor="@color/text_muted"
-                android:textSize="14sp"
-                android:gravity="center" />
-
-            <TextView
-                android:id="@+id/account_sign_in_btn"
+            <!-- Sign-in card -->
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="32dp"
-                android:background="@drawable/bg_rating_pill"
-                android:gravity="center"
-                android:text="Sign in"
-                android:textColor="@color/secondary_link"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:clickable="true"
-                android:focusable="true" />
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:background="@drawable/bg_tv_stats_card"
+                android:layout_marginTop="20dp"
+                android:paddingHorizontal="24dp"
+                android:paddingVertical="28dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="CinePhantom Account"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Sign in to sync your watchlist and wishlist"
+                    android:textColor="@color/text_muted"
+                    android:textSize="14sp"
+                    android:gravity="center" />
+
+                <TextView
+                    android:id="@+id/account_sign_in_btn"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="24dp"
+                    android:background="@drawable/bg_rating_pill"
+                    android:gravity="center"
+                    android:text="Sign in"
+                    android:textColor="@color/secondary_link"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+            </LinearLayout>
+
         </LinearLayout>
 
-        <!-- Signed-in state -->
+        <!-- ═══════════════════════════════════════════
+             SIGNED-IN STATE
+             ═══════════════════════════════════════════ -->
         <LinearLayout
             android:id="@+id/account_signed_in"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:gravity="center_horizontal"
             android:visibility="gone">
 
-            <TextView
-                android:id="@+id/account_avatar"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:background="@drawable/bg_account_avatar"
-                android:gravity="center"
-                android:textColor="@color/secondary_link"
-                android:textSize="28sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/account_display_name"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:textColor="@color/text_primary"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
-            <TextView
-                android:id="@+id/account_email"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:textColor="@color/text_muted"
-                android:textSize="13sp"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
-            <TextView
-                android:id="@+id/account_provider_badge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_tv_stats_card"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="5dp"
-                android:textColor="@color/text_secondary"
-                android:textSize="11sp"
-                android:letterSpacing="0.06" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="32dp"
-                android:background="@color/widget_divider" />
-
-            <TextView
-                android:id="@+id/account_sign_out_btn"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/bg_tv_stats_card"
-                android:gravity="center"
-                android:text="Sign out"
-                android:textColor="#FF6B6B"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:clickable="true"
-                android:focusable="true" />
-
-            <!-- Wishlist section -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginTop="32dp"
-                android:background="@color/widget_divider" />
-
+            <!-- ─── Profile card ─── -->
             <LinearLayout
-                android:id="@+id/account_wishlist_row"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true">
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_heart_filled"
-                    android:contentDescription="@null" />
+                android:background="@drawable/bg_tv_stats_card"
+                android:padding="18dp">
 
                 <TextView
+                    android:id="@+id/account_avatar"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:background="@drawable/bg_account_avatar"
+                    android:gravity="center"
+                    android:textColor="@color/secondary_link"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="12dp"
-                    android:text="Wishlist"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp"
+                    android:layout_marginStart="14dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/account_display_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/text_primary"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+
+                    <TextView
+                        android:id="@+id/account_email"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textColor="@color/text_muted"
+                        android:textSize="12sp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+
+                    <TextView
+                        android:id="@+id/account_provider_badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_tv_stats_card"
+                        android:paddingHorizontal="10dp"
+                        android:paddingVertical="4dp"
+                        android:textColor="@color/secondary_accent"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.05" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- ─── Menu card ─── -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_tv_stats_card"
+                android:layout_marginTop="12dp">
+
+                <!-- Wishlist row -->
+                <LinearLayout
+                    android:id="@+id/account_wishlist_row"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="16dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_heart_filled"
+                        android:contentDescription="@null" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:text="Wishlist"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/account_wishlist_count"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/text_muted"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:text="›"
+                        android:textColor="@color/text_muted"
+                        android:textSize="22sp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- ─── Sign-out button ─── -->
+            <LinearLayout
+                android:id="@+id/account_sign_out_btn"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="@drawable/bg_tv_stats_card"
+                android:layout_marginTop="12dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sign out"
+                    android:textColor="#FF6B6B"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/account_wishlist_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/text_muted"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="›"
-                    android:textColor="@color/text_muted"
-                    android:textSize="22sp" />
 
             </LinearLayout>
 

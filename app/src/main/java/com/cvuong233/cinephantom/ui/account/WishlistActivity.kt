@@ -21,6 +21,7 @@ class WishlistActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = 0xFF0D0011.toInt()
         setContentView(R.layout.activity_wishlist)
 
         findViewById<TextView>(R.id.wishlist_back).setOnClickListener { finish() }
