@@ -18,6 +18,8 @@ class WishlistGridAdapter(
 ) : RecyclerView.Adapter<WishlistGridAdapter.GridViewHolder>() {
 
     private val items = mutableListOf<ImdbTitle>()
+    private val animated = mutableSetOf<String>()
+    private var sequenceStartMs = 0L
 
     fun submitList(newList: List<ImdbTitle>) {
         val old = items.toList()
@@ -32,6 +34,13 @@ class WishlistGridAdapter(
         diff.dispatchUpdatesTo(this)
     }
 
+    // Call before submitList() whenever a fresh stagger sequence should play
+    // (initial load or filter switch). Each item animates at most once per sequence.
+    fun startNewSequence() {
+        animated.clear()
+        sequenceStartMs = System.currentTimeMillis()
+    }
+
     override fun getItemCount() = items.size
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = GridViewHolder(
@@ -42,14 +51,25 @@ class WishlistGridAdapter(
         holder.bind(items[position])
     }
 
-    // Fires after addView() — view is attached and ViewPropertyAnimator works reliably.
-    // itemAnimator=null (set on the RecyclerView) eliminates the pre-layout double-attach
-    // that previously caused onViewDetachedFromWindow to cancel mid-flight animations.
-    // Using pos%3 so each row cascades left-to-right (0, 65, 130ms) with no accumulating
-    // delay as the user scrolls deeper into the list.
+    // Fires after addView() so ViewPropertyAnimator is reliable on an attached view.
+    // itemAnimator=null eliminates the pre-layout double-attach that would otherwise
+    // cause onViewDetachedFromWindow to cancel mid-flight animations.
+    //
+    // Delay = (100ms head-start) + (position × 40ms) − elapsed since sequence started.
+    // This makes the whole list share one timeline: card 0 at ~100ms, card 8 at ~420ms.
+    // Cards scrolled into view during the sequence window join it with their remaining
+    // delay; cards whose slot has already passed animate immediately; cards too far
+    // ahead (remaining > 600ms) appear instantly so they're never hidden for too long.
     override fun onViewAttachedToWindow(holder: GridViewHolder) {
         val pos = holder.bindingAdapterPosition
         if (pos == RecyclerView.NO_POSITION) return
+        val item = items.getOrNull(pos) ?: return
+        if (!animated.add(item.id)) return  // already played in this sequence
+
+        val elapsed = System.currentTimeMillis() - sequenceStartMs
+        val remaining = (100L + pos * 40L - elapsed).coerceAtLeast(0L)
+        if (remaining > 600L) return  // too far ahead — show instantly, no long blank wait
+
         holder.itemView.animate().cancel()
         holder.itemView.alpha = 0f
         holder.itemView.scaleX = 0.84f
@@ -57,7 +77,7 @@ class WishlistGridAdapter(
         holder.itemView.animate()
             .alpha(1f).scaleX(1f).scaleY(1f)
             .setDuration(280)
-            .setStartDelay((pos % 3) * 65L)
+            .setStartDelay(remaining)
             .setInterpolator(DecelerateInterpolator(1.6f))
             .start()
     }

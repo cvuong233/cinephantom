@@ -21,6 +21,7 @@ class WishlistActivity : AppCompatActivity() {
 
     private var currentFilter = "movies"
     private var allTitles = listOf<ImdbTitle>()
+    private var sequenceStarted = false
 
     private lateinit var adapter: WishlistGridAdapter
     private lateinit var recycler: RecyclerView
@@ -56,6 +57,10 @@ class WishlistActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 FavoritesRepository.favorites.collect { titles ->
                     allTitles = titles
+                    if (!sequenceStarted) {
+                        sequenceStarted = true
+                        adapter.startNewSequence()
+                    }
                     applyFilter(animate = false)
                 }
             }
@@ -111,6 +116,7 @@ class WishlistActivity : AppCompatActivity() {
                 }.start()
         }
 
+        adapter.startNewSequence()
         applyFilter(animate = true, movingForward = movingForward)
     }
 
