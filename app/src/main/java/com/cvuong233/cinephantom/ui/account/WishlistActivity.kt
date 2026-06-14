@@ -111,7 +111,6 @@ class WishlistActivity : AppCompatActivity() {
                 }.start()
         }
 
-        adapter.clearAnimationState()
         applyFilter(animate = true, movingForward = movingForward)
     }
 

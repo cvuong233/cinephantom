@@ -18,7 +18,6 @@ class WishlistGridAdapter(
 ) : RecyclerView.Adapter<WishlistGridAdapter.GridViewHolder>() {
 
     private val items = mutableListOf<ImdbTitle>()
-    private val animated = mutableSetOf<String>()
 
     fun submitList(newList: List<ImdbTitle>) {
         val old = items.toList()
@@ -33,8 +32,6 @@ class WishlistGridAdapter(
         diff.dispatchUpdatesTo(this)
     }
 
-    fun clearAnimationState() { animated.clear() }
-
     override fun getItemCount() = items.size
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = GridViewHolder(
@@ -42,39 +39,27 @@ class WishlistGridAdapter(
     )
 
     override fun onBindViewHolder(holder: GridViewHolder, position: Int) {
-        val item = items[position]
+        holder.bind(items[position])
+    }
+
+    // Fires after addView() — view is attached and ViewPropertyAnimator works reliably.
+    // itemAnimator=null (set on the RecyclerView) eliminates the pre-layout double-attach
+    // that previously caused onViewDetachedFromWindow to cancel mid-flight animations.
+    // Using pos%3 so each row cascades left-to-right (0, 65, 130ms) with no accumulating
+    // delay as the user scrolls deeper into the list.
+    override fun onViewAttachedToWindow(holder: GridViewHolder) {
+        val pos = holder.bindingAdapterPosition
+        if (pos == RecyclerView.NO_POSITION) return
         holder.itemView.animate().cancel()
-        if (animated.add(item.id)) {
-            // Set invisible immediately so the first draw frame shows nothing.
-            // Defer animate().start() via post() — onBindViewHolder fires before addView(),
-            // so the view is not yet attached. ViewPropertyAnimator.start() on an unattached
-            // view talks to a floating ViewTreeObserver and is silently dropped. post() queues
-            // in mRunQueue, which flushes on dispatchAttachedToWindow() and fires on the main
-            // handler after the layout pass — by then all 9 items have queued their runnables,
-            // so setStartDelay staggers them correctly.
-            val delay = (position % 9) * 65L
-            holder.itemView.alpha = 0f
-            holder.itemView.scaleX = 0.84f
-            holder.itemView.scaleY = 0.84f
-            val itemId = item.id
-            holder.itemView.post {
-                // Guard: skip if this holder was recycled and rebound to a different item.
-                val pos = holder.bindingAdapterPosition
-                if (pos != RecyclerView.NO_POSITION && items.getOrNull(pos)?.id == itemId) {
-                    holder.itemView.animate()
-                        .alpha(1f).scaleX(1f).scaleY(1f)
-                        .setDuration(280)
-                        .setStartDelay(delay)
-                        .setInterpolator(DecelerateInterpolator(1.6f))
-                        .start()
-                }
-            }
-        } else {
-            holder.itemView.alpha = 1f
-            holder.itemView.scaleX = 1f
-            holder.itemView.scaleY = 1f
-        }
-        holder.bind(item)
+        holder.itemView.alpha = 0f
+        holder.itemView.scaleX = 0.84f
+        holder.itemView.scaleY = 0.84f
+        holder.itemView.animate()
+            .alpha(1f).scaleX(1f).scaleY(1f)
+            .setDuration(280)
+            .setStartDelay((pos % 3) * 65L)
+            .setInterpolator(DecelerateInterpolator(1.6f))
+            .start()
     }
 
     override fun onViewDetachedFromWindow(holder: GridViewHolder) {
