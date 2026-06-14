@@ -232,7 +232,7 @@ class DiscoverFragment : Fragment() {
         val subtitleView = view.findViewById<TextView>(R.id.discover_tab_subtitle) ?: return
         val newSubtitle  = tabSubtitle(currentTab)
         if (newSubtitle == null) {
-            subtitleView.visibility = View.GONE
+            subtitleView.visibility = View.INVISIBLE
             return
         }
         // Always typewriter when the subtitle was hidden (coming from a tab with no data yet),

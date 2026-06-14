@@ -72,30 +72,17 @@
 
     </LinearLayout>
 
-    <!-- Dynamic title reflecting active tab -->
+    <!-- Updated timestamp for active tab — typewriters on tab change -->
     <TextView
-        android:id="@+id/discover_tab_title"
+        android:id="@+id/discover_tab_subtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="14dp"
         android:layout_marginStart="20dp"
         android:layout_marginEnd="20dp"
-        android:text="Top IMDb Movies"
-        android:textColor="@color/text_primary"
-        android:textSize="20sp"
-        android:textStyle="bold" />
-
-    <!-- Updated timestamp for active tab -->
-    <TextView
-        android:id="@+id/discover_tab_subtitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
-        android:layout_marginStart="20dp"
-        android:layout_marginEnd="20dp"
         android:textColor="@color/text_muted"
         android:textSize="12sp"
-        android:visibility="gone" />
+        android:visibility="invisible" />
 
     <FrameLayout
         android:layout_width="match_parent"

@@ -45,6 +45,7 @@ class WishlistActivity : AppCompatActivity() {
 
         adapter = WishlistGridAdapter(onClick = { openTitle(it) })
         recycler.layoutManager = GridLayoutManager(this, 3)
+        recycler.itemAnimator = null
         recycler.adapter = adapter
 
         filterMovies.setOnClickListener { if (currentFilter != "movies") setFilter("movies") }
