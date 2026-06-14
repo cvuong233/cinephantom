@@ -33,6 +33,7 @@ import com.cvuong233.cinephantom.data.RatingFetcher
 import com.cvuong233.cinephantom.data.TMDBApi
 import com.cvuong233.cinephantom.data.TMDBCastMember
 import com.cvuong233.cinephantom.data.TMDBCrewMember
+import com.cvuong233.cinephantom.data.TMDBPersonCredit
 import com.cvuong233.cinephantom.data.TMDBShowDetails
 import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
@@ -606,6 +607,77 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
+        val recsSection = findViewById<LinearLayout>(R.id.detail_more_like_this_section)
+        val recsContainer = findViewById<LinearLayout>(R.id.detail_recommendations_container)
+        var recsFetched = false
+
+        fun displayRecommendations(recs: List<TMDBPersonCredit>) {
+            recsContainer.removeAllViews()
+            for (rec in recs) {
+                val card = layoutInflater.inflate(R.layout.item_recommendation_card, recsContainer, false)
+                val poster = card.findViewById<ImageView>(R.id.rec_poster)
+                val initial = card.findViewById<TextView>(R.id.rec_initial)
+                val titleView = card.findViewById<TextView>(R.id.rec_title)
+                val yearView = card.findViewById<TextView>(R.id.rec_year)
+
+                titleView.text = rec.title
+                initial.text = rec.title.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+
+                val yearText = rec.releaseDate?.take(4).orEmpty()
+                if (yearText.isNotBlank()) {
+                    yearView.text = yearText
+                    yearView.visibility = View.VISIBLE
+                }
+
+                val posterPath = rec.posterPath
+                if (!posterPath.isNullOrBlank()) {
+                    SimpleImageLoader.load(
+                        url = "https://image.tmdb.org/t/p/w185$posterPath",
+                        imageView = poster,
+                        onSuccess = { poster.visibility = View.VISIBLE; initial.visibility = View.GONE }
+                    )
+                }
+
+                card.setOnClickListener {
+                    val imdbIdForRec = rec.imdbId
+                    if (imdbIdForRec.isNullOrBlank()) {
+                        Toast.makeText(this@DetailActivity, "Still loading — try again in a moment.", Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    val typeLabel = if (rec.mediaType == "tv") "TV Series" else "Movie"
+                    val posterUrl = posterPath?.let { "https://image.tmdb.org/t/p/w185$it" } ?: ""
+                    startActivity(Intent(this@DetailActivity, DetailActivity::class.java).apply {
+                        putExtra(EXTRA_IMDB_ID, imdbIdForRec)
+                        putExtra(EXTRA_TITLE, rec.title)
+                        putExtra(EXTRA_IMAGE_URL, posterUrl)
+                        putExtra(EXTRA_YEAR, yearText)
+                        putExtra(EXTRA_TYPE, typeLabel)
+                        putExtra(EXTRA_TMDB_ID, rec.id)
+                    })
+                }
+
+                recsContainer.addView(card)
+            }
+
+            recsSection.visibility = View.VISIBLE
+            recsSection.alpha = 0f
+            recsSection.translationY = 28f
+            recsSection.animate()
+                .alpha(1f).translationY(0f)
+                .setDuration(380).setStartDelay(120)
+                .setInterpolator(DecelerateInterpolator(1.3f))
+                .start()
+
+            // Lazy-resolve IMDb IDs so taps work once they complete
+            thread {
+                for (rec in recs) {
+                    if (rec.imdbId.isNullOrBlank()) {
+                        rec.imdbId = TMDBApi().fetchImdbIdForTitle(rec.id, rec.mediaType)
+                    }
+                }
+            }
+        }
+
         // Helper: fetch TMDB credits once, cache result, apply to UI when cast views are ready
         fun fetchCreditsAndUpdatePhotos(tmdbId: Int) {
             synchronized(creditsLock) {
@@ -618,6 +690,12 @@ class DetailActivity : AppCompatActivity() {
                 val tmdbDirectors = tmdbApi.fetchDirectors(tmdbId, isSeries)
                 val tmdbShow = if (isSeries) tmdbApi.fetchShowDetails(tmdbId) else null
                 runOnUiThread { applyCreditsToUi(tmdbCast, tmdbDirectors, tmdbShow) }
+
+                if (!recsFetched) {
+                    recsFetched = true
+                    val recs = tmdbApi.fetchRecommendations(tmdbId, isSeries)
+                    if (recs.isNotEmpty()) runOnUiThread { displayRecommendations(recs) }
+                }
             } catch (_: Exception) {
                 synchronized(creditsLock) { creditsFetched = false }
             }

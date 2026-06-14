@@ -56,6 +56,10 @@
             android:name=".ui.account.WishlistActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".notifications.NotificationSettingsActivity"
+            android:exported="false" />
+
         <!-- Small widget: search bar only -->
         <receiver
             android:name=".widget.ImdbSearchWidgetProvider"

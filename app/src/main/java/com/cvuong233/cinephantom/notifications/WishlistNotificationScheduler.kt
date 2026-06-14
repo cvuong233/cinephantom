@@ -37,12 +37,17 @@ object WishlistNotificationScheduler {
         episode: Int = 0,
         imageUrl: String? = null,
     ) {
-        val date = try { LocalDate.parse(airDate) } catch (_: Exception) { return }
-        val today = LocalDate.now(ZoneId.systemDefault())
-        if (date.isBefore(today)) return
-        if (date.isEqual(today) && LocalTime.now(ZoneId.systemDefault()).hour >= 9) return
+        val prefs = NotificationPreferences.get(context)
+        if (!prefs.masterEnabled) return
 
-        val triggerAtMillis = date.atTime(9, 0)
+        val date = try { LocalDate.parse(airDate) } catch (_: Exception) { return }
+        val leadDays = if (isTV) 0L else prefs.movieLeadDays.toLong()
+        val notifyDate = date.minusDays(leadDays)
+        val today = LocalDate.now(ZoneId.systemDefault())
+        if (notifyDate.isBefore(today)) return
+        if (notifyDate.isEqual(today) && LocalTime.now(ZoneId.systemDefault()).hour >= prefs.notificationHour) return
+
+        val triggerAtMillis = notifyDate.atTime(prefs.notificationHour, prefs.notificationMinute)
             .atZone(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()

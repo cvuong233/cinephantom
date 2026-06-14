@@ -16,6 +16,7 @@ class WishlistRefreshWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        if (!NotificationPreferences.get(applicationContext).masterEnabled) return@withContext Result.success()
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@withContext Result.success()
         val db = FirebaseFirestore.getInstance()
 

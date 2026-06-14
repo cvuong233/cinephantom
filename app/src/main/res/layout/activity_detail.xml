@@ -449,6 +449,38 @@
             </HorizontalScrollView>
         </LinearLayout>
 
+        <!-- ── More Like This ── -->
+        <LinearLayout
+            android:id="@+id/detail_more_like_this_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                style="@style/LabelSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="More Like This" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/detail_recommendations_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingEnd="6dp" />
+
+            </HorizontalScrollView>
+
+        </LinearLayout>
+
         <View
             android:layout_width="match_parent"
             android:layout_height="32dp" />

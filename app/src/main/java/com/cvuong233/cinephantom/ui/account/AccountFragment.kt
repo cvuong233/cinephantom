@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.data.FavoritesRepository
+import com.cvuong233.cinephantom.notifications.NotificationSettingsActivity
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
@@ -39,6 +40,9 @@ class AccountFragment : Fragment() {
         }
         view.findViewById<LinearLayout>(R.id.account_wishlist_row).setOnClickListener {
             startActivity(Intent(requireContext(), WishlistActivity::class.java))
+        }
+        view.findViewById<LinearLayout>(R.id.account_notif_settings_row).setOnClickListener {
+            startActivity(Intent(requireContext(), NotificationSettingsActivity::class.java))
         }
 
         viewLifecycleOwner.lifecycleScope.launch {

@@ -359,6 +359,33 @@ class TMDBApi {
         } catch (_: Exception) { null }
     }
 
+    fun fetchRecommendations(tmdbId: Int, isSeries: Boolean): List<TMDBPersonCredit> {
+        return try {
+            val endpoint = if (isSeries) "tv" else "movie"
+            val json = java.net.URL("$BASE_URL/$endpoint/$tmdbId/recommendations?api_key=$API_KEY").readText()
+            val root = JSONObject(json)
+            val results = root.optJSONArray("results") ?: return emptyList()
+            buildList {
+                for (i in 0 until minOf(results.length(), 20)) {
+                    val item = results.optJSONObject(i) ?: continue
+                    val id = item.optInt("id", 0)
+                    if (id <= 0) continue
+                    val mediaType = item.optString("media_type").ifBlank { if (isSeries) "tv" else "movie" }
+                    val title = item.optString("title").ifBlank { item.optString("name") }
+                    if (title.isBlank()) continue
+                    val posterPath = item.optString("poster_path").ifBlank { null }
+                    val releaseDate = item.optString("release_date").ifBlank {
+                        item.optString("first_air_date").ifBlank { null }
+                    }
+                    add(TMDBPersonCredit(
+                        id = id, mediaType = mediaType, title = title,
+                        posterPath = posterPath, releaseDate = releaseDate
+                    ))
+                }
+            }
+        } catch (_: Exception) { emptyList() }
+    }
+
     fun fetchImdbIdForTitle(tmdbId: Int, mediaType: String): String? {
         return try {
             val endpoint = if (mediaType == "tv") "tv" else "movie"
