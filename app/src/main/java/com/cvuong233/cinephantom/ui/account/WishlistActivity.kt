@@ -21,24 +21,30 @@ import kotlinx.coroutines.launch
 
 class WishlistActivity : AppCompatActivity() {
 
+    // Track animator to query isRunning for the last-item case
+    private val slideAnimator = SlideRemoveAnimator()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = 0xFF0D0011.toInt()
         setContentView(R.layout.activity_wishlist)
 
-        findViewById<TextView>(R.id.toolbar_back).setOnClickListener { finish() }
+        // toolbar_back is now ImageView — use View so type-check never fails
+        findViewById<View>(R.id.toolbar_back).setOnClickListener { finish() }
         findViewById<TextView>(R.id.toolbar_title).text = "Wishlist"
 
         val recycler = findViewById<RecyclerView>(R.id.wishlist_recycler)
         val emptyText = findViewById<TextView>(R.id.wishlist_empty_text)
         recycler.layoutManager = LinearLayoutManager(this)
-        recycler.itemAnimator = SlideRemoveAnimator()
+        recycler.itemAnimator = slideAnimator
 
         val adapter = SearchResultsAdapter { _, title -> openTitle(title) }.apply {
             onStremioClick = { /* no-op */ }
-            onFavoriteClick = {
-                FavoritesRepository.toggle(it)
-                notifyFavoriteChanged(it.id)
+            onFavoriteClick = { title ->
+                // Don't call notifyFavoriteChanged — doing so races with the StateFlow
+                // collect path and can cause a notifyItemChanged + notifyItemRemoved conflict
+                // on the same position. The collect handles the visual update correctly.
+                FavoritesRepository.toggle(title)
             }
         }
         recycler.adapter = adapter
@@ -47,8 +53,19 @@ class WishlistActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 FavoritesRepository.favorites.collect { titles ->
                     if (titles.isEmpty()) {
-                        emptyText.visibility = View.VISIBLE
-                        recycler.visibility = View.GONE
+                        if (adapter.itemCount > 0) {
+                            // Items exist in the adapter — let the removal animation play first,
+                            // then show the empty state after the animation duration.
+                            recycler.visibility = View.VISIBLE
+                            adapter.submitList(emptyList())
+                            emptyText.postDelayed({
+                                emptyText.visibility = View.VISIBLE
+                                recycler.visibility = View.GONE
+                            }, slideAnimator.removeDuration + 60L)
+                        } else {
+                            emptyText.visibility = View.VISIBLE
+                            recycler.visibility = View.GONE
+                        }
                     } else {
                         emptyText.visibility = View.GONE
                         recycler.visibility = View.VISIBLE
@@ -71,10 +88,21 @@ class WishlistActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    /** Fade + slide-left animation for wishlist item removal. */
-    private class SlideRemoveAnimator : DefaultItemAnimator() {
+    /**
+     * Fade + slide-left removal animation.
+     *
+     * Bugs fixed vs. naive DefaultItemAnimator subclass approach:
+     *  1. `isRunning()` returns true while the ViewPropertyAnimator is active (not just while
+     *     items are in `pendingRemoves`), so RecyclerView doesn't recycle animating views early.
+     *  2. `super.runPendingAnimations()` is still called so adds/moves/changes work normally.
+     *  3. No call to `view.animate()` inside `withEndAction` — that would reset the animator.
+     */
+    class SlideRemoveAnimator : DefaultItemAnimator() {
 
         private val pendingRemoves = mutableListOf<RecyclerView.ViewHolder>()
+
+        // Counts animations currently in flight (not yet in withEndAction)
+        private var activeCount = 0
 
         init {
             removeDuration = 280L
@@ -83,53 +111,67 @@ class WishlistActivity : AppCompatActivity() {
         override fun animateRemove(holder: RecyclerView.ViewHolder): Boolean {
             endAnimation(holder)
             pendingRemoves.add(holder)
-            return true
+            return true  // tells RecyclerView to call runPendingAnimations()
         }
 
         override fun runPendingAnimations() {
             val removes = pendingRemoves.toList()
             pendingRemoves.clear()
             for (holder in removes) {
+                activeCount++
                 val view = holder.itemView
                 view.animate()
                     .alpha(0f)
-                    .translationX(-view.width.toFloat() * 0.18f)
+                    .translationX(-view.width.toFloat() * 0.20f)
                     .setDuration(removeDuration)
                     .setInterpolator(AccelerateInterpolator())
-                    .withStartAction { dispatchRemoveStarting(holder) }
+                    .withStartAction {
+                        dispatchRemoveStarting(holder)
+                    }
                     .withEndAction {
-                        view.animate().setListener(null)
+                        // Reset view state for RecyclerView recycling
                         view.alpha = 1f
                         view.translationX = 0f
+                        activeCount--
                         dispatchRemoveFinished(holder)
+                        // Notify RecyclerView all animations are done if nothing else is pending
                         if (!isRunning()) dispatchAnimationsFinished()
                     }
                     .start()
             }
+            // Let parent handle any pending adds / moves / changes
             super.runPendingAnimations()
         }
 
         override fun endAnimation(holder: RecyclerView.ViewHolder) {
             if (pendingRemoves.remove(holder)) {
-                holder.itemView.animate().cancel()
+                // Was pending but not yet started — cancel immediately
                 holder.itemView.alpha = 1f
                 holder.itemView.translationX = 0f
                 dispatchRemoveFinished(holder)
+                if (!isRunning()) dispatchAnimationsFinished()
+            } else {
+                // Might be actively animating — cancel the ViewPropertyAnimator
+                holder.itemView.animate().cancel()
             }
             super.endAnimation(holder)
         }
 
         override fun endAnimations() {
-            pendingRemoves.toList().forEach { holder ->
-                holder.itemView.animate().cancel()
+            val toCancel = pendingRemoves.toList()
+            pendingRemoves.clear()
+            for (holder in toCancel) {
                 holder.itemView.alpha = 1f
                 holder.itemView.translationX = 0f
                 dispatchRemoveFinished(holder)
             }
-            pendingRemoves.clear()
+            activeCount = 0
             super.endAnimations()
         }
 
-        override fun isRunning(): Boolean = pendingRemoves.isNotEmpty() || super.isRunning()
+        // isRunning must return true while our animations are in flight so RecyclerView
+        // doesn't recycle the animating view holders prematurely.
+        override fun isRunning(): Boolean =
+            pendingRemoves.isNotEmpty() || activeCount > 0 || super.isRunning()
     }
 }

@@ -33,7 +33,7 @@ class FullCastActivity : AppCompatActivity() {
         val profiles = intent.getStringArrayListExtra(EXTRA_PROFILES) ?: arrayListOf()
         val ids = intent.getIntegerArrayListExtra(EXTRA_IDS) ?: arrayListOf()
 
-        val backBtn = findViewById<TextView>(R.id.toolbar_back)
+        val backBtn = findViewById<View>(R.id.toolbar_back)
         val titleView = findViewById<TextView>(R.id.toolbar_title)
         val container = findViewById<LinearLayout>(R.id.full_cast_container)
 

@@ -37,7 +37,7 @@ class CastDetailActivity : AppCompatActivity() {
         val fallbackPhoto = intent.getStringExtra(EXTRA_PERSON_PHOTO).orEmpty()
         val transitionName = intent.getStringExtra(EXTRA_TRANSITION_NAME).orEmpty()
 
-        val backBtn = findViewById<TextView>(R.id.toolbar_back)
+        val backBtn = findViewById<View>(R.id.toolbar_back)
         findViewById<TextView>(R.id.toolbar_title)?.text = "Cast Details"
         val headerView = findViewById<View>(R.id.cast_detail_header)
         val photoCard = findViewById<View>(R.id.cast_detail_photo_card)
@@ -205,7 +205,7 @@ class CastDetailActivity : AppCompatActivity() {
     }
 
     private fun startCreativeEntrance() {
-        val backBtn = findViewById<TextView>(R.id.toolbar_back) ?: return
+        val backBtn = findViewById<View>(R.id.toolbar_back) ?: return
         val headerView = findViewById<View>(R.id.cast_detail_header) ?: return
         val photoCard = findViewById<View>(R.id.cast_detail_photo_card) ?: return
         val nameView = findViewById<TextView>(R.id.cast_detail_name) ?: return

@@ -10,16 +10,20 @@
     android:gravity="center_vertical"
     android:orientation="horizontal">
 
-    <TextView
+    <!--
+      ImageView with ic_back + padding="9dp" + bg_back_button — identical to DetailActivity's
+      detail_back button (the ground-truth reference screen the user has never complained about).
+    -->
+    <ImageView
         android:id="@+id/toolbar_back"
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:background="@drawable/bg_back_button"
-        android:gravity="center"
-        android:text="←"
-        android:textColor="@color/text_primary"
-        android:textSize="24sp"
-        android:textStyle="bold" />
+        android:clickable="true"
+        android:contentDescription="Back"
+        android:focusable="true"
+        android:padding="9dp"
+        android:src="@drawable/ic_back" />
 
     <LinearLayout
         android:layout_width="0dp"
