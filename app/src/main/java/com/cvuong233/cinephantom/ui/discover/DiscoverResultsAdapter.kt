@@ -9,7 +9,6 @@ import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.model.ImdbTitle
 import com.cvuong233.cinephantom.ui.search.ShimmerView
 import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
@@ -31,7 +30,6 @@ class DiscoverResultsAdapter(
     private var highlightId: String? = null
 
     var onStremioClick: ((ImdbTitle) -> Unit)? = null
-    var onFavoriteClick: ((ImdbTitle) -> Unit)? = null
     var onRatingNeeded: ((ImdbTitle) -> Unit)? = null
 
     fun showLoading() {
@@ -62,11 +60,6 @@ class DiscoverResultsAdapter(
         }
     }
 
-    fun notifyFavoriteChanged(imdbId: String) {
-        val idx = items.indexOfFirst { it.id == imdbId }
-        if (idx >= 0) notifyItemChanged(idx, "favorite")
-    }
-
     fun requestHighlight(imdbId: String, position: Int) {
         highlightId = imdbId
         if (position in items.indices) {
@@ -95,10 +88,6 @@ class DiscoverResultsAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: List<Any>) {
-        if (holder is ResultViewHolder && payloads.contains("favorite")) {
-            holder.updateFavoriteIcon(items[position])
-            return
-        }
         if (holder is ResultViewHolder && payloads.contains("highlight")) {
             holder.bind(items[position], position)
         } else {
@@ -130,14 +119,6 @@ class DiscoverResultsAdapter(
         private val rankText: TextView = itemView.findViewById(R.id.rank_text)
         private val secondaryText: TextView = itemView.findViewById(R.id.secondary_text)
         private val stremioButton: ImageView = itemView.findViewById(R.id.stremio_button)
-        private val favoriteButton: ImageView = itemView.findViewById(R.id.favorite_button)
-
-        fun updateFavoriteIcon(item: ImdbTitle) {
-            favoriteButton.setImageResource(
-                if (FavoritesRepository.isFavorite(item.id)) R.drawable.ic_heart_filled
-                else R.drawable.ic_heart_outline
-            )
-        }
 
         fun bind(item: ImdbTitle, position: Int) {
             ViewCompat.setTransitionName(posterImage, "poster_${item.id}")
@@ -191,9 +172,6 @@ class DiscoverResultsAdapter(
             }
 
             stremioButton.setOnClickListener { onStremioClick?.invoke(item) }
-
-            updateFavoriteIcon(item)
-            favoriteButton.setOnClickListener { onFavoriteClick?.invoke(item) }
 
             val imageUrl = item.imageUrl
             if (imageUrl.isNullOrBlank()) {

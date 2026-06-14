@@ -8,7 +8,6 @@ import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.databinding.ItemSearchResultBinding
 import com.cvuong233.cinephantom.model.ImdbTitle
 import com.google.android.material.card.MaterialCardView
@@ -30,18 +29,12 @@ class SearchResultsAdapter(
     private var highlightId: String? = null
 
     var onStremioClick: ((ImdbTitle) -> Unit)? = null
-    var onFavoriteClick: ((ImdbTitle) -> Unit)? = null
     var onRatingNeeded: ((ImdbTitle) -> Unit)? = null
 
     fun showLoading() { isLoading = true; notifyDataSetChanged() }
     fun hideLoading() { isLoading = false; notifyDataSetChanged() }
 
     fun isLoading(): Boolean = isLoading
-
-    fun notifyFavoriteChanged(imdbId: String) {
-        val idx = items.indexOfFirst { it.id == imdbId }
-        if (idx >= 0) notifyItemChanged(idx, "favorite")
-    }
 
     fun requestHighlight(imdbId: String, position: Int) {
         highlightId = imdbId
@@ -110,11 +103,6 @@ class SearchResultsAdapter(
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: MutableList<Any>) {
-        if (holder is ResultViewHolder && payloads.contains("favorite")) {
-            val isFav = FavoritesRepository.isFavorite(items[position].id)
-            holder.binding.favoriteButton.setImageResource(if (isFav) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-            return
-        }
         if (holder is ResultViewHolder && payloads.contains("highlight")) {
             holder.bind(items[position], position)
             return
@@ -234,10 +222,6 @@ class SearchResultsAdapter(
 
             binding.stremioButton.visibility = View.VISIBLE
             binding.stremioButton.setOnClickListener { onStremioClick?.invoke(item) }
-
-            val isFav = FavoritesRepository.isFavorite(item.id)
-            binding.favoriteButton.setImageResource(if (isFav) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-            binding.favoriteButton.setOnClickListener { onFavoriteClick?.invoke(item) }
         }
     }
 }

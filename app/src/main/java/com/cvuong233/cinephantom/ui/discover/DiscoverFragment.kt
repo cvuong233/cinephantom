@@ -15,13 +15,9 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.data.RatingFetcher
-import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
 import com.cvuong233.cinephantom.model.ImdbTitle
-import com.cvuong233.cinephantom.ui.account.AuthActivity
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
-import com.google.firebase.auth.FirebaseAuth
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -107,7 +103,6 @@ class DiscoverFragment : Fragment() {
             onClick = { posterView, title -> openImdbTitle(posterView, title) }
         )
         adapter.onStremioClick = { openInStremio(it) }
-        adapter.onFavoriteClick = { toggleFavorite(it, adapter) }
         adapter.onRatingNeeded = { title -> loadVisibleRating(title) }
         recycler.adapter = adapter
 
@@ -145,18 +140,6 @@ class DiscoverFragment : Fragment() {
             requireActivity(), posterView, "poster_${title.id}"
         )
         startActivity(intent, options.toBundle())
-    }
-
-    private fun toggleFavorite(title: ImdbTitle, adapter: DiscoverResultsAdapter) {
-        if (FirebaseAuth.getInstance().currentUser == null) {
-            Toast.makeText(requireContext(), "Sign in to save to Wishlist", Toast.LENGTH_SHORT).show()
-            startActivity(Intent(requireContext(), AuthActivity::class.java))
-            return
-        }
-        val wasInWishlist = FavoritesRepository.isFavorite(title.id)
-        FavoritesRepository.toggle(title)
-        adapter.notifyFavoriteChanged(title.id)
-        if (wasInWishlist) WishlistNotificationScheduler.cancel(requireContext(), title.id)
     }
 
     private fun openInStremio(title: ImdbTitle) {

@@ -24,11 +24,7 @@ import android.net.Uri
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.appcompat.content.res.AppCompatResources
-import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.data.WatchlistDatabase
-import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
-import com.cvuong233.cinephantom.ui.account.AuthActivity
-import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,17 +85,6 @@ class SearchFragment : Fragment() {
         binding.resultsRecyclerView.adapter = adapter
 
         adapter.onStremioClick = { openInStremio(it) }
-        adapter.onFavoriteClick = {
-            if (FirebaseAuth.getInstance().currentUser == null) {
-                Toast.makeText(requireContext(), "Sign in to save to Wishlist", Toast.LENGTH_SHORT).show()
-                startActivity(Intent(requireContext(), AuthActivity::class.java))
-            } else {
-                val wasInWishlist = FavoritesRepository.isFavorite(it.id)
-                FavoritesRepository.toggle(it)
-                adapter.notifyFavoriteChanged(it.id)
-                if (wasInWishlist) WishlistNotificationScheduler.cancel(requireContext(), it.id)
-            }
-        }
 
         adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
             override fun onChanged() { updateEmptyState(binding) }

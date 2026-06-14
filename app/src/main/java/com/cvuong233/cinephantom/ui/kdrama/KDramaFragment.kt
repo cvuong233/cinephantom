@@ -15,14 +15,10 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
-import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.data.KDramaChartsApi
-import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
 import com.cvuong233.cinephantom.model.ImdbTitle
-import com.cvuong233.cinephantom.ui.account.AuthActivity
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
 import com.cvuong233.cinephantom.ui.discover.DiscoverResultsAdapter
-import com.google.firebase.auth.FirebaseAuth
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -51,17 +47,6 @@ class KDramaFragment : Fragment() {
             onClick = { posterView, title -> openTitle(posterView, title) }
         )
         adapter.onStremioClick = { openInStremio(it) }
-        adapter.onFavoriteClick = {
-            if (FirebaseAuth.getInstance().currentUser == null) {
-                Toast.makeText(requireContext(), "Sign in to save to Wishlist", Toast.LENGTH_SHORT).show()
-                startActivity(Intent(requireContext(), AuthActivity::class.java))
-            } else {
-                val wasInWishlist = FavoritesRepository.isFavorite(it.id)
-                FavoritesRepository.toggle(it)
-                adapter.notifyFavoriteChanged(it.id)
-                if (wasInWishlist) WishlistNotificationScheduler.cancel(requireContext(), it.id)
-            }
-        }
         recycler.adapter = adapter
 
         updateTimestamp(view)

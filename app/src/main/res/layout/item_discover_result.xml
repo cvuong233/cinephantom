@@ -99,16 +99,6 @@
                     android:padding="9dp"
                     android:src="@drawable/ic_stremio_brand" />
 
-                <ImageView
-                    android:id="@+id/favorite_button"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:layout_marginStart="8dp"
-                    android:background="@drawable/bg_back_button"
-                    android:contentDescription="Add to Wishlist"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_heart_outline" />
-
                 <Space
                     android:layout_width="0dp"
                     android:layout_height="1dp"
