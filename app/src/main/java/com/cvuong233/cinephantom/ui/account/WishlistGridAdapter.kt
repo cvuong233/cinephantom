@@ -41,15 +41,14 @@ class WishlistGridAdapter(
         LayoutInflater.from(parent.context).inflate(R.layout.item_wishlist_grid, parent, false)
     )
 
-    override fun onBindViewHolder(holder: GridViewHolder, position: Int) =
-        holder.bind(items[position])
-
-    override fun onViewAttachedToWindow(holder: GridViewHolder) {
-        val pos = holder.bindingAdapterPosition
-        if (pos == RecyclerView.NO_ID.toInt()) return
-        val item = if (pos in items.indices) items[pos] else return
+    override fun onBindViewHolder(holder: GridViewHolder, position: Int) {
+        val item = items[position]
+        // Cancel any in-flight animation from a recycled view before starting a new one.
+        holder.itemView.animate().cancel()
         if (animated.add(item.id)) {
-            val delay = (pos % 9) * 65L
+            // First time this item is shown — staggered entrance. All 9 visible items bind
+            // in the same layout pass so setStartDelay creates the visible cascade.
+            val delay = (position % 9) * 65L
             holder.itemView.alpha = 0f
             holder.itemView.scaleX = 0.84f
             holder.itemView.scaleY = 0.84f
@@ -59,11 +58,20 @@ class WishlistGridAdapter(
                 .setStartDelay(delay)
                 .setInterpolator(DecelerateInterpolator(1.6f))
                 .start()
+        } else {
+            holder.itemView.alpha = 1f
+            holder.itemView.scaleX = 1f
+            holder.itemView.scaleY = 1f
         }
+        holder.bind(item)
     }
 
     override fun onViewDetachedFromWindow(holder: GridViewHolder) {
+        // Reset to fully visible so recycled views never leak a partial-animation state.
         holder.itemView.animate().cancel()
+        holder.itemView.alpha = 1f
+        holder.itemView.scaleX = 1f
+        holder.itemView.scaleY = 1f
     }
 
     inner class GridViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {

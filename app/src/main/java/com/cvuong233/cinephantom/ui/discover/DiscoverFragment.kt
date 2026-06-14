@@ -235,8 +235,11 @@ class DiscoverFragment : Fragment() {
             subtitleView.visibility = View.GONE
             return
         }
-        val changed = newSubtitle != subtitleView.text.toString()
-        if (animate && changed) {
+        // Always typewriter when the subtitle was hidden (coming from a tab with no data yet),
+        // or when the text actually changed. Avoids re-animating IMDb Movies ↔ TV same timestamp.
+        val wasHidden   = subtitleView.visibility != View.VISIBLE
+        val textChanged = newSubtitle != subtitleView.text.toString()
+        if (animate && (wasHidden || textChanged)) {
             typewriterAnimate(subtitleView, newSubtitle)
         } else {
             subtitleView.text = newSubtitle
