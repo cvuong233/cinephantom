@@ -34,7 +34,7 @@ class AccountFragment : Fragment() {
         view.findViewById<TextView>(R.id.account_sign_in_btn).setOnClickListener {
             startActivity(Intent(requireContext(), AuthActivity::class.java))
         }
-        view.findViewById<View>(R.id.account_sign_out_btn).setOnClickListener {
+        view.findViewById<TextView>(R.id.account_sign_out_btn).setOnClickListener {
             signOut(view)
         }
         view.findViewById<LinearLayout>(R.id.account_wishlist_row).setOnClickListener {
@@ -45,7 +45,12 @@ class AccountFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 FavoritesRepository.favorites.collect { titles ->
                     val countView = view.findViewById<TextView>(R.id.account_wishlist_count) ?: return@collect
-                    countView.text = if (titles.isEmpty()) "" else "${titles.size}"
+                    if (titles.isEmpty()) {
+                        countView.visibility = View.GONE
+                    } else {
+                        countView.text = "${titles.size}"
+                        countView.visibility = View.VISIBLE
+                    }
                 }
             }
         }
@@ -109,12 +114,12 @@ class AccountFragment : Fragment() {
     private fun fadeIn(view: View) {
         view.visibility = View.VISIBLE
         view.alpha = 0f
-        view.translationY = 20f
+        view.translationY = 24f
         view.animate()
             .alpha(1f)
             .translationY(0f)
-            .setDuration(280)
-            .setInterpolator(DecelerateInterpolator())
+            .setDuration(320)
+            .setInterpolator(DecelerateInterpolator(1.4f))
             .start()
     }
 }

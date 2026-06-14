@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.ViewCompat
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.data.FavoritesRepository
@@ -48,12 +49,30 @@ class SearchResultsAdapter(
     }
 
     fun submitList(newList: List<ImdbTitle>) {
+        if (isLoading) {
+            // Switching from skeleton → real items: reset cleanly with no animations
+            isLoading = false
+            items.clear()
+            items.addAll(newList)
+            pendingRatings.clear()
+            requestedRatings.clear()
+            pendingRatings.addAll(newList.filter { it.rating == null || it.rating <= 0f }.map { it.id })
+            notifyDataSetChanged()
+            return
+        }
+        val oldList = items.toList()
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = oldList.size
+            override fun getNewListSize() = newList.size
+            override fun areItemsTheSame(op: Int, np: Int) = oldList[op].id == newList[np].id
+            override fun areContentsTheSame(op: Int, np: Int) = oldList[op] == newList[np]
+        })
         items.clear()
         items.addAll(newList)
         pendingRatings.clear()
         requestedRatings.clear()
         pendingRatings.addAll(newList.filter { it.rating == null || it.rating <= 0f }.map { it.id })
-        notifyDataSetChanged()
+        diff.dispatchUpdatesTo(this)
     }
 
     fun updateRating(updated: ImdbTitle) {

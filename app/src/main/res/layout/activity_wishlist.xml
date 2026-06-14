@@ -5,34 +5,16 @@
     android:background="@color/screen_bg"
     android:orientation="vertical">
 
-    <!-- Header row — matches CastDetailActivity / FullCastActivity pattern exactly -->
+    <!--
+      Wrapper provides exactly the same 20dp padding that CastDetailActivity / FullCastActivity
+      use on their root LinearLayout, so the shared toolbar renders identically.
+    -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
         android:padding="20dp">
 
-        <TextView
-            android:id="@+id/wishlist_back"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@drawable/bg_back_button"
-            android:gravity="center"
-            android:text="←"
-            android:textColor="@color/text_primary"
-            android:textSize="24sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:text="Wishlist"
-            android:textColor="@color/text_primary"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+        <include layout="@layout/view_screen_toolbar" />
 
     </LinearLayout>
 
