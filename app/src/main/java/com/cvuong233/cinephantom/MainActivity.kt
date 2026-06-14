@@ -53,7 +53,14 @@ class MainActivity : AppCompatActivity() {
         enqueueWishlistRefresh()
 
         if (savedInstanceState == null) {
-            showFragment(SearchFragment(), "search")
+            // Skip SearchFragment creation if we're routing directly to another tab.
+            // Fragment commits are async: if SearchFragment is added and immediately
+            // hidden in the next commit, it may not be in fragmentManager.fragments yet
+            // during that second commit, so it never gets hidden — and its 300ms
+            // keyboard postDelayed then fires with isHidden == false.
+            if (intent?.action != ACTION_OPEN_DISCOVER_TITLE) {
+                showFragment(SearchFragment(), "search")
+            }
         } else {
             currentTabTag = supportFragmentManager.fragments.firstOrNull { !it.isHidden }?.tag ?: "search"
         }
