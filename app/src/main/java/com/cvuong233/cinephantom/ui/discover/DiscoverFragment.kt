@@ -220,14 +220,7 @@ class DiscoverFragment : Fragment() {
         }
     }
 
-    // ── Header (title + subtitle) ────────────────────────────────────────────
-
-    private fun tabTitle(tab: String) = when (tab) {
-        "imdb_movies" -> "Top IMDb Movies"
-        "imdb_tv"     -> "Top IMDb TV Shows"
-        "kdrama"      -> "Top K-Dramas"
-        else          -> ""
-    }
+    // ── Header (subtitle / timestamp only) ──────────────────────────────────
 
     private fun tabSubtitle(tab: String): String? = when (tab) {
         "imdb_movies", "imdb_tv" -> imdbUpdatedLabel?.let { "Updated $it" }
@@ -236,19 +229,18 @@ class DiscoverFragment : Fragment() {
     }
 
     private fun updateHeader(view: View, animate: Boolean) {
-        val titleView    = view.findViewById<TextView>(R.id.discover_tab_title)    ?: return
         val subtitleView = view.findViewById<TextView>(R.id.discover_tab_subtitle) ?: return
-        val newTitle    = tabTitle(currentTab)
-        val newSubtitle = tabSubtitle(currentTab)
-
-        if (animate) typewriterAnimate(titleView, newTitle)
-        else titleView.text = newTitle
-
-        if (newSubtitle != null) {
+        val newSubtitle  = tabSubtitle(currentTab)
+        if (newSubtitle == null) {
+            subtitleView.visibility = View.GONE
+            return
+        }
+        val changed = newSubtitle != subtitleView.text.toString()
+        if (animate && changed) {
+            typewriterAnimate(subtitleView, newSubtitle)
+        } else {
             subtitleView.text = newSubtitle
             subtitleView.visibility = View.VISIBLE
-        } else {
-            subtitleView.visibility = View.GONE
         }
     }
 
@@ -261,6 +253,7 @@ class DiscoverFragment : Fragment() {
                 if (!isAdded || view.tag != newText) return@withEndAction
                 view.text = ""
                 view.alpha = 1f
+                view.visibility = View.VISIBLE
                 for (i in newText.indices) {
                     titleHandler.postDelayed({
                         if (isAdded && view.tag == newText)

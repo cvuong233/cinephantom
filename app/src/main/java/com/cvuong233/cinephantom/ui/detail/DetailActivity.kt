@@ -312,7 +312,8 @@ class DetailActivity : AppCompatActivity() {
         val titleObj = ImdbTitle(
             id = imdbId, title = title, typeLabel = type, year = year,
             cast = null, imageUrl = imageUrl,
-            tmdbId = seedTmdbId.takeIf { it > 0 }
+            tmdbId = seedTmdbId.takeIf { it > 0 },
+            ratingSourceLabel = if (fundexRatingFromIntent != null) "FUNdex" else null
         )
         // Populated by TMDB callbacks below so the heart click can schedule the notification
         var wishlistMovieReleaseDate: String? = null

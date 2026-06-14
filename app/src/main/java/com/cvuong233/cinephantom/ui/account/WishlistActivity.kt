@@ -27,6 +27,7 @@ class WishlistActivity : AppCompatActivity() {
     private lateinit var emptyText: TextView
     private lateinit var filterMovies: TextView
     private lateinit var filterTv: TextView
+    private lateinit var filterKdramas: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,6 +41,7 @@ class WishlistActivity : AppCompatActivity() {
         emptyText = findViewById(R.id.wishlist_empty_text)
         filterMovies = findViewById(R.id.wishlist_filter_movies)
         filterTv = findViewById(R.id.wishlist_filter_tv)
+        filterKdramas = findViewById(R.id.wishlist_filter_kdramas)
 
         adapter = WishlistGridAdapter(onClick = { openTitle(it) })
         recycler.layoutManager = GridLayoutManager(this, 3)
@@ -47,6 +49,7 @@ class WishlistActivity : AppCompatActivity() {
 
         filterMovies.setOnClickListener { if (currentFilter != "movies") setFilter("movies") }
         filterTv.setOnClickListener { if (currentFilter != "tv") setFilter("tv") }
+        filterKdramas.setOnClickListener { if (currentFilter != "kdrama") setFilter("kdrama") }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -61,48 +64,63 @@ class WishlistActivity : AppCompatActivity() {
     private fun isMovieType(title: ImdbTitle): Boolean =
         title.typeLabel?.lowercase()?.trim() == "movie"
 
+    private fun isKdramaType(title: ImdbTitle): Boolean =
+        title.ratingSourceLabel == "FUNdex"
+
     private fun filteredList(): List<ImdbTitle> {
         val base = when (currentFilter) {
             "movies" -> allTitles.filter { isMovieType(it) }
-            "tv"     -> allTitles.filter { !isMovieType(it) }
+            "tv"     -> allTitles.filter { !isMovieType(it) && !isKdramaType(it) }
+            "kdrama" -> allTitles.filter { isKdramaType(it) }
             else     -> allTitles
         }
         return base.sortedByDescending { it.year?.trim()?.toIntOrNull() ?: 0 }
     }
 
     private fun setFilter(type: String) {
-        val movingToTv = type == "tv"
+        val tabOrder = listOf("movies", "tv", "kdrama")
+        val fromIndex = tabOrder.indexOf(currentFilter)
+        val toIndex = tabOrder.indexOf(type)
+        val movingForward = toIndex >= fromIndex
         currentFilter = type
 
-        val selected = if (type == "movies") filterMovies else filterTv
-        val unselected = if (type == "movies") filterTv else filterMovies
+        val selected = when (type) {
+            "movies" -> filterMovies
+            "tv"     -> filterTv
+            else     -> filterKdramas
+        }
+        val unselected = listOf(filterMovies, filterTv, filterKdramas).filter { it !== selected }
 
         selected.animate().cancel()
-        unselected.animate().cancel()
+        unselected.forEach { it.animate().cancel() }
         selected.setBackgroundResource(R.drawable.bg_discover_tab_selected)
         selected.setTextColor(0xFFFFFFFF.toInt())
-        unselected.setBackgroundResource(R.drawable.bg_discover_tab_unselected)
-        unselected.setTextColor(resources.getColor(R.color.text_muted, null))
+        unselected.forEach {
+            it.setBackgroundResource(R.drawable.bg_discover_tab_unselected)
+            it.setTextColor(resources.getColor(R.color.text_muted, null))
+        }
 
         selected.scaleX = 0.9f; selected.scaleY = 0.9f
         selected.alpha = 0.78f; selected.translationY = 4f
         selected.animate().scaleX(1f).scaleY(1f).alpha(1f).translationY(0f).setDuration(220).start()
-        unselected.animate().scaleX(0.97f).scaleY(0.97f).alpha(0.88f).translationY(2f).setDuration(150)
-            .withEndAction {
-                unselected.animate().scaleX(1f).scaleY(1f).alpha(1f).translationY(0f).setDuration(120).start()
-            }.start()
+        unselected.forEach { v ->
+            v.animate().scaleX(0.97f).scaleY(0.97f).alpha(0.88f).translationY(2f).setDuration(150)
+                .withEndAction {
+                    v.animate().scaleX(1f).scaleY(1f).alpha(1f).translationY(0f).setDuration(120).start()
+                }.start()
+        }
 
         adapter.clearAnimationState()
-        applyFilter(animate = true, movingToTv = movingToTv)
+        applyFilter(animate = true, movingForward = movingForward)
     }
 
-    private fun applyFilter(animate: Boolean, movingToTv: Boolean = false) {
+    private fun applyFilter(animate: Boolean, movingForward: Boolean = true) {
         val filtered = filteredList()
 
         if (animate && filtered.isNotEmpty()) {
             recycler.animate().cancel()
             recycler.alpha = 0f
-            recycler.translationX = if (movingToTv) 36f else -36f
+            recycler.translationX = if (movingForward) 36f else -36f
             recycler.animate()
                 .alpha(1f).translationX(0f)
                 .setDuration(190)
@@ -111,8 +129,11 @@ class WishlistActivity : AppCompatActivity() {
         }
 
         if (filtered.isEmpty()) {
-            val emptyMsg = if (currentFilter == "movies") "No movies in your wishlist"
-                           else "No TV shows in your wishlist"
+            val emptyMsg = when (currentFilter) {
+                "movies" -> "No movies in your wishlist"
+                "kdrama" -> "No K-Drama favorites yet"
+                else     -> "No TV shows in your wishlist"
+            }
             if (adapter.itemCount > 0) {
                 adapter.submitList(emptyList())
                 emptyText.postDelayed({
