@@ -15,7 +15,6 @@ import java.util.Locale
 
 class WishlistGridAdapter(
     private val onClick: (ImdbTitle) -> Unit,
-    private val onRemove: (ImdbTitle) -> Unit,
 ) : RecyclerView.Adapter<WishlistGridAdapter.GridViewHolder>() {
 
     private val items = mutableListOf<ImdbTitle>()
@@ -71,7 +70,6 @@ class WishlistGridAdapter(
         private val poster: ImageView = itemView.findViewById(R.id.wishlist_grid_poster)
         private val title: TextView = itemView.findViewById(R.id.wishlist_grid_title)
         private val rating: TextView = itemView.findViewById(R.id.wishlist_grid_rating)
-        private val heart: ImageView = itemView.findViewById(R.id.wishlist_grid_heart)
 
         fun bind(item: ImdbTitle) {
             title.text = item.title
@@ -95,13 +93,6 @@ class WishlistGridAdapter(
             }
 
             itemView.setOnClickListener { onClick(item) }
-            heart.setOnClickListener {
-                // Brief scale-down feedback before the item disappears
-                heart.animate().scaleX(0.7f).scaleY(0.7f).setDuration(100)
-                    .withEndAction { heart.animate().scaleX(1f).scaleY(1f).setDuration(80).start() }
-                    .start()
-                onRemove(item)
-            }
         }
     }
 }

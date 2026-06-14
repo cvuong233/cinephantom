@@ -51,18 +51,6 @@
             android:maxLines="1"
             android:visibility="gone" />
 
-        <!-- Heart remove button — top-right -->
-        <ImageView
-            android:id="@+id/wishlist_grid_heart"
-            android:layout_width="26dp"
-            android:layout_height="26dp"
-            android:layout_gravity="top|end"
-            android:layout_margin="5dp"
-            android:background="@drawable/bg_wishlist_icon_bg"
-            android:padding="5dp"
-            android:src="@drawable/ic_heart_filled"
-            android:contentDescription="Remove from wishlist" />
-
         <!-- Title overlaid on scrim — bottom of card -->
         <TextView
             android:id="@+id/wishlist_grid_title"
@@ -71,7 +59,7 @@
             android:layout_gravity="bottom"
             android:layout_marginBottom="6dp"
             android:paddingLeft="7dp"
-            android:paddingRight="32dp"
+            android:paddingRight="7dp"
             android:maxLines="2"
             android:ellipsize="end"
             android:textColor="@color/text_primary"

@@ -41,10 +41,7 @@ class WishlistActivity : AppCompatActivity() {
         filterMovies = findViewById(R.id.wishlist_filter_movies)
         filterTv = findViewById(R.id.wishlist_filter_tv)
 
-        adapter = WishlistGridAdapter(
-            onClick = { openTitle(it) },
-            onRemove = { FavoritesRepository.toggle(it) },
-        )
+        adapter = WishlistGridAdapter(onClick = { openTitle(it) })
         recycler.layoutManager = GridLayoutManager(this, 3)
         recycler.adapter = adapter
 
@@ -64,10 +61,13 @@ class WishlistActivity : AppCompatActivity() {
     private fun isMovieType(title: ImdbTitle): Boolean =
         title.typeLabel?.lowercase()?.trim() == "movie"
 
-    private fun filteredList(): List<ImdbTitle> = when (currentFilter) {
-        "movies" -> allTitles.filter { isMovieType(it) }
-        "tv"     -> allTitles.filter { !isMovieType(it) }
-        else     -> allTitles
+    private fun filteredList(): List<ImdbTitle> {
+        val base = when (currentFilter) {
+            "movies" -> allTitles.filter { isMovieType(it) }
+            "tv"     -> allTitles.filter { !isMovieType(it) }
+            else     -> allTitles
+        }
+        return base.sortedByDescending { it.year?.trim()?.toIntOrNull() ?: 0 }
     }
 
     private fun setFilter(type: String) {
