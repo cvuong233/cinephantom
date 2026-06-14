@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardBackgroundColor="#0E0E14"
+    app:cardCornerRadius="10dp"
+    app:cardElevation="0dp"
+    app:strokeColor="#28B78BE2"
+    app:strokeWidth="1dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- Poster — fixed height keeps grid rows aligned across devices -->
+        <ImageView
+            android:id="@+id/wishlist_grid_poster"
+            android:layout_width="match_parent"
+            android:layout_height="162dp"
+            android:scaleType="centerCrop"
+            android:background="#0E0E14"
+            android:contentDescription="@null" />
+
+        <!-- Bottom scrim so title text is always legible -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/gradient_wishlist_scrim" />
+
+        <!-- IMDb rating — top-left -->
+        <TextView
+            android:id="@+id/wishlist_grid_rating"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="5dp"
+            android:background="@drawable/bg_wishlist_rating_pill"
+            android:paddingLeft="5dp"
+            android:paddingTop="2dp"
+            android:paddingRight="5dp"
+            android:paddingBottom="2dp"
+            android:textColor="@color/imdb_yellow"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:visibility="gone" />
+
+        <!-- Heart remove button — top-right -->
+        <ImageView
+            android:id="@+id/wishlist_grid_heart"
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="5dp"
+            android:background="@drawable/bg_wishlist_icon_bg"
+            android:padding="5dp"
+            android:src="@drawable/ic_heart_filled"
+            android:contentDescription="Remove from wishlist" />
+
+        <!-- Title overlaid on scrim — bottom of card -->
+        <TextView
+            android:id="@+id/wishlist_grid_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="6dp"
+            android:paddingLeft="7dp"
+            android:paddingRight="32dp"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:textColor="@color/text_primary"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:lineSpacingExtra="1dp" />
+
+    </FrameLayout>
+
+</com.google.android.material.card.MaterialCardView>
