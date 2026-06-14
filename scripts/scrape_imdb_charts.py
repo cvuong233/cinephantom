@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
-"""Fetch IMDb Most Popular Movies and TV Shows using TMDB API (reliable, no browser needed).
+"""Fetch trending English-language Movies and TV Shows using TMDB Weekly Trending API.
 Outputs top-100 movies and top-100 TV shows with IMDb IDs, TMDB ratings, and posters.
 Output: JSON to stdout.
 
-Replaces the old Playwright-based scraper which was blocked by IMDb on GH Actions IPs.
+Uses /trending/{type}/week (time-windowed, similar to IMDb MovieMeter) and filters
+client-side to original_language == "en". The with_original_language param is silently
+ignored by TMDB's trending endpoint, so we fetch extra pages and filter manually.
+
+Direct IMDb scraping is not possible from GitHub Actions IPs (blocked by AWS WAF).
 """
 import json
 import sys
 from datetime import datetime, timezone
-from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 TMDB_API_KEY = "1f54bd990f1cdfb230adb312546d765d"
@@ -23,17 +26,23 @@ def http_get_json(url: str):
         return json.loads(resp.read().decode("utf-8", "ignore"))
 
 
-def get_popular(media_type: str, pages: int = 5) -> list[dict]:
-    """Fetch up to pages*20 popular items from TMDB."""
+def get_trending_english(media_type: str, limit: int = 100, max_pages: int = 12) -> list[dict]:
+    """Fetch weekly trending items filtered to English original language.
+    Trending endpoint ignores with_original_language, so we filter client-side
+    and fetch enough pages to guarantee `limit` English results."""
     items = []
-    for page in range(1, pages + 1):
-        url = f"{TMDB_BASE}/{media_type}/popular?api_key={TMDB_API_KEY}&language=en-US&page={page}"
+    for page in range(1, max_pages + 1):
+        url = f"{TMDB_BASE}/trending/{media_type}/week?api_key={TMDB_API_KEY}&language=en-US&page={page}"
         try:
             data = http_get_json(url)
-            items.extend(data.get("results", []))
+            results = data.get("results", [])
+            en_results = [r for r in results if r.get("original_language") == "en"]
+            items.extend(en_results)
+            if len(items) >= limit:
+                break
         except Exception as e:
-            print(f"Warning: page {page} failed: {e}", file=sys.stderr)
-    return items
+            print(f"Warning: {media_type} trending page {page} failed: {e}", file=sys.stderr)
+    return items[:limit]
 
 
 def get_external_ids(media_type: str, tmdb_id: int) -> str | None:
@@ -46,16 +55,15 @@ def get_external_ids(media_type: str, tmdb_id: int) -> str | None:
         return None
 
 
-def build_items(tmdb_items: list[dict], media_type: str, limit: int = 100) -> list[dict]:
+def build_items(tmdb_items: list[dict], media_type: str) -> list[dict]:
     results = []
-    for i, item in enumerate(tmdb_items[:limit]):
+    for i, item in enumerate(tmdb_items):
         tmdb_id = item.get("id")
         title = item.get("title") or item.get("name") or ""
         poster_path = item.get("poster_path") or ""
         poster = f"{POSTER_BASE}{poster_path}" if poster_path else ""
         rating = str(round(item.get("vote_average", 0.0), 1))
         votes_raw = item.get("vote_count", 0)
-        # Format votes like IMDb: 1.2K, 3.4M etc.
         if votes_raw >= 1_000_000:
             votes = f"{votes_raw/1_000_000:.1f}M"
         elif votes_raw >= 1_000:
@@ -78,14 +86,14 @@ def build_items(tmdb_items: list[dict], media_type: str, limit: int = 100) -> li
     return results
 
 
-movies = get_popular("movie", pages=5)
-tv = get_popular("tv", pages=5)
+movies = get_trending_english("movie", limit=100)
+tv     = get_trending_english("tv",    limit=100)
 
 data = {
     "updated": datetime.now(timezone.utc).isoformat(),
-    "source": "TMDB Popular",
-    "movies": build_items(movies, "movie", 100),
-    "tv": build_items(tv, "tv", 100),
+    "source": "TMDB Weekly Trending (English)",
+    "movies": build_items(movies, "movie"),
+    "tv":     build_items(tv,     "tv"),
 }
 
 print(json.dumps(data, indent=2))
