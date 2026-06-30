@@ -500,13 +500,11 @@ class TMDBApi {
                     val overview = item.optString("overview", "").ifBlank { null }
                     val rating = item.optDouble("vote_average", 0.0).takeIf { it > 0.0 }?.toFloat()
 
-                    // Use tmdb: prefix as fallback so the result is still shown when the
-                    // external_ids call fails; DetailActivity resolves the real ID on open.
-                    val imdbId = fetchImdbIdForTitle(tmdbId, mediaType) ?: "tmdb:$tmdbId"
-
+                    // Use the TMDB ID as the item identifier — the real IMDb ID is resolved
+                    // lazily in DetailActivity (only needed for Stremio).
                     add(
                         ImdbTitle(
-                            id = imdbId,
+                            id = tmdbId.toString(),
                             title = resolvedTitle,
                             typeLabel = if (mediaType == "tv") "TV Series" else "Movie",
                             year = year,

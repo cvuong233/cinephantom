@@ -206,7 +206,7 @@ class SearchFragment : Fragment() {
     }
 
     private fun openInStremio(title: ImdbTitle) {
-        if (title.id.startsWith("tmdb:")) {
+        if (!title.id.startsWith("tt")) {
             Toast.makeText(requireContext(), "Still loading — try again in a moment", Toast.LENGTH_SHORT).show()
             return
         }

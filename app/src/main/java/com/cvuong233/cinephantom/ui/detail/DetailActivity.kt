@@ -70,8 +70,6 @@ class DetailActivity : AppCompatActivity() {
         setContentView(R.layout.activity_detail)
 
         val imdbId = intent?.getStringExtra(EXTRA_IMDB_ID) ?: run { finish(); return }
-        val isTmdbPlaceholder = imdbId.startsWith("tmdb:")
-        val directTmdbId = if (isTmdbPlaceholder) imdbId.removePrefix("tmdb:").toIntOrNull() ?: -1 else -1
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Unknown"
         val type = intent?.getStringExtra(EXTRA_TYPE) ?: "Movie"
         val year = intent?.getStringExtra(EXTRA_YEAR) ?: ""
@@ -80,8 +78,11 @@ class DetailActivity : AppCompatActivity() {
         val launchedFromWidget = intent?.getBooleanExtra(EXTRA_FROM_WIDGET, false) == true
         val fundexRatingFromIntent = intent?.getStringExtra(EXTRA_FUNDEX_RATING)
         val seedTmdbId = intent?.getIntExtra(EXTRA_TMDB_ID, -1)?.takeIf { it > 0 } ?: -1
-        // Holds the real IMDb ID — starts null for tmdb: placeholders, populated in background
-        var resolvedImdbId: String? = if (isTmdbPlaceholder) null else imdbId
+        // True when opened from Search — only a TMDB ID is known, no real IMDb ID yet.
+        // Real IMDb IDs always start with "tt"; numeric strings are TMDB IDs.
+        val isTmdbOnly = !imdbId.startsWith("tt") && seedTmdbId > 0
+        // Holds the real IMDb ID once resolved; null until then for TMDB-only opens.
+        var resolvedImdbId: String? = if (isTmdbOnly) null else imdbId
 
         // Normalize type early — needed by trailer button and metadata threads
         val typeLower = type?.lowercase() ?: ""
@@ -234,16 +235,12 @@ class DetailActivity : AppCompatActivity() {
         }
 
         // Trailer button: fetch TMDB video and open YouTube
-        var tmdbTrailerId = when {
-            seedTmdbId > 0 -> seedTmdbId
-            directTmdbId > 0 -> directTmdbId
-            else -> -1
-        }
+        var tmdbTrailerId = seedTmdbId  // pre-seeded if caller knows TMDB ID
         trailerBtn.setOnClickListener {
             trailerBtn.text = "Loading..."
             thread {
                 try {
-                    if (tmdbTrailerId <= 0 && !isTmdbPlaceholder) {
+                    if (tmdbTrailerId <= 0 && !isTmdbOnly) {
                         val findJson = URL("https://api.themoviedb.org/3/find/$imdbId?api_key=${TMDBApi.API_KEY}&external_source=imdb_id").readText()
                         val root = JSONObject(findJson)
                         val results = if (isSeries) root.optJSONArray("tv_results") else root.optJSONArray("movie_results")
@@ -328,8 +325,9 @@ class DetailActivity : AppCompatActivity() {
         var wishlistNextEpisode: com.cvuong233.cinephantom.data.TMDBNextEpisode? = null
 
         fun refreshFavIcon() {
+            val id = resolvedImdbId ?: imdbId
             favBtn.setImageResource(
-                if (FavoritesRepository.isFavorite(imdbId)) R.drawable.ic_heart_filled
+                if (FavoritesRepository.isFavorite(id)) R.drawable.ic_heart_filled
                 else R.drawable.ic_heart_outline
             )
         }
@@ -340,8 +338,9 @@ class DetailActivity : AppCompatActivity() {
                 startActivity(Intent(this, AuthActivity::class.java))
                 return@setOnClickListener
             }
-            val wasInWishlist = FavoritesRepository.isFavorite(imdbId)
-            FavoritesRepository.toggle(titleObj)
+            val wishlistId = resolvedImdbId ?: imdbId
+            val wasInWishlist = FavoritesRepository.isFavorite(wishlistId)
+            FavoritesRepository.toggle(titleObj.copy(id = wishlistId))
             refreshFavIcon()
             if (!wasInWishlist) {
                 // Added — schedule notification if we already have the date
@@ -349,7 +348,7 @@ class DetailActivity : AppCompatActivity() {
                 if (!airDate.isNullOrBlank()) {
                     WishlistNotificationScheduler.schedule(
                         context = this,
-                        imdbId = imdbId,
+                        imdbId = wishlistId,
                         title = title,
                         isTV = isSeries,
                         airDate = airDate,
@@ -360,7 +359,7 @@ class DetailActivity : AppCompatActivity() {
                 }
             } else {
                 // Removed — cancel any scheduled notification
-                WishlistNotificationScheduler.cancel(this, imdbId)
+                WishlistNotificationScheduler.cancel(this, wishlistId)
             }
         }
 
@@ -715,11 +714,11 @@ class DetailActivity : AppCompatActivity() {
         thread {
             try {
                 val tmdbApi = TMDBApi()
-                val details = if (isTmdbPlaceholder) {
-                    val tid = if (directTmdbId > 0) directTmdbId else seedTmdbId
-                    val d = if (tid > 0) tmdbApi.fetchTitleDetailsByTmdbId(tid, isSeries) else null
+                val details = if (isTmdbOnly) {
+                    // Opened from Search — load directly via TMDB ID, no /find/ round-trip needed.
+                    val d = tmdbApi.fetchTitleDetailsByTmdbId(seedTmdbId, isSeries)
                     if (d != null && d.tmdbId > 0) {
-                        // Resolve real IMDb ID so Stremio / share work after page loads
+                        // Resolve real IMDb ID in background so Stremio / share work once ready.
                         val realId = tmdbApi.fetchImdbIdForTitle(d.tmdbId, if (isSeries) "tv" else "movie")
                         if (!realId.isNullOrBlank()) resolvedImdbId = realId
                         if (tmdbTrailerId <= 0) tmdbTrailerId = d.tmdbId
