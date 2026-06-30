@@ -731,6 +731,10 @@ class DetailActivity : AppCompatActivity() {
                 val effectiveFundexRating = fundexRatingFromIntent
                     ?: WidgetDataFetcher.findKdramaSeed(this@DetailActivity, imdbId)
                         ?.ratingText?.takeIf { it.isNotBlank() }
+                // Pre-fetch chart rating on background thread so main thread stays clear of network
+                val chartRating = if (effectiveFundexRating == null)
+                    ratingFetcher.fetchCachedOrChartRating(imdbId)
+                else null
 
                 runOnUiThread {
                     // Capture release date for movie wishlist notification scheduling
@@ -811,7 +815,7 @@ class DetailActivity : AppCompatActivity() {
                     if (effectiveFundexRating != null) {
                         revealFundexRating(effectiveFundexRating, 180)
                     } else {
-                        val preferredRating = preloadedRating.get() ?: ratingFetcher.fetchCachedOrChartRating(imdbId) ?: details?.rating
+                        val preferredRating = preloadedRating.get() ?: chartRating ?: details?.rating
                         revealRating(preferredRating, 180)
                     }
 

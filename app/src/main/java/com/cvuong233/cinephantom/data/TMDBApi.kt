@@ -1,8 +1,12 @@
 package com.cvuong233.cinephantom.data
 
 import com.cvuong233.cinephantom.model.ImdbTitle
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
+import java.io.IOException
 import java.net.URLEncoder
+import java.util.concurrent.TimeUnit
 
 data class TMDBNextEpisode(
     val name: String?,
@@ -90,11 +94,24 @@ class TMDBApi {
 
         fun profileImageUrl(path: String): String = "$IMAGE_BASE$path"
         fun profileImageLargeUrl(path: String): String = "$PROFILE_IMAGE_LARGE_BASE$path"
+
+        private val client = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
+
+    private fun getJson(url: String): String {
+        val request = Request.Builder().url(url).build()
+        return client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+            response.body?.string() ?: throw IOException("Empty body")
+        }
     }
 
     fun fetchShowDetails(tmdbId: Int): TMDBShowDetails? {
         return try {
-            val json = java.net.URL("$BASE_URL/tv/$tmdbId?api_key=$API_KEY").readText()
+            val json = getJson("$BASE_URL/tv/$tmdbId?api_key=$API_KEY")
             val root = JSONObject(json)
             if (root.has("success") && root.optBoolean("success") == false) return null
             TMDBShowDetails(
@@ -126,7 +143,7 @@ class TMDBApi {
     fun fetchCredits(tmdbId: Int, isSeries: Boolean): List<TMDBCastMember> {
         return try {
             val endpoint = if (isSeries) "tv" else "movie"
-            val json = java.net.URL("$BASE_URL/$endpoint/$tmdbId/credits?api_key=$API_KEY").readText()
+            val json = getJson("$BASE_URL/$endpoint/$tmdbId/credits?api_key=$API_KEY")
             val root = JSONObject(json)
             if (root.has("success") && root.optBoolean("success") == false) return emptyList()
             val castArr = root.optJSONArray("cast") ?: return emptyList()
@@ -148,7 +165,7 @@ class TMDBApi {
     fun fetchDirectors(tmdbId: Int, isSeries: Boolean): List<TMDBCrewMember> {
         return try {
             val endpoint = if (isSeries) "tv" else "movie"
-            val json = java.net.URL("$BASE_URL/$endpoint/$tmdbId/credits?api_key=$API_KEY").readText()
+            val json = getJson("$BASE_URL/$endpoint/$tmdbId/credits?api_key=$API_KEY")
             val root = JSONObject(json)
             if (root.has("success") && root.optBoolean("success") == false) return emptyList()
             val crewArr = root.optJSONArray("crew") ?: return emptyList()
@@ -178,7 +195,7 @@ class TMDBApi {
     fun fetchVideos(tmdbId: Int, isSeries: Boolean): List<TMDBVideo> {
         return try {
             val endpoint = if (isSeries) "tv" else "movie"
-            val json = java.net.URL("$BASE_URL/$endpoint/$tmdbId/videos?api_key=$API_KEY").readText()
+            val json = getJson("$BASE_URL/$endpoint/$tmdbId/videos?api_key=$API_KEY")
             val root = JSONObject(json)
             val results = root.optJSONArray("results") ?: return emptyList()
             val videos = mutableListOf<TMDBVideo>()
@@ -197,7 +214,7 @@ class TMDBApi {
 
     fun fetchTitleDetailsByImdb(imdbId: String, preferSeries: Boolean): TMDBTitleDetails? {
         return try {
-            val findJson = java.net.URL("$BASE_URL/find/$imdbId?api_key=$API_KEY&external_source=imdb_id").readText()
+            val findJson = getJson("$BASE_URL/find/$imdbId?api_key=$API_KEY&external_source=imdb_id")
             val root = JSONObject(findJson)
             val results = if (preferSeries) root.optJSONArray("tv_results") else root.optJSONArray("movie_results")
             val fallbackResults = if (preferSeries) root.optJSONArray("movie_results") else root.optJSONArray("tv_results")
@@ -222,7 +239,7 @@ class TMDBApi {
                 .takeIf { it.isNotBlank() }
                 ?.take(4)
 
-            val detailJson = java.net.URL("$BASE_URL/$resolvedMediaType/$tmdbId?api_key=$API_KEY").readText()
+            val detailJson = getJson("$BASE_URL/$resolvedMediaType/$tmdbId?api_key=$API_KEY")
             val detailRoot = JSONObject(detailJson)
             if (detailRoot.has("success") && detailRoot.optBoolean("success") == false) return null
 
@@ -294,7 +311,7 @@ class TMDBApi {
         if (tmdbId <= 0) return null
         return try {
             val mediaType = if (isSeries) "tv" else "movie"
-            val json = java.net.URL("$BASE_URL/$mediaType/$tmdbId?api_key=$API_KEY").readText()
+            val json = getJson("$BASE_URL/$mediaType/$tmdbId?api_key=$API_KEY")
             val root = JSONObject(json)
             if (root.has("success") && root.optBoolean("success") == false) return null
 
@@ -366,8 +383,8 @@ class TMDBApi {
 
     fun fetchPersonDetails(personId: Int): TMDBPersonDetails? {
         return try {
-            val detailsJson = java.net.URL("$BASE_URL/person/$personId?api_key=$API_KEY").readText()
-            val creditsJson = java.net.URL("$BASE_URL/person/$personId/combined_credits?api_key=$API_KEY").readText()
+            val detailsJson = getJson("$BASE_URL/person/$personId?api_key=$API_KEY")
+            val creditsJson = getJson("$BASE_URL/person/$personId/combined_credits?api_key=$API_KEY")
             val detailsRoot = JSONObject(detailsJson)
             if (detailsRoot.has("success") && detailsRoot.optBoolean("success") == false) return null
             val creditsRoot = JSONObject(creditsJson)
@@ -436,7 +453,7 @@ class TMDBApi {
     fun fetchRecommendations(tmdbId: Int, isSeries: Boolean): List<TMDBPersonCredit> {
         return try {
             val endpoint = if (isSeries) "tv" else "movie"
-            val json = java.net.URL("$BASE_URL/$endpoint/$tmdbId/recommendations?api_key=$API_KEY").readText()
+            val json = getJson("$BASE_URL/$endpoint/$tmdbId/recommendations?api_key=$API_KEY")
             val root = JSONObject(json)
             val results = root.optJSONArray("results") ?: return emptyList()
             buildList {
@@ -463,7 +480,7 @@ class TMDBApi {
     fun fetchImdbIdForTitle(tmdbId: Int, mediaType: String): String? {
         return try {
             val endpoint = if (mediaType == "tv") "tv" else "movie"
-            val json = java.net.URL("$BASE_URL/$endpoint/$tmdbId/external_ids?api_key=$API_KEY").readText()
+            val json = getJson("$BASE_URL/$endpoint/$tmdbId/external_ids?api_key=$API_KEY")
             val root = JSONObject(json)
             root.optString("imdb_id").ifBlank { null }
         } catch (_: Exception) { null }
@@ -475,9 +492,7 @@ class TMDBApi {
             require(trimmed.isNotEmpty()) { "Query cannot be empty" }
 
             val encoded = URLEncoder.encode(trimmed, Charsets.UTF_8.name())
-            val json = java.net.URL(
-                "$BASE_URL/search/multi?api_key=$API_KEY&query=$encoded&include_adult=false"
-            ).readText()
+            val json = getJson("$BASE_URL/search/multi?api_key=$API_KEY&query=$encoded&include_adult=false")
             val root = JSONObject(json)
             val results = root.optJSONArray("results") ?: return@runCatching emptyList()
 
