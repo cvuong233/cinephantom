@@ -70,6 +70,8 @@ class DetailActivity : AppCompatActivity() {
         setContentView(R.layout.activity_detail)
 
         val imdbId = intent?.getStringExtra(EXTRA_IMDB_ID) ?: run { finish(); return }
+        val isTmdbPlaceholder = imdbId.startsWith("tmdb:")
+        val directTmdbId = if (isTmdbPlaceholder) imdbId.removePrefix("tmdb:").toIntOrNull() ?: -1 else -1
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Unknown"
         val type = intent?.getStringExtra(EXTRA_TYPE) ?: "Movie"
         val year = intent?.getStringExtra(EXTRA_YEAR) ?: ""
@@ -78,6 +80,8 @@ class DetailActivity : AppCompatActivity() {
         val launchedFromWidget = intent?.getBooleanExtra(EXTRA_FROM_WIDGET, false) == true
         val fundexRatingFromIntent = intent?.getStringExtra(EXTRA_FUNDEX_RATING)
         val seedTmdbId = intent?.getIntExtra(EXTRA_TMDB_ID, -1)?.takeIf { it > 0 } ?: -1
+        // Holds the real IMDb ID — starts null for tmdb: placeholders, populated in background
+        var resolvedImdbId: String? = if (isTmdbPlaceholder) null else imdbId
 
         // Normalize type early — needed by trailer button and metadata threads
         val typeLower = type?.lowercase() ?: ""
@@ -207,7 +211,7 @@ class DetailActivity : AppCompatActivity() {
 
         // Share button
         shareBtn.setOnClickListener {
-            val shareText = "$title — https://www.imdb.com/title/$imdbId/"
+            val shareText = "$title — https://www.imdb.com/title/${resolvedImdbId ?: imdbId}/"
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 setType("text/plain")
                 putExtra(Intent.EXTRA_TEXT, shareText)
@@ -230,12 +234,16 @@ class DetailActivity : AppCompatActivity() {
         }
 
         // Trailer button: fetch TMDB video and open YouTube
-        var tmdbTrailerId = seedTmdbId  // pre-seeded if caller knows TMDB ID (e.g. K-drama)
+        var tmdbTrailerId = when {
+            seedTmdbId > 0 -> seedTmdbId
+            directTmdbId > 0 -> directTmdbId
+            else -> -1
+        }
         trailerBtn.setOnClickListener {
             trailerBtn.text = "Loading..."
             thread {
                 try {
-                    if (tmdbTrailerId <= 0) {
+                    if (tmdbTrailerId <= 0 && !isTmdbPlaceholder) {
                         val findJson = URL("https://api.themoviedb.org/3/find/$imdbId?api_key=${TMDBApi.API_KEY}&external_source=imdb_id").readText()
                         val root = JSONObject(findJson)
                         val results = if (isSeries) root.optJSONArray("tv_results") else root.optJSONArray("movie_results")
@@ -358,13 +366,17 @@ class DetailActivity : AppCompatActivity() {
 
         // Stremio button
         stremioBtn.setOnClickListener {
+            val stremioId = resolvedImdbId ?: run {
+                Toast.makeText(this, "Still loading — try again in a moment", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             val stremioType = when (type) {
                 "TV Series", "TV Mini Series", "TV Series (mini)", "TV Show", "Series" -> "series"
                 "TV Episode" -> "episode"
                 else -> "movie"
             }
             try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("stremio://detail/$stremioType/$imdbId")))
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("stremio://detail/$stremioType/$stremioId")))
             } catch (_: ActivityNotFoundException) {
                 Toast.makeText(this, R.string.stremio_not_installed, Toast.LENGTH_SHORT).show()
             }
@@ -702,7 +714,21 @@ class DetailActivity : AppCompatActivity() {
 
         thread {
             try {
-                val details = TMDBApi().fetchTitleDetailsByImdb(imdbId, preferSeries = isSeries)
+                val tmdbApi = TMDBApi()
+                val details = if (isTmdbPlaceholder) {
+                    val tid = if (directTmdbId > 0) directTmdbId else seedTmdbId
+                    val d = if (tid > 0) tmdbApi.fetchTitleDetailsByTmdbId(tid, isSeries) else null
+                    if (d != null && d.tmdbId > 0) {
+                        // Resolve real IMDb ID so Stremio / share work after page loads
+                        val realId = tmdbApi.fetchImdbIdForTitle(d.tmdbId, if (isSeries) "tv" else "movie")
+                        if (!realId.isNullOrBlank()) resolvedImdbId = realId
+                        if (tmdbTrailerId <= 0) tmdbTrailerId = d.tmdbId
+                    }
+                    d
+                } else {
+                    tmdbApi.fetchTitleDetailsByImdb(imdbId, preferSeries = isSeries)
+                        ?: if (seedTmdbId > 0) tmdbApi.fetchTitleDetailsByTmdbId(seedTmdbId, isSeries) else null
+                }
                 val effectiveFundexRating = fundexRatingFromIntent
                     ?: WidgetDataFetcher.findKdramaSeed(this@DetailActivity, imdbId)
                         ?.ratingText?.takeIf { it.isNotBlank() }
@@ -813,19 +839,18 @@ class DetailActivity : AppCompatActivity() {
                     divider.animate().scaleX(1f).setDuration(400).setStartDelay(400)
                         .setInterpolator(DecelerateInterpolator(2f)).start()
 
-                    aboutLabel.visibility = View.VISIBLE
-                    aboutLabel.translationY = 25f; aboutLabel.alpha = 0f
-                    aboutLabel.animate().translationY(0f).alpha(1f).setDuration(300).setStartDelay(480)
-                        .setInterpolator(DecelerateInterpolator()).start()
-
                     val description = details?.overview.orEmpty()
                     if (description.isNotBlank()) {
+                        aboutLabel.visibility = View.VISIBLE
+                        aboutLabel.translationY = 25f; aboutLabel.alpha = 0f
+                        aboutLabel.animate().translationY(0f).alpha(1f).setDuration(300).setStartDelay(480)
+                            .setInterpolator(DecelerateInterpolator()).start()
                         descView.text = description
+                        descView.visibility = View.VISIBLE
+                        descView.translationY = 30f; descView.alpha = 0f
+                        descView.animate().translationY(0f).alpha(1f).setDuration(400).setStartDelay(510)
+                            .setInterpolator(DecelerateInterpolator()).start()
                     }
-                    descView.visibility = View.VISIBLE
-                    descView.translationY = 30f; descView.alpha = 0f
-                    descView.animate().translationY(0f).alpha(1f).setDuration(400).setStartDelay(510)
-                        .setInterpolator(DecelerateInterpolator()).start()
 
                     titleRow.visibility = View.VISIBLE
                     titleView.translationY = -60f; titleView.alpha = 0f

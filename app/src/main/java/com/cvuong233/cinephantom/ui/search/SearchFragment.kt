@@ -196,6 +196,7 @@ class SearchFragment : Fragment() {
             putExtra(DetailActivity.EXTRA_CAST, title.cast)
             putExtra(DetailActivity.EXTRA_YEAR, title.year)
             putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
+            title.tmdbId?.let { putExtra(DetailActivity.EXTRA_TMDB_ID, it) }
         }
         ViewCompat.setTransitionName(posterView, "poster_${title.id}")
         val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
@@ -205,6 +206,10 @@ class SearchFragment : Fragment() {
     }
 
     private fun openInStremio(title: ImdbTitle) {
+        if (title.id.startsWith("tmdb:")) {
+            Toast.makeText(requireContext(), "Still loading — try again in a moment", Toast.LENGTH_SHORT).show()
+            return
+        }
         val stremioType = when (title.typeLabel) {
             "TV Series", "TV Mini Series", "TV Series (mini)" -> "series"
             "TV Episode" -> "episode"

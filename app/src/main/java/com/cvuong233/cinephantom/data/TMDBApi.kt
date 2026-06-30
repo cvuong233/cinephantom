@@ -290,6 +290,80 @@ class TMDBApi {
         } catch (_: Exception) { null }
     }
 
+    fun fetchTitleDetailsByTmdbId(tmdbId: Int, isSeries: Boolean): TMDBTitleDetails? {
+        if (tmdbId <= 0) return null
+        return try {
+            val mediaType = if (isSeries) "tv" else "movie"
+            val json = java.net.URL("$BASE_URL/$mediaType/$tmdbId?api_key=$API_KEY").readText()
+            val root = JSONObject(json)
+            if (root.has("success") && root.optBoolean("success") == false) return null
+
+            val title = root.optString("title").ifBlank { root.optString("name").ifBlank { null } }
+            val overview = root.optString("overview").ifBlank { null }
+            val backdropPath = root.optString("backdrop_path", "").ifBlank { null }
+            val posterPath = root.optString("poster_path", "").ifBlank { null }
+            val rating = root.optDouble("vote_average", 0.0).takeIf { it > 0.0 }?.toFloat()
+            val year = root.optString("release_date").ifBlank { root.optString("first_air_date") }
+                .takeIf { it.isNotBlank() }?.take(4)
+
+            val genres = buildList {
+                val genresArr = root.optJSONArray("genres")
+                if (genresArr != null) {
+                    for (i in 0 until genresArr.length()) {
+                        val g = genresArr.optJSONObject(i)?.optString("name", "")?.trim().orEmpty()
+                        if (g.isNotBlank()) add(g)
+                    }
+                }
+            }
+
+            val runtimeMinutes = if (isSeries) {
+                val runtimes = root.optJSONArray("episode_run_time")
+                if (runtimes != null && runtimes.length() > 0) runtimes.optInt(0).takeIf { it > 0 } else null
+            } else {
+                root.optInt("runtime", 0).takeIf { it > 0 }
+            }
+
+            val showDetails = if (isSeries) {
+                TMDBShowDetails(
+                    seasons = root.optInt("number_of_seasons", 0),
+                    episodes = root.optInt("number_of_episodes", 0),
+                    episodeRuntime = run {
+                        val arr = root.optJSONArray("episode_run_time")
+                        if (arr != null && arr.length() > 0) (0 until arr.length()).map { arr.optInt(it) } else emptyList()
+                    },
+                    status = root.optString("status").ifBlank { null },
+                    firstAirDate = root.optString("first_air_date").ifBlank { null },
+                    lastAirDate = root.optString("last_air_date").ifBlank { null },
+                    nextEpisode = root.optJSONObject("next_episode_to_air")?.let { ep ->
+                        val s = ep.optInt("season_number", 0)
+                        val e = ep.optInt("episode_number", 0)
+                        if (s <= 0 && e <= 0) null else TMDBNextEpisode(
+                            name = ep.optString("name").ifBlank { null },
+                            seasonNumber = s,
+                            episodeNumber = e,
+                            airDate = ep.optString("air_date").ifBlank { null }
+                        )
+                    }
+                )
+            } else null
+
+            TMDBTitleDetails(
+                tmdbId = tmdbId,
+                mediaType = mediaType,
+                title = title,
+                overview = overview,
+                backdropPath = backdropPath,
+                posterPath = posterPath,
+                genres = genres,
+                runtimeMinutes = runtimeMinutes,
+                rating = rating,
+                year = year,
+                releaseDate = if (!isSeries) root.optString("release_date").ifBlank { null } else null,
+                showDetails = showDetails
+            )
+        } catch (_: Exception) { null }
+    }
+
     fun fetchPersonDetails(personId: Int): TMDBPersonDetails? {
         return try {
             val detailsJson = java.net.URL("$BASE_URL/person/$personId?api_key=$API_KEY").readText()
@@ -416,7 +490,6 @@ class TMDBApi {
                     val tmdbId = item.optInt("id", 0)
                     if (tmdbId <= 0) continue
 
-                    val imdbId = fetchImdbIdForTitle(tmdbId, mediaType) ?: continue
                     val resolvedTitle = item.optString("title").ifBlank { item.optString("name") }
                     if (resolvedTitle.isBlank()) continue
 
@@ -427,6 +500,10 @@ class TMDBApi {
                     val overview = item.optString("overview", "").ifBlank { null }
                     val rating = item.optDouble("vote_average", 0.0).takeIf { it > 0.0 }?.toFloat()
 
+                    // Use tmdb: prefix as fallback so the result is still shown when the
+                    // external_ids call fails; DetailActivity resolves the real ID on open.
+                    val imdbId = fetchImdbIdForTitle(tmdbId, mediaType) ?: "tmdb:$tmdbId"
+
                     add(
                         ImdbTitle(
                             id = imdbId,
@@ -435,7 +512,8 @@ class TMDBApi {
                             year = year,
                             cast = overview,
                             imageUrl = posterPath?.let { "https://image.tmdb.org/t/p/w342$it" },
-                            rating = rating
+                            rating = rating,
+                            tmdbId = tmdbId
                         )
                     )
                 }
