@@ -1,14 +1,11 @@
 package com.cvuong233.cinephantom.ui.kdrama
 
-import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import android.widget.Toast
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
@@ -43,21 +40,20 @@ class KDramaFragment : Fragment() {
         adapter = DiscoverResultsAdapter(
             skeletonLayoutRes = R.layout.item_discover_skeleton,
             showRankLabel = true,
-            showFeaturedMetricLabel = false,
-            onClick = { posterView, title -> openTitle(posterView, title) }
+            onClick = { backdropView, title -> openTitle(backdropView, title) }
         )
-        adapter.onStremioClick = { openInStremio(it) }
         recycler.adapter = adapter
 
         updateTimestamp(view)
         loadCharts()
     }
 
-    private fun openTitle(posterView: View, title: ImdbTitle) {
+    private fun openTitle(backdropView: View, title: ImdbTitle) {
         val intent = Intent(requireContext(), DetailActivity::class.java).apply {
             putExtra(DetailActivity.EXTRA_IMDB_ID, title.id)
             putExtra(DetailActivity.EXTRA_TITLE, title.title)
             putExtra(DetailActivity.EXTRA_IMAGE_URL, title.imageUrl)
+            putExtra(DetailActivity.EXTRA_BACKDROP_URL, title.landscapeImageUrl)
             putExtra(DetailActivity.EXTRA_CAST, title.cast)
             putExtra(DetailActivity.EXTRA_YEAR, title.year)
             putExtra(DetailActivity.EXTRA_TYPE, "TV Series")
@@ -65,19 +61,11 @@ class KDramaFragment : Fragment() {
             (title.ratingText ?: title.featuredMetricLabel)?.takeIf { it.isNotBlank() }
                 ?.let { putExtra(DetailActivity.EXTRA_FUNDEX_RATING, it) }
         }
-        ViewCompat.setTransitionName(posterView, "poster_${title.id}")
+        ViewCompat.setTransitionName(backdropView, "backdrop_${title.id}")
         val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-            requireActivity(), posterView, "poster_${title.id}"
+            requireActivity(), backdropView, "backdrop_${title.id}"
         )
         startActivity(intent, options.toBundle())
-    }
-
-    private fun openInStremio(title: ImdbTitle) {
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("stremio://detail/series/${title.id}")))
-        } catch (_: ActivityNotFoundException) {
-            Toast.makeText(requireContext(), R.string.stremio_not_installed, Toast.LENGTH_SHORT).show()
-        }
     }
 
     private fun loadCharts() {

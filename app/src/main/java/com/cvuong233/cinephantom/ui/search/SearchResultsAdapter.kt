@@ -28,7 +28,6 @@ class SearchResultsAdapter(
     private val skeletonCount = 5
     private var highlightId: String? = null
 
-    var onStremioClick: ((ImdbTitle) -> Unit)? = null
     var onRatingNeeded: ((ImdbTitle) -> Unit)? = null
 
     fun showLoading() { isLoading = true; notifyDataSetChanged() }
@@ -112,8 +111,8 @@ class SearchResultsAdapter(
 
     override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
         if (holder is ResultViewHolder) {
-            holder.binding.posterPlaceholder.visibility = View.VISIBLE
-            holder.binding.posterImage.visibility = View.GONE
+            holder.binding.backdropPlaceholder.visibility = View.VISIBLE
+            holder.binding.backdropImage.visibility = View.GONE
         }
     }
 
@@ -127,12 +126,11 @@ class SearchResultsAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: ImdbTitle, position: Int) {
-            ViewCompat.setTransitionName(binding.posterImage, "poster_${item.id}")
-            binding.root.setOnClickListener { onClick(binding.posterImage, item) }
+            ViewCompat.setTransitionName(binding.backdropImage, "backdrop_${item.id}")
+            binding.root.setOnClickListener { onClick(binding.backdropImage, item) }
 
             binding.titleText.text = item.title
 
-            val ratingText = item.ratingText?.trim().orEmpty()
             val baseStroke = binding.root.context.getColor(R.color.surface_border)
             val glowStroke = binding.root.context.getColor(R.color.neon_pink)
 
@@ -141,40 +139,37 @@ class SearchResultsAdapter(
                 strokeColor = baseStroke
             }
 
+            val ratingText = item.ratingText?.trim().orEmpty()
             when {
                 ratingText.isNotBlank() -> {
-                    val source = item.ratingSourceLabel?.takeIf { it.isNotBlank() } ?: "IMDb"
-                    binding.ratingBadge.text = "$source $ratingText"
+                    binding.ratingBadge.text = "★ $ratingText"
                     binding.ratingBadge.visibility = View.VISIBLE
                 }
                 (item.rating ?: 0f) > 0f -> {
-                    binding.ratingBadge.text = String.format(java.util.Locale.US, "IMDb %.1f", item.rating)
+                    binding.ratingBadge.text = "★ " + String.format(java.util.Locale.US, "%.1f", item.rating)
                     binding.ratingBadge.visibility = View.VISIBLE
                 }
                 pendingRatings.contains(item.id) -> {
-                    binding.ratingBadge.text = "IMDb --"
+                    binding.ratingBadge.text = "★ --"
                     binding.ratingBadge.visibility = View.VISIBLE
                     if (requestedRatings.add(item.id)) onRatingNeeded?.invoke(item)
                 }
                 else -> binding.ratingBadge.visibility = View.GONE
             }
 
-            binding.rankText.visibility = View.GONE
-            binding.secondaryText.visibility = View.GONE
-
             if (item.id == highlightId) {
                 highlightId = null
                 binding.root.post {
                     val card = binding.root as? MaterialCardView
                     binding.root.animate().cancel()
-                    binding.posterFrame.animate().cancel()
+                    binding.backdropFrame.animate().cancel()
 
                     binding.root.alpha = 0.78f
                     binding.root.scaleX = 0.972f
                     binding.root.scaleY = 0.972f
-                    binding.posterFrame.scaleX = 0.984f
-                    binding.posterFrame.scaleY = 0.984f
-                    binding.posterFrame.alpha = 0.9f
+                    binding.backdropFrame.scaleX = 0.984f
+                    binding.backdropFrame.scaleY = 0.984f
+                    binding.backdropFrame.alpha = 0.9f
                     binding.ratingBadge.alpha = 0.72f
                     card?.strokeWidth = 3
                     card?.strokeColor = glowStroke
@@ -182,8 +177,8 @@ class SearchResultsAdapter(
                     binding.root.animate().alpha(1f).scaleX(1.012f).scaleY(1.012f).setDuration(220)
                         .withEndAction { binding.root.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }
                         .start()
-                    binding.posterFrame.animate().alpha(1f).scaleX(1.018f).scaleY(1.018f).setDuration(220)
-                        .withEndAction { binding.posterFrame.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }
+                    binding.backdropFrame.animate().alpha(1f).scaleX(1.018f).scaleY(1.018f).setDuration(220)
+                        .withEndAction { binding.backdropFrame.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }
                         .start()
                     binding.ratingBadge.animate().alpha(1f).setDuration(260).start()
                     ObjectAnimator.ofArgb(card, "strokeColor", glowStroke, baseStroke).apply {
@@ -193,35 +188,33 @@ class SearchResultsAdapter(
                         card?.strokeWidth = 1
                         card?.strokeColor = baseStroke
                         binding.root.alpha = 1f; binding.root.scaleX = 1f; binding.root.scaleY = 1f
-                        binding.posterFrame.alpha = 1f; binding.posterFrame.scaleX = 1f; binding.posterFrame.scaleY = 1f
+                        binding.backdropFrame.alpha = 1f; binding.backdropFrame.scaleX = 1f; binding.backdropFrame.scaleY = 1f
                         binding.ratingBadge.alpha = 1f
                     }, 680)
                 }
             }
 
-            if (item.imageUrl.isNullOrBlank()) {
-                binding.posterImage.visibility = View.GONE
-                binding.posterPlaceholder.visibility = View.VISIBLE
+            val imageUrl = item.landscapeImageUrl
+            if (imageUrl.isNullOrBlank()) {
+                binding.backdropImage.visibility = View.GONE
+                binding.backdropPlaceholder.visibility = View.VISIBLE
             } else {
-                binding.posterPlaceholder.visibility = View.VISIBLE
-                binding.posterImage.visibility = View.GONE
-                binding.posterImage.setImageDrawable(null)
-                SimpleImageLoader.load(
-                    url = item.imageUrl,
-                    imageView = binding.posterImage,
+                binding.backdropPlaceholder.visibility = View.VISIBLE
+                binding.backdropImage.visibility = View.GONE
+                binding.backdropImage.setImageDrawable(null)
+                SimpleImageLoader.loadBackdrop(
+                    url = imageUrl,
+                    imageView = binding.backdropImage,
                     onSuccess = {
-                        binding.posterImage.visibility = View.VISIBLE
-                        binding.posterPlaceholder.visibility = View.GONE
+                        binding.backdropImage.visibility = View.VISIBLE
+                        binding.backdropPlaceholder.visibility = View.GONE
                     },
                     onError = {
-                        binding.posterImage.visibility = View.GONE
-                        binding.posterPlaceholder.visibility = View.VISIBLE
+                        binding.backdropImage.visibility = View.GONE
+                        binding.backdropPlaceholder.visibility = View.VISIBLE
                     },
                 )
             }
-
-            binding.stremioButton.visibility = View.VISIBLE
-            binding.stremioButton.setOnClickListener { onStremioClick?.invoke(item) }
         }
     }
 }

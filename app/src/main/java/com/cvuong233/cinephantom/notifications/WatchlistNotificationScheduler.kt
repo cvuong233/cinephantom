@@ -11,17 +11,17 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
-object WishlistNotificationScheduler {
+object WatchlistNotificationScheduler {
 
-    const val CHANNEL_ID = "wishlist_air_dates"
+    const val CHANNEL_ID = "watchlist_air_dates"
 
     fun createChannel(context: Context) {
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "Wishlist Air Dates",
+            "Watchlist Air Dates",
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = "Notifies when wishlisted titles air or are released"
+            description = "Notifies when watchlisted titles air or are released"
         }
         (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
             .createNotificationChannel(channel)
@@ -42,6 +42,7 @@ object WishlistNotificationScheduler {
 
         val date = try { LocalDate.parse(airDate) } catch (_: Exception) { return }
         val leadDays = if (isTV) 0L else prefs.movieLeadDays.toLong()
+        // Negative leadDays (e.g. -1 for "1 day after") naturally lands after the date here.
         val notifyDate = date.minusDays(leadDays)
         val today = LocalDate.now(ZoneId.systemDefault())
         if (notifyDate.isBefore(today)) return
@@ -52,13 +53,13 @@ object WishlistNotificationScheduler {
             .toInstant()
             .toEpochMilli()
 
-        val receiverIntent = Intent(context, WishlistNotificationReceiver::class.java).apply {
-            putExtra(WishlistNotificationReceiver.EXTRA_IMDB_ID, imdbId)
-            putExtra(WishlistNotificationReceiver.EXTRA_TITLE, title)
-            putExtra(WishlistNotificationReceiver.EXTRA_IS_TV, isTV)
-            putExtra(WishlistNotificationReceiver.EXTRA_SEASON, season)
-            putExtra(WishlistNotificationReceiver.EXTRA_EPISODE, episode)
-            putExtra(WishlistNotificationReceiver.EXTRA_IMAGE_URL, imageUrl)
+        val receiverIntent = Intent(context, WatchlistNotificationReceiver::class.java).apply {
+            putExtra(WatchlistNotificationReceiver.EXTRA_IMDB_ID, imdbId)
+            putExtra(WatchlistNotificationReceiver.EXTRA_TITLE, title)
+            putExtra(WatchlistNotificationReceiver.EXTRA_IS_TV, isTV)
+            putExtra(WatchlistNotificationReceiver.EXTRA_SEASON, season)
+            putExtra(WatchlistNotificationReceiver.EXTRA_EPISODE, episode)
+            putExtra(WatchlistNotificationReceiver.EXTRA_IMAGE_URL, imageUrl)
         }
         val pi = PendingIntent.getBroadcast(
             context, imdbId.hashCode(), receiverIntent,
@@ -74,7 +75,7 @@ object WishlistNotificationScheduler {
     }
 
     fun cancel(context: Context, imdbId: String) {
-        val intent = Intent(context, WishlistNotificationReceiver::class.java)
+        val intent = Intent(context, WatchlistNotificationReceiver::class.java)
         val pi = PendingIntent.getBroadcast(
             context, imdbId.hashCode(), intent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE

@@ -29,23 +29,20 @@ import com.cvuong233.cinephantom.MainActivity
 import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
 import org.json.JSONObject
 import java.net.URL
+import com.cvuong233.cinephantom.data.JustWatchLinkResolver
 import com.cvuong233.cinephantom.data.RatingFetcher
 import com.cvuong233.cinephantom.data.TMDBApi
 import com.cvuong233.cinephantom.data.TMDBCastMember
 import com.cvuong233.cinephantom.data.TMDBCrewMember
 import com.cvuong233.cinephantom.data.TMDBPersonCredit
 import com.cvuong233.cinephantom.data.TMDBShowDetails
+import com.cvuong233.cinephantom.data.TMDBWatchProvider
+import com.cvuong233.cinephantom.data.WatchProviderPreferences
 import com.cvuong233.cinephantom.data.FavoritesRepository
-import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
-import com.cvuong233.cinephantom.data.WatchlistDatabase
+import com.cvuong233.cinephantom.notifications.WatchlistNotificationScheduler
 import com.cvuong233.cinephantom.model.ImdbTitle
-import com.cvuong233.cinephantom.model.WatchlistItem
 import com.cvuong233.cinephantom.ui.account.AuthActivity
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.concurrent.thread
 import java.util.concurrent.atomic.AtomicReference
 
@@ -59,6 +56,7 @@ class DetailActivity : AppCompatActivity() {
         const val EXTRA_YEAR = "extra_year"
         const val EXTRA_TYPE = "extra_type"
         const val EXTRA_TRANSITION_NAME = "extra_transition_name"
+        const val EXTRA_BACKDROP_URL = "extra_backdrop_url"
         const val EXTRA_FROM_WIDGET = "extra_from_widget"
         const val EXTRA_RETURN_DISCOVER_TYPE = "extra_return_discover_type"
         const val EXTRA_FUNDEX_RATING = "extra_fundex_rating"
@@ -74,6 +72,7 @@ class DetailActivity : AppCompatActivity() {
         val type = intent?.getStringExtra(EXTRA_TYPE) ?: "Movie"
         val year = intent?.getStringExtra(EXTRA_YEAR) ?: ""
         val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
+        val backdropUrl = intent?.getStringExtra(EXTRA_BACKDROP_URL)?.ifBlank { null } ?: imageUrl
         val intentCast = intent?.getStringExtra(EXTRA_CAST)
         val launchedFromWidget = intent?.getBooleanExtra(EXTRA_FROM_WIDGET, false) == true
         val fundexRatingFromIntent = intent?.getStringExtra(EXTRA_FUNDEX_RATING)
@@ -94,15 +93,16 @@ class DetailActivity : AppCompatActivity() {
         // Views
         val backBtn = findViewById<ImageView>(R.id.detail_back)
         val posterImage = findViewById<ImageView>(R.id.detail_hero)
+        val posterContainer = findViewById<LinearLayout>(R.id.detail_poster_container)
         val backdropImage = findViewById<ImageView>(R.id.detail_backdrop)
         val incomingTransitionName = intent?.getStringExtra(EXTRA_TRANSITION_NAME)
-        ViewCompat.setTransitionName(posterImage, incomingTransitionName ?: "poster_$imdbId")
+        ViewCompat.setTransitionName(backdropImage, incomingTransitionName ?: "backdrop_$imdbId")
         val heroShimmer = findViewById<View>(R.id.detail_hero_shimmer)
         val titleView = findViewById<TextView>(R.id.detail_title)
         val titleRow = findViewById<LinearLayout>(R.id.detail_title_row)
         val metaView = findViewById<TextView>(R.id.detail_meta)
         val ratingView = findViewById<TextView>(R.id.detail_rating)
-        val ratingRow = findViewById<LinearLayout>(R.id.detail_rating_row)
+        val streamingScroll = findViewById<HorizontalScrollView>(R.id.detail_streaming_scroll)
         val directorHeader = findViewById<LinearLayout>(R.id.detail_director_header)
         val directorLabelView = findViewById<TextView>(R.id.detail_director_label)
         val directorScroll = findViewById<HorizontalScrollView>(R.id.detail_director_scroll)
@@ -118,13 +118,16 @@ class DetailActivity : AppCompatActivity() {
         val divider = findViewById<View>(R.id.detail_divider)
         val shareBtn = findViewById<ImageView>(R.id.detail_share_button)
         val stremioBtn = findViewById<ImageView>(R.id.detail_stremio_button)
-        val db = WatchlistDatabase.get(this) // still used for auto-history
         val trailerBtn = findViewById<TextView>(R.id.detail_trailer_button)
         val nextEpCard = findViewById<LinearLayout>(R.id.detail_next_episode_card)
         val nextEpCodeView = findViewById<TextView>(R.id.detail_next_episode_code)
         val nextEpNameView = findViewById<TextView>(R.id.detail_next_episode_name)
         val nextEpDateView = findViewById<TextView>(R.id.detail_next_episode_date)
         val favBtn = findViewById<ImageView>(R.id.detail_favorite_button)
+        val watchProviderPrefs = WatchProviderPreferences.get(this)
+        if (!watchProviderPrefs.isEnabled(WatchProviderPreferences.STREMIO_SENTINEL_ID)) {
+            stremioBtn.visibility = View.GONE
+        }
 
         fun applyRating(rawRatingText: String?, fallbackRating: Float? = null) {
             val cleanText = rawRatingText?.trim().orEmpty()
@@ -162,7 +165,7 @@ class DetailActivity : AppCompatActivity() {
         }
 
         applyRating(null, null)
-        ratingRow.visibility = View.VISIBLE
+        streamingScroll.visibility = View.VISIBLE
         ratingView.visibility = View.INVISIBLE
 
         val ratingFetcher = RatingFetcher()
@@ -220,20 +223,6 @@ class DetailActivity : AppCompatActivity() {
             startActivity(Intent.createChooser(shareIntent, getString(R.string.share_title)))
         }
 
-        // Auto-history: record view on detail page open
-        CoroutineScope(Dispatchers.IO).launch {
-            if (!db.dao().isSaved(imdbId)) {
-                db.dao().insert(WatchlistItem(
-                    imdbId = imdbId, title = title, type = type,
-                    year = year.takeIf { it.isNotBlank() },
-                    imageUrl = imageUrl, cast = intentCast,
-                    watchedAt = System.currentTimeMillis()
-                ))
-            } else {
-                db.dao().markWatched(imdbId)
-            }
-        }
-
         // Trailer button: fetch TMDB video and open YouTube
         var tmdbTrailerId = seedTmdbId  // pre-seeded if caller knows TMDB ID
         trailerBtn.setOnClickListener {
@@ -273,13 +262,14 @@ class DetailActivity : AppCompatActivity() {
         // Set title early (will animate in after data loads)
         titleView.text = title
 
-        // Shared element target must exist immediately using the incoming portrait image.
-        // Backdrop stays independent and can load later.
+        // Shared element target must exist immediately using the same image the card showed —
+        // the backdrop is now the shared element. TMDB's higher-res backdrop swaps in later.
         posterImage.alpha = 1f
-        posterImage.scaleX = 1f
-        posterImage.scaleY = 1f
-        backdropImage.alpha = 0f
+        backdropImage.alpha = 1f
         heroShimmer.visibility = View.GONE
+        if (backdropUrl.isNotBlank()) {
+            SimpleImageLoader.load(backdropUrl, backdropImage, onSuccess = {}, onError = {})
+        }
 
         var posterLoaded = false
 
@@ -299,6 +289,21 @@ class DetailActivity : AppCompatActivity() {
             posterIn()
         }
 
+        // Poster springs up from below the backdrop once the shared-element transition settles.
+        posterContainer.alpha = 0f
+        posterContainer.translationY = 140f
+        posterContainer.scaleX = 0.7f
+        posterContainer.scaleY = 0.7f
+        posterContainer.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(300)
+            .setStartDelay(260)
+            .setInterpolator(OvershootInterpolator(1.4f))
+            .start()
+
         var currentCastForViewAll: List<TMDBCastMember> = emptyList()
 
         castViewAll.setOnClickListener {
@@ -313,7 +318,7 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
-        // Favorite/Wishlist button — captures TMDB air date once loaded (see below)
+        // Favorite/Watchlist button — captures TMDB air date once loaded (see below)
         val titleObj = ImdbTitle(
             id = imdbId, title = title, typeLabel = type, year = year,
             cast = null, imageUrl = imageUrl,
@@ -321,8 +326,8 @@ class DetailActivity : AppCompatActivity() {
             ratingSourceLabel = if (fundexRatingFromIntent != null) "FUNdex" else null
         )
         // Populated by TMDB callbacks below so the heart click can schedule the notification
-        var wishlistMovieReleaseDate: String? = null
-        var wishlistNextEpisode: com.cvuong233.cinephantom.data.TMDBNextEpisode? = null
+        var watchlistMovieReleaseDate: String? = null
+        var watchlistNextEpisode: com.cvuong233.cinephantom.data.TMDBNextEpisode? = null
 
         fun refreshFavIcon() {
             val id = resolvedImdbId ?: imdbId
@@ -334,32 +339,32 @@ class DetailActivity : AppCompatActivity() {
         refreshFavIcon()
         favBtn.setOnClickListener {
             if (FirebaseAuth.getInstance().currentUser == null) {
-                Toast.makeText(this, "Sign in to save to Wishlist", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Sign in to save to Watchlist", Toast.LENGTH_SHORT).show()
                 startActivity(Intent(this, AuthActivity::class.java))
                 return@setOnClickListener
             }
-            val wishlistId = resolvedImdbId ?: imdbId
-            val wasInWishlist = FavoritesRepository.isFavorite(wishlistId)
-            FavoritesRepository.toggle(titleObj.copy(id = wishlistId))
+            val watchlistId = resolvedImdbId ?: imdbId
+            val wasInWatchlist = FavoritesRepository.isFavorite(watchlistId)
+            FavoritesRepository.toggle(titleObj.copy(id = watchlistId))
             refreshFavIcon()
-            if (!wasInWishlist) {
+            if (!wasInWatchlist) {
                 // Added — schedule notification if we already have the date
-                val airDate = if (isSeries) wishlistNextEpisode?.airDate else wishlistMovieReleaseDate
+                val airDate = if (isSeries) watchlistNextEpisode?.airDate else watchlistMovieReleaseDate
                 if (!airDate.isNullOrBlank()) {
-                    WishlistNotificationScheduler.schedule(
+                    WatchlistNotificationScheduler.schedule(
                         context = this,
-                        imdbId = wishlistId,
+                        imdbId = watchlistId,
                         title = title,
                         isTV = isSeries,
                         airDate = airDate,
-                        season = wishlistNextEpisode?.seasonNumber ?: 0,
-                        episode = wishlistNextEpisode?.episodeNumber ?: 0,
+                        season = watchlistNextEpisode?.seasonNumber ?: 0,
+                        episode = watchlistNextEpisode?.episodeNumber ?: 0,
                         imageUrl = imageUrl,
                     )
                 }
             } else {
                 // Removed — cancel any scheduled notification
-                WishlistNotificationScheduler.cancel(this, wishlistId)
+                WatchlistNotificationScheduler.cancel(this, watchlistId)
             }
         }
 
@@ -452,7 +457,7 @@ class DetailActivity : AppCompatActivity() {
                 metaView.text = showParts.joinToString(" · ")
 
                 val nextEp = tmdbShow.nextEpisode
-                wishlistNextEpisode = nextEp  // capture for notification scheduling
+                watchlistNextEpisode = nextEp  // capture for notification scheduling
                 val isReturning = tmdbShow.status?.lowercase()?.let {
                     it == "returning series" || it == "in production" || it == "planned"
                 } == true
@@ -613,6 +618,37 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
+        val providersContainer = findViewById<LinearLayout>(R.id.detail_providers_container)
+
+        fun applyProvidersToUi(resolvedProviders: List<Pair<TMDBWatchProvider, String>>) {
+            if (resolvedProviders.isEmpty()) {
+                // Only hide the whole row if Stremio isn't showing either — otherwise the
+                // row still needs to display the Stremio button on its own.
+                if (stremioBtn.visibility != View.VISIBLE) streamingScroll.visibility = View.GONE
+                return
+            }
+
+            streamingScroll.visibility = View.VISIBLE
+            providersContainer.alpha = 0f
+            providersContainer.translationX = 24f
+            providersContainer.removeAllViews()
+            for ((provider, platformUrl) in resolvedProviders) {
+                val item = layoutInflater.inflate(R.layout.item_provider_button, providersContainer, false) as ImageView
+                provider.logoUrl?.let { url -> SimpleImageLoader.load(url = url, imageView = item) }
+                item.contentDescription = provider.name
+                item.setOnClickListener { openWatchProvider(platformUrl) }
+                providersContainer.addView(item)
+            }
+            providersContainer.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(260)
+                .setStartDelay(50)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+            animateHorizontalItems(providersContainer, 70)
+        }
+
         val recsSection = findViewById<LinearLayout>(R.id.detail_more_like_this_section)
         val recsContainer = findViewById<LinearLayout>(R.id.detail_recommendations_container)
         var recsFetched = false
@@ -697,6 +733,21 @@ class DetailActivity : AppCompatActivity() {
                 val tmdbShow = if (isSeries) tmdbApi.fetchShowDetails(tmdbId) else null
                 runOnUiThread { applyCreditsToUi(tmdbCast, tmdbDirectors, tmdbShow) }
 
+                val watchProviders = tmdbApi.fetchWatchProviders(tmdbId, isSeries)
+                val justWatchLink = watchProviders?.justWatchLink
+                val resolvedPlatformUrls = if (!justWatchLink.isNullOrBlank())
+                    JustWatchLinkResolver.resolvePlatformUrls(justWatchLink)
+                else emptyMap()
+                val resolvedProviders = watchProviders?.flatrate.orEmpty()
+                    .filter { watchProviderPrefs.isEnabled(it.id, it.name) }
+                    .mapNotNull { provider ->
+                        val url = resolvedPlatformUrls.entries
+                            .firstOrNull { (key, _) -> provider.name.contains(key, ignoreCase = true) }
+                            ?.value
+                        url?.let { provider to it }
+                    }
+                runOnUiThread { applyProvidersToUi(resolvedProviders) }
+
                 if (!recsFetched) {
                     recsFetched = true
                     val recs = tmdbApi.fetchRecommendations(tmdbId, isSeries)
@@ -737,8 +788,8 @@ class DetailActivity : AppCompatActivity() {
                 else null
 
                 runOnUiThread {
-                    // Capture release date for movie wishlist notification scheduling
-                    if (!isSeries) wishlistMovieReleaseDate = details?.releaseDate
+                    // Capture release date for movie watchlist notification scheduling
+                    if (!isSeries) watchlistMovieReleaseDate = details?.releaseDate
 
                     // Movie release date card
                     if (!isSeries) {
@@ -913,5 +964,15 @@ class DetailActivity : AppCompatActivity() {
         startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(
             "https://www.youtube.com/results?search_query=${java.net.URLEncoder.encode(query, "UTF-8")}"
         )))
+    }
+
+    // Opens the real per-title platform URL resolved from JustWatch (see
+    // JustWatchLinkResolver). App not installed just shows a toast — no browser fallback.
+    private fun openWatchProvider(platformUrl: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(platformUrl)))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, "App not installed", Toast.LENGTH_SHORT).show()
+        }
     }
 }

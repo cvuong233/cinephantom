@@ -1,9 +1,7 @@
 package com.cvuong233.cinephantom.ui.search
 
 import android.app.SearchManager
-import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -40,8 +38,6 @@ class SearchActivity : AppCompatActivity() {
 
         binding.resultsRecyclerView.layoutManager = LinearLayoutManager(this)
         binding.resultsRecyclerView.adapter = adapter
-
-        adapter.onStremioClick = { openInStremio(it) }
 
         // Register adapter data observer for empty state
         adapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
@@ -162,34 +158,21 @@ class SearchActivity : AppCompatActivity() {
 
 
 
-    private fun openImdbTitle(posterView: View, title: ImdbTitle) {
+    private fun openImdbTitle(backdropView: View, title: ImdbTitle) {
         val intent = Intent(this, DetailActivity::class.java).apply {
             putExtra(DetailActivity.EXTRA_IMDB_ID, title.id)
             putExtra(DetailActivity.EXTRA_TITLE, title.title)
             putExtra(DetailActivity.EXTRA_IMAGE_URL, title.imageUrl)
+            putExtra(DetailActivity.EXTRA_BACKDROP_URL, title.landscapeImageUrl)
             putExtra(DetailActivity.EXTRA_CAST, title.cast)
             putExtra(DetailActivity.EXTRA_YEAR, title.year)
             putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
         }
-        ViewCompat.setTransitionName(posterView, "poster_${title.id}")
+        ViewCompat.setTransitionName(backdropView, "backdrop_${title.id}")
         val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-            this, posterView, "poster_${title.id}"
+            this, backdropView, "backdrop_${title.id}"
         )
         startActivity(intent, options.toBundle())
-    }
-
-    private fun openInStremio(title: ImdbTitle) {
-        val stremioType = when (title.typeLabel) {
-            "TV Series", "TV Mini Series", "TV Series (mini)" -> "series"
-            "TV Episode" -> "episode"
-            else -> "movie"
-        }
-        val stremioUri = Uri.parse("stremio://detail/$stremioType/${title.id}")
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, stremioUri))
-        } catch (_: ActivityNotFoundException) {
-            Toast.makeText(this, R.string.stremio_not_installed, Toast.LENGTH_SHORT).show()
-        }
     }
 
     companion object {

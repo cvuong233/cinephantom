@@ -18,7 +18,6 @@ import java.util.Locale
 class DiscoverResultsAdapter(
     private val skeletonLayoutRes: Int = R.layout.item_discover_skeleton,
     private val showRankLabel: Boolean = true,
-    private val showFeaturedMetricLabel: Boolean = false,
     private val onClick: (View, ImdbTitle) -> Unit,
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
@@ -29,7 +28,6 @@ class DiscoverResultsAdapter(
     private val requestedRatings = linkedSetOf<String>()
     private var highlightId: String? = null
 
-    var onStremioClick: ((ImdbTitle) -> Unit)? = null
     var onRatingNeeded: ((ImdbTitle) -> Unit)? = null
 
     fun showLoading() {
@@ -97,9 +95,9 @@ class DiscoverResultsAdapter(
 
     override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
         if (holder is ResultViewHolder) {
-            holder.posterPlaceholder.visibility = View.VISIBLE
-            holder.posterImage.visibility = View.GONE
-            holder.posterImage.setImageDrawable(null)
+            holder.backdropPlaceholder.visibility = View.VISIBLE
+            holder.backdropImage.visibility = View.GONE
+            holder.backdropImage.setImageDrawable(null)
         }
         super.onViewRecycled(holder)
     }
@@ -111,86 +109,66 @@ class DiscoverResultsAdapter(
 
     inner class ResultViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val rootCard: MaterialCardView = itemView as MaterialCardView
-        val posterFrame: View = itemView.findViewById(R.id.poster_frame)
-        val posterImage: ImageView = itemView.findViewById(R.id.poster_image)
-        val posterPlaceholder: View = itemView.findViewById(R.id.poster_placeholder)
+        val backdropFrame: View = itemView.findViewById(R.id.backdrop_frame)
+        val backdropImage: ImageView = itemView.findViewById(R.id.backdrop_image)
+        val backdropPlaceholder: View = itemView.findViewById(R.id.backdrop_placeholder)
         private val titleText: TextView = itemView.findViewById(R.id.title_text)
         private val ratingBadge: TextView = itemView.findViewById(R.id.rating_badge)
         private val rankText: TextView = itemView.findViewById(R.id.rank_text)
-        private val secondaryText: TextView = itemView.findViewById(R.id.secondary_text)
-        private val stremioButton: ImageView = itemView.findViewById(R.id.stremio_button)
 
         fun bind(item: ImdbTitle, position: Int) {
-            ViewCompat.setTransitionName(posterImage, "poster_${item.id}")
-            itemView.setOnClickListener { onClick(posterImage, item) }
+            ViewCompat.setTransitionName(backdropImage, "backdrop_${item.id}")
+            itemView.setOnClickListener { onClick(backdropImage, item) }
 
             titleText.text = item.title
 
             val ratingText = item.ratingText?.trim().orEmpty()
-            val ratingSource = item.ratingSourceLabel?.trim().ifNullOrBlank("IMDb")
-            val resolvedRatingText = when {
-                ratingText.isNotBlank() -> "$ratingSource $ratingText"
-                (item.rating ?: 0f) > 0f -> String.format(Locale.US, "$ratingSource %.1f", item.rating)
-                else -> ""
-            }
-            if (resolvedRatingText.isNotBlank()) {
-                ratingBadge.text = resolvedRatingText
-                ratingBadge.visibility = View.VISIBLE
-            } else {
-                ratingBadge.visibility = View.GONE
+            when {
+                ratingText.isNotBlank() -> {
+                    ratingBadge.text = "★ $ratingText"
+                    ratingBadge.visibility = View.VISIBLE
+                }
+                (item.rating ?: 0f) > 0f -> {
+                    ratingBadge.text = "★ " + String.format(Locale.US, "%.1f", item.rating)
+                    ratingBadge.visibility = View.VISIBLE
+                }
+                pendingRatings.contains(item.id) -> {
+                    ratingBadge.text = "★ --"
+                    ratingBadge.visibility = View.VISIBLE
+                }
+                else -> ratingBadge.visibility = View.GONE
             }
 
             val rankLabel = item.rankLabel?.trim().orEmpty()
-            val featuredMetricLabel = item.featuredMetricLabel?.trim().orEmpty()
-            val secondaryLabel = item.secondaryLabel?.trim().orEmpty()
-            val imdbStyleRankOnly = item.id.startsWith("fx:")
-
-            if (showFeaturedMetricLabel && featuredMetricLabel.isNotBlank()) {
-                rankText.text = featuredMetricLabel
-                rankText.visibility = View.VISIBLE
-                if (!imdbStyleRankOnly && secondaryLabel.isNotBlank()) {
-                    secondaryText.text = secondaryLabel
-                    secondaryText.visibility = View.VISIBLE
-                } else {
-                    secondaryText.visibility = View.GONE
-                }
-            } else if (showRankLabel && rankLabel.isNotBlank()) {
+            if (showRankLabel && rankLabel.isNotBlank()) {
                 rankText.text = rankLabel
                 rankText.visibility = View.VISIBLE
-                secondaryText.visibility = View.GONE
-            } else if (secondaryLabel.isNotBlank()) {
-                secondaryText.text = secondaryLabel
-                secondaryText.visibility = View.VISIBLE
-                rankText.visibility = View.GONE
             } else {
                 rankText.visibility = View.GONE
-                secondaryText.visibility = View.GONE
             }
 
             if (pendingRatings.contains(item.id) && requestedRatings.add(item.id)) {
                 onRatingNeeded?.invoke(item)
             }
 
-            stremioButton.setOnClickListener { onStremioClick?.invoke(item) }
-
-            val imageUrl = item.imageUrl
+            val imageUrl = item.landscapeImageUrl
             if (imageUrl.isNullOrBlank()) {
-                posterImage.visibility = View.GONE
-                posterPlaceholder.visibility = View.VISIBLE
+                backdropImage.visibility = View.GONE
+                backdropPlaceholder.visibility = View.VISIBLE
             } else {
-                posterPlaceholder.visibility = View.VISIBLE
-                posterImage.visibility = View.GONE
-                posterImage.setImageDrawable(null)
-                SimpleImageLoader.load(
+                backdropPlaceholder.visibility = View.VISIBLE
+                backdropImage.visibility = View.GONE
+                backdropImage.setImageDrawable(null)
+                SimpleImageLoader.loadBackdrop(
                     url = imageUrl,
-                    imageView = posterImage,
+                    imageView = backdropImage,
                     onSuccess = {
-                        posterImage.visibility = View.VISIBLE
-                        posterPlaceholder.visibility = View.GONE
+                        backdropImage.visibility = View.VISIBLE
+                        backdropPlaceholder.visibility = View.GONE
                     },
                     onError = {
-                        posterImage.visibility = View.GONE
-                        posterPlaceholder.visibility = View.VISIBLE
+                        backdropImage.visibility = View.GONE
+                        backdropPlaceholder.visibility = View.VISIBLE
                     }
                 )
             }
@@ -201,18 +179,18 @@ class DiscoverResultsAdapter(
                 val glowStroke = itemView.context.getColor(R.color.neon_pink)
                 itemView.post {
                     itemView.animate().cancel()
-                    posterFrame.animate().cancel()
+                    backdropFrame.animate().cancel()
                     rootCard.strokeWidth = 3
                     rootCard.strokeColor = glowStroke
                     itemView.alpha = 0.82f
                     itemView.scaleX = 0.976f
                     itemView.scaleY = 0.976f
-                    posterFrame.scaleX = 0.988f
-                    posterFrame.scaleY = 0.988f
+                    backdropFrame.scaleX = 0.988f
+                    backdropFrame.scaleY = 0.988f
                     itemView.animate().alpha(1f).scaleX(1.012f).scaleY(1.012f).setDuration(220)
                         .withEndAction { itemView.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }.start()
-                    posterFrame.animate().scaleX(1.016f).scaleY(1.016f).setDuration(220)
-                        .withEndAction { posterFrame.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }.start()
+                    backdropFrame.animate().scaleX(1.016f).scaleY(1.016f).setDuration(220)
+                        .withEndAction { backdropFrame.animate().scaleX(1f).scaleY(1f).setDuration(180).start() }.start()
                     ObjectAnimator.ofArgb(rootCard, "strokeColor", glowStroke, baseStroke).apply {
                         duration = 620; start()
                     }
@@ -220,7 +198,7 @@ class DiscoverResultsAdapter(
                         rootCard.strokeWidth = 1
                         rootCard.strokeColor = baseStroke
                         itemView.alpha = 1f; itemView.scaleX = 1f; itemView.scaleY = 1f
-                        posterFrame.scaleX = 1f; posterFrame.scaleY = 1f
+                        backdropFrame.scaleX = 1f; backdropFrame.scaleY = 1f
                     }, 680)
                 }
             }
@@ -232,5 +210,3 @@ class DiscoverResultsAdapter(
         private const val VIEW_TYPE_RESULT = 1
     }
 }
-
-private fun String?.ifNullOrBlank(default: String) = if (isNullOrBlank()) default else this!!

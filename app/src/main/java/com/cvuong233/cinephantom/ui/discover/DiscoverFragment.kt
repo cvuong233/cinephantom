@@ -1,8 +1,6 @@
 package com.cvuong233.cinephantom.ui.discover
 
-import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -11,7 +9,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
-import android.widget.Toast
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
@@ -114,10 +111,8 @@ class DiscoverFragment : Fragment() {
         adapter = DiscoverResultsAdapter(
             skeletonLayoutRes = R.layout.item_discover_skeleton,
             showRankLabel = true,
-            showFeaturedMetricLabel = false,
-            onClick = { posterView, title -> openTitle(posterView, title) }
+            onClick = { backdropView, title -> openTitle(backdropView, title) }
         )
-        adapter.onStremioClick = { openInStremio(it) }
         adapter.onRatingNeeded = { title -> loadVisibleRating(title) }
         recycler.adapter = adapter
 
@@ -446,11 +441,12 @@ class DiscoverFragment : Fragment() {
 
     // ── Navigation ────────────────────────────────────────────────────────────
 
-    private fun openTitle(posterView: View, title: ImdbTitle) {
+    private fun openTitle(backdropView: View, title: ImdbTitle) {
         val intent = Intent(requireContext(), DetailActivity::class.java).apply {
             putExtra(DetailActivity.EXTRA_IMDB_ID, title.id)
             putExtra(DetailActivity.EXTRA_TITLE, title.title)
             putExtra(DetailActivity.EXTRA_IMAGE_URL, title.imageUrl)
+            putExtra(DetailActivity.EXTRA_BACKDROP_URL, title.landscapeImageUrl)
             putExtra(DetailActivity.EXTRA_CAST, title.cast)
             putExtra(DetailActivity.EXTRA_YEAR, title.year)
             putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
@@ -462,24 +458,11 @@ class DiscoverFragment : Fragment() {
                     ?.let { putExtra(DetailActivity.EXTRA_FUNDEX_RATING, it) }
             }
         }
-        ViewCompat.setTransitionName(posterView, "poster_${title.id}")
+        ViewCompat.setTransitionName(backdropView, "backdrop_${title.id}")
         val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
-            requireActivity(), posterView, "poster_${title.id}"
+            requireActivity(), backdropView, "backdrop_${title.id}"
         )
         startActivity(intent, options.toBundle())
-    }
-
-    private fun openInStremio(title: ImdbTitle) {
-        val stremioType = when (title.typeLabel) {
-            "TV Series", "TV Mini Series", "TV Series (mini)" -> "series"
-            "TV Episode" -> "episode"
-            else -> "movie"
-        }
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("stremio://detail/$stremioType/${title.id}")))
-        } catch (_: ActivityNotFoundException) {
-            Toast.makeText(requireContext(), R.string.stremio_not_installed, Toast.LENGTH_SHORT).show()
-        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -507,6 +490,8 @@ class DiscoverFragment : Fragment() {
                 rating = obj.optString("rating", ""),
                 votes  = obj.optString("votes", ""),
                 poster = obj.optString("poster", ""),
+                backdropPath = obj.optString("backdropPath", "").ifBlank { null },
+                tmdbId = obj.optInt("tmdb_id", 0).takeIf { it > 0 },
                 type   = key
             ))
         }
@@ -520,6 +505,8 @@ class DiscoverFragment : Fragment() {
         val rating: String,
         val votes: String,
         val poster: String,
+        val backdropPath: String?,
+        val tmdbId: Int?,
         val type: String
     ) {
         fun toImdbTitle(): ImdbTitle {
@@ -531,6 +518,8 @@ class DiscoverFragment : Fragment() {
                 year = null,
                 cast = votes.ifBlank { null },
                 imageUrl = poster.ifBlank { "https://images.metahub.space/poster/small/$imdbId/img" },
+                backdropUrl = backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" },
+                tmdbId = tmdbId,
                 rating = rating.toFloatOrNull(),
                 ratingText = rating.ifBlank { null },
                 ratingSourceLabel = "IMDb",

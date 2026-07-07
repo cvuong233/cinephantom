@@ -40,6 +40,7 @@ class KDramaChartsApi {
                 val poster = obj.optString("poster").trim().ifBlank { null }
                 val tmdbId = obj.optInt("tmdb_id").takeIf { it > 0 }
                 val rank = obj.optInt("rank", i + 1)
+                val backdropPath = obj.optString("backdropPath").trim().ifBlank { null }
 
                 titles.add(
                     ImdbTitle(
@@ -49,6 +50,7 @@ class KDramaChartsApi {
                         year = year,
                         cast = "Genres: $genre",
                         imageUrl = poster,
+                        backdropUrl = backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" },
                         tmdbId = tmdbId,
                         rating = null,
                         ratingText = scoreLabel,

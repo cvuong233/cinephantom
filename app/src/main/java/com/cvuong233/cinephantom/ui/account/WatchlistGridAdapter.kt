@@ -13,9 +13,9 @@ import com.cvuong233.cinephantom.model.ImdbTitle
 import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
 import java.util.Locale
 
-class WishlistGridAdapter(
+class WatchlistGridAdapter(
     private val onClick: (ImdbTitle) -> Unit,
-) : RecyclerView.Adapter<WishlistGridAdapter.GridViewHolder>() {
+) : RecyclerView.Adapter<WatchlistGridAdapter.GridViewHolder>() {
 
     private val items = mutableListOf<ImdbTitle>()
     private val animated = mutableSetOf<String>()
@@ -44,7 +44,7 @@ class WishlistGridAdapter(
     override fun getItemCount() = items.size
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = GridViewHolder(
-        LayoutInflater.from(parent.context).inflate(R.layout.item_wishlist_grid, parent, false)
+        LayoutInflater.from(parent.context).inflate(R.layout.item_watchlist_grid, parent, false)
     )
 
     override fun onBindViewHolder(holder: GridViewHolder, position: Int) {
@@ -90,9 +90,9 @@ class WishlistGridAdapter(
     }
 
     inner class GridViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val poster: ImageView = itemView.findViewById(R.id.wishlist_grid_poster)
-        private val title: TextView = itemView.findViewById(R.id.wishlist_grid_title)
-        private val rating: TextView = itemView.findViewById(R.id.wishlist_grid_rating)
+        private val poster: ImageView = itemView.findViewById(R.id.watchlist_grid_poster)
+        private val title: TextView = itemView.findViewById(R.id.watchlist_grid_title)
+        private val rating: TextView = itemView.findViewById(R.id.watchlist_grid_rating)
 
         fun bind(item: ImdbTitle) {
             title.text = item.title

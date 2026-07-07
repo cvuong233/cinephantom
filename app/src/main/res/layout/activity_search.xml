@@ -125,6 +125,18 @@
 
     </FrameLayout>
 
+    <com.cvuong233.cinephantom.ui.search.MaxHeightRecyclerView
+        android:id="@+id/suggestions_recycler_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/bg_tv_stats_card"
+        android:clipToPadding="false"
+        android:paddingVertical="4dp"
+        android:elevation="8dp"
+        android:visibility="gone" />
+
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/search_input_layout"
         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"

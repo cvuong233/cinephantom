@@ -17,41 +17,47 @@ import com.cvuong233.cinephantom.model.ImdbTitle
 import com.cvuong233.cinephantom.ui.detail.DetailActivity
 import kotlinx.coroutines.launch
 
-class WishlistActivity : AppCompatActivity() {
+class WatchlistActivity : AppCompatActivity() {
+
+    companion object {
+        private const val PREFS_NAME = "watchlist_prefs"
+        private const val KEY_LAST_TAB = "last_tab"
+    }
 
     private var currentFilter = "movies"
     private var allTitles = listOf<ImdbTitle>()
     private var sequenceStarted = false
 
-    private lateinit var adapter: WishlistGridAdapter
+    private lateinit var adapter: WatchlistGridAdapter
     private lateinit var recycler: RecyclerView
     private lateinit var emptyText: TextView
     private lateinit var filterMovies: TextView
     private lateinit var filterTv: TextView
-    private lateinit var filterKdramas: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = 0xFF0D0011.toInt()
-        setContentView(R.layout.activity_wishlist)
+        setContentView(R.layout.activity_watchlist)
+
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        currentFilter = prefs.getString(KEY_LAST_TAB, "movies") ?: "movies"
 
         findViewById<View>(R.id.toolbar_back).setOnClickListener { finish() }
-        findViewById<TextView>(R.id.toolbar_title).text = "Wishlist"
+        findViewById<TextView>(R.id.toolbar_title).text = "Watchlist"
 
-        recycler = findViewById(R.id.wishlist_recycler)
-        emptyText = findViewById(R.id.wishlist_empty_text)
-        filterMovies = findViewById(R.id.wishlist_filter_movies)
-        filterTv = findViewById(R.id.wishlist_filter_tv)
-        filterKdramas = findViewById(R.id.wishlist_filter_kdramas)
+        recycler = findViewById(R.id.watchlist_recycler)
+        emptyText = findViewById(R.id.watchlist_empty_text)
+        filterMovies = findViewById(R.id.watchlist_filter_movies)
+        filterTv = findViewById(R.id.watchlist_filter_tv)
+        applyTabSelectionStyling(currentFilter)
 
-        adapter = WishlistGridAdapter(onClick = { openTitle(it) })
+        adapter = WatchlistGridAdapter(onClick = { openTitle(it) })
         recycler.layoutManager = GridLayoutManager(this, 3)
         recycler.itemAnimator = null
         recycler.adapter = adapter
 
         filterMovies.setOnClickListener { if (currentFilter != "movies") setFilter("movies") }
         filterTv.setOnClickListener { if (currentFilter != "tv") setFilter("tv") }
-        filterKdramas.setOnClickListener { if (currentFilter != "kdrama") setFilter("kdrama") }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -70,41 +76,40 @@ class WishlistActivity : AppCompatActivity() {
     private fun isMovieType(title: ImdbTitle): Boolean =
         title.typeLabel?.lowercase()?.trim() == "movie"
 
-    private fun isKdramaType(title: ImdbTitle): Boolean =
-        title.ratingSourceLabel == "FUNdex"
-
     private fun filteredList(): List<ImdbTitle> {
         val base = when (currentFilter) {
             "movies" -> allTitles.filter { isMovieType(it) }
-            "tv"     -> allTitles.filter { !isMovieType(it) && !isKdramaType(it) }
-            "kdrama" -> allTitles.filter { isKdramaType(it) }
+            "tv"     -> allTitles.filter { !isMovieType(it) }
             else     -> allTitles
         }
         return base.sortedByDescending { it.year?.trim()?.toIntOrNull() ?: 0 }
     }
 
-    private fun setFilter(type: String) {
-        val tabOrder = listOf("movies", "tv", "kdrama")
-        val fromIndex = tabOrder.indexOf(currentFilter)
-        val toIndex = tabOrder.indexOf(type)
-        val movingForward = toIndex >= fromIndex
-        currentFilter = type
-
-        val selected = when (type) {
-            "movies" -> filterMovies
-            "tv"     -> filterTv
-            else     -> filterKdramas
-        }
-        val unselected = listOf(filterMovies, filterTv, filterKdramas).filter { it !== selected }
-
-        selected.animate().cancel()
-        unselected.forEach { it.animate().cancel() }
+    private fun applyTabSelectionStyling(type: String) {
+        val selected = if (type == "movies") filterMovies else filterTv
+        val unselected = listOf(filterMovies, filterTv).filter { it !== selected }
         selected.setBackgroundResource(R.drawable.bg_discover_tab_selected)
         selected.setTextColor(0xFFFFFFFF.toInt())
         unselected.forEach {
             it.setBackgroundResource(R.drawable.bg_discover_tab_unselected)
             it.setTextColor(resources.getColor(R.color.text_muted, null))
         }
+    }
+
+    private fun setFilter(type: String) {
+        val tabOrder = listOf("movies", "tv")
+        val fromIndex = tabOrder.indexOf(currentFilter)
+        val toIndex = tabOrder.indexOf(type)
+        val movingForward = toIndex >= fromIndex
+        currentFilter = type
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putString(KEY_LAST_TAB, type).apply()
+
+        val selected = if (type == "movies") filterMovies else filterTv
+        val unselected = listOf(filterMovies, filterTv).filter { it !== selected }
+
+        selected.animate().cancel()
+        unselected.forEach { it.animate().cancel() }
+        applyTabSelectionStyling(type)
 
         selected.scaleX = 0.9f; selected.scaleY = 0.9f
         selected.alpha = 0.78f; selected.translationY = 4f
@@ -136,9 +141,8 @@ class WishlistActivity : AppCompatActivity() {
 
         if (filtered.isEmpty()) {
             val emptyMsg = when (currentFilter) {
-                "movies" -> "No movies in your wishlist"
-                "kdrama" -> "No K-Drama favorites yet"
-                else     -> "No TV shows in your wishlist"
+                "movies" -> "No movies in your watchlist"
+                else     -> "No TV shows in your watchlist"
             }
             if (adapter.itemCount > 0) {
                 adapter.submitList(emptyList())

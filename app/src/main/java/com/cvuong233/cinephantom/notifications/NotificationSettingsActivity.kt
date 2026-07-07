@@ -9,6 +9,9 @@ import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.cvuong233.cinephantom.R
 import java.util.Locale
 
@@ -19,7 +22,8 @@ class NotificationSettingsActivity : AppCompatActivity() {
     private lateinit var settingsContent: LinearLayout
     private lateinit var timeDisplay: TextView
 
-    private val leadOptions = listOf(0, 1, 3, 7)
+    // Negative values mean "after" the release/air date (e.g. -1 = 1 day after).
+    private val leadOptions = listOf(0, 1, 3, 7, -1)
     private lateinit var leadRows: List<LinearLayout>
     private lateinit var leadChecks: List<ImageView>
 
@@ -41,13 +45,15 @@ class NotificationSettingsActivity : AppCompatActivity() {
             findViewById(R.id.notif_lead_day_of),
             findViewById(R.id.notif_lead_1_day),
             findViewById(R.id.notif_lead_3_days),
-            findViewById(R.id.notif_lead_1_week)
+            findViewById(R.id.notif_lead_1_week),
+            findViewById(R.id.notif_lead_1_day_after)
         )
         leadChecks = listOf(
             findViewById(R.id.notif_lead_day_of_check),
             findViewById(R.id.notif_lead_1_day_check),
             findViewById(R.id.notif_lead_3_days_check),
-            findViewById(R.id.notif_lead_1_week_check)
+            findViewById(R.id.notif_lead_1_week_check),
+            findViewById(R.id.notif_lead_1_day_after_check)
         )
 
         masterToggle.isChecked = prefs.masterEnabled
@@ -68,6 +74,7 @@ class NotificationSettingsActivity : AppCompatActivity() {
                     prefs.notificationHour = hour
                     prefs.notificationMinute = minute
                     updateTimeDisplay(hour, minute)
+                    rescheduleWatchlistNotifications()
                 },
                 prefs.notificationHour,
                 prefs.notificationMinute,
@@ -81,6 +88,7 @@ class NotificationSettingsActivity : AppCompatActivity() {
                 val days = leadOptions[i]
                 prefs.movieLeadDays = days
                 updateLeadSelection(days)
+                rescheduleWatchlistNotifications()
             }
         }
 
@@ -115,6 +123,17 @@ class NotificationSettingsActivity : AppCompatActivity() {
                 if (isSelected) getColor(R.color.secondary_link) else getColor(R.color.text_primary)
             )
         }
+    }
+
+    // Existing alarms were scheduled with whatever lead-time/hour was in effect at the
+    // time — AlarmManager doesn't re-read prefs at fire time. Re-running the refresh
+    // worker recomputes and overwrites every pending alarm with the new settings.
+    private fun rescheduleWatchlistNotifications() {
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "reschedule_notifications",
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<WatchlistRefreshWorker>().build(),
+        )
     }
 
     private fun updateSettingsContentAlpha(enabled: Boolean, animate: Boolean) {

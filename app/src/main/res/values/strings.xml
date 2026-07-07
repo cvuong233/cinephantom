@@ -19,9 +19,7 @@
     <string name="search_no_results_subtitle">Try a different search term</string>
     <string name="nav_search">Search</string>
     <string name="nav_discover">IMDb</string>
-    <string name="nav_kdrama">K-Drama</string>
     <string name="nav_account">Account</string>
-    <string name="nav_watchlist">My List</string>
     <string name="discover_title">Discover</string>
     <string name="discover_subtitle">What\'s trending on IMDb right now</string>
     <string name="discover_error">Couldn\'t load trending data. Check your connection.</string>
@@ -29,16 +27,8 @@
     <string name="discover_updated_placeholder">Updated just now</string>
     <string name="kdrama_title">Top Popular K-Dramas</string>
     <string name="kdrama_error">Couldn\'t load K-drama popularity from FUNdex. Check your connection.</string>
-    <string name="watchlist_empty">Your list is empty</string>
-    <string name="watchlist_empty_hint">Tap the bookmark icon on any title to save it</string>
-    <string name="watchlist_removed">Removed from My List</string>
-    <string name="watchlist_added">Added to My List</string>
     <string name="share_title">Share</string>
     <string name="filter_all">All</string>
     <string name="filter_movies">Movies</string>
     <string name="filter_tv">TV</string>
-    <string name="watched_marked">Marked as watched ✓</string>
-    <string name="watched_unmarked">Moved back to watchlist</string>
-    <string name="watched_label">Watched</string>
-    <string name="watched_towatch_label">To Watch</string>
 </resources>

@@ -16,6 +16,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.data.FavoritesRepository
 import com.cvuong233.cinephantom.notifications.NotificationSettingsActivity
+import com.cvuong233.cinephantom.ui.settings.StreamingPlatformsSettingsActivity
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
@@ -38,17 +39,20 @@ class AccountFragment : Fragment() {
         view.findViewById<TextView>(R.id.account_sign_out_btn).setOnClickListener {
             signOut(view)
         }
-        view.findViewById<LinearLayout>(R.id.account_wishlist_row).setOnClickListener {
-            startActivity(Intent(requireContext(), WishlistActivity::class.java))
+        view.findViewById<LinearLayout>(R.id.account_watchlist_row).setOnClickListener {
+            startActivity(Intent(requireContext(), WatchlistActivity::class.java))
         }
         view.findViewById<LinearLayout>(R.id.account_notif_settings_row).setOnClickListener {
             startActivity(Intent(requireContext(), NotificationSettingsActivity::class.java))
+        }
+        view.findViewById<LinearLayout>(R.id.account_streaming_platforms_row).setOnClickListener {
+            startActivity(Intent(requireContext(), StreamingPlatformsSettingsActivity::class.java))
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 FavoritesRepository.favorites.collect { titles ->
-                    val countView = view.findViewById<TextView>(R.id.account_wishlist_count) ?: return@collect
+                    val countView = view.findViewById<TextView>(R.id.account_watchlist_count) ?: return@collect
                     if (titles.isEmpty()) {
                         countView.visibility = View.GONE
                     } else {

@@ -19,7 +19,7 @@
 
         <!-- Poster — fixed height keeps grid rows aligned across devices -->
         <ImageView
-            android:id="@+id/wishlist_grid_poster"
+            android:id="@+id/watchlist_grid_poster"
             android:layout_width="match_parent"
             android:layout_height="162dp"
             android:scaleType="centerCrop"
@@ -31,16 +31,16 @@
             android:layout_width="match_parent"
             android:layout_height="80dp"
             android:layout_gravity="bottom"
-            android:background="@drawable/gradient_wishlist_scrim" />
+            android:background="@drawable/gradient_watchlist_scrim" />
 
         <!-- IMDb rating — top-left -->
         <TextView
-            android:id="@+id/wishlist_grid_rating"
+            android:id="@+id/watchlist_grid_rating"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|start"
             android:layout_margin="5dp"
-            android:background="@drawable/bg_wishlist_rating_pill"
+            android:background="@drawable/bg_watchlist_rating_pill"
             android:paddingLeft="5dp"
             android:paddingTop="2dp"
             android:paddingRight="5dp"
@@ -53,7 +53,7 @@
 
         <!-- Title overlaid on scrim — bottom of card -->
         <TextView
-            android:id="@+id/wishlist_grid_title"
+            android:id="@+id/watchlist_grid_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Shared toolbar used by CastDetailActivity, FullCastActivity, WishlistActivity.
+  Shared toolbar used by CastDetailActivity, FullCastActivity, WatchlistActivity.
   NO padding here — the parent container provides 20dp padding to match all screens.
   IDs: toolbar_back, toolbar_title, toolbar_subtitle
 -->

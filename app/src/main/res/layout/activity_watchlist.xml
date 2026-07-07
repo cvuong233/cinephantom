@@ -19,7 +19,7 @@
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/wishlist_filter_row"
+        android:id="@+id/watchlist_filter_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
@@ -30,7 +30,7 @@
         android:padding="4dp">
 
         <TextView
-            android:id="@+id/wishlist_filter_movies"
+            android:id="@+id/watchlist_filter_movies"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -47,7 +47,7 @@
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/wishlist_filter_tv"
+            android:id="@+id/watchlist_filter_tv"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -64,40 +64,22 @@
             android:textSize="11sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/wishlist_filter_kdramas"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="5dp"
-            android:background="@drawable/bg_discover_tab_unselected"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:minHeight="42dp"
-            android:paddingHorizontal="6dp"
-            android:paddingVertical="10dp"
-            android:text="K-Dramas"
-            android:textColor="@color/text_muted"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-
     </LinearLayout>
 
     <TextView
-        android:id="@+id/wishlist_empty_text"
+        android:id="@+id/watchlist_empty_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="48dp"
         android:gravity="center"
         android:paddingHorizontal="32dp"
-        android:text="No wishlist items yet — tap the heart on any title to save it"
+        android:text="No watchlist items yet — tap the heart on any title to save it"
         android:textColor="@color/text_muted"
         android:textSize="14sp"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/wishlist_recycler"
+        android:id="@+id/watchlist_recycler"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"

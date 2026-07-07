@@ -1,12 +1,29 @@
 package com.cvuong233.cinephantom.data
 
+import android.util.Log
 import com.cvuong233.cinephantom.model.ImdbTitle
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
 import java.net.URLEncoder
+import java.util.Locale
 import java.util.concurrent.TimeUnit
+
+data class TMDBWatchProvider(
+    val id: Int,
+    val name: String,
+    val logoPath: String?,
+) {
+    val logoUrl: String? get() = logoPath?.let { "https://image.tmdb.org/t/p/w92$it" }
+}
+
+data class TMDBWatchProviders(
+    val flatrate: List<TMDBWatchProvider>,
+    // Per-title JustWatch page for the resolved region — used to resolve the exact
+    // platform URL for this title (see JustWatchLinkResolver).
+    val justWatchLink: String?,
+)
 
 data class TMDBNextEpisode(
     val name: String?,
@@ -87,6 +104,7 @@ data class TMDBPersonDetails(
 
 class TMDBApi {
     companion object {
+        private const val TAG = "TMDBApi"
         const val API_KEY = "1f54bd990f1cdfb230adb312546d765d"
         private const val BASE_URL = "https://api.themoviedb.org/3"
         const val IMAGE_BASE = "https://image.tmdb.org/t/p/w92"
@@ -512,6 +530,7 @@ class TMDBApi {
                         .takeIf { it.isNotBlank() }
                         ?.take(4)
                     val posterPath = item.optString("poster_path", "").ifBlank { null }
+                    val backdropPath = item.optString("backdrop_path", "").ifBlank { null }
                     val overview = item.optString("overview", "").ifBlank { null }
                     val rating = item.optDouble("vote_average", 0.0).takeIf { it > 0.0 }?.toFloat()
 
@@ -525,6 +544,7 @@ class TMDBApi {
                             year = year,
                             cast = overview,
                             imageUrl = posterPath?.let { "https://image.tmdb.org/t/p/w342$it" },
+                            backdropUrl = backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" },
                             rating = rating,
                             tmdbId = tmdbId
                         )
@@ -532,5 +552,137 @@ class TMDBApi {
                 }
             }
         }
+    }
+
+    // Flatrate/subscription providers for a specific title, in the device's region.
+    fun fetchWatchProviders(tmdbId: Int, isSeries: Boolean): TMDBWatchProviders? {
+        if (tmdbId <= 0) return null
+        return try {
+            val endpoint = if (isSeries) "tv" else "movie"
+            val json = getJson("$BASE_URL/$endpoint/$tmdbId/watch/providers?api_key=$API_KEY")
+            val root = JSONObject(json)
+            val results = root.optJSONObject("results")
+            if (results == null) {
+                Log.d(TAG, "watch/providers: no results object for tmdbId=$tmdbId ($endpoint)")
+                return null
+            }
+
+            val deviceCountry = Locale.getDefault().country.ifBlank { "US" }
+            var countryCode = deviceCountry
+            var countryObj = results.optJSONObject(countryCode)
+            if (countryObj == null && countryCode != "US") {
+                Log.d(TAG, "watch/providers: no entry for region=$countryCode (tmdbId=$tmdbId), falling back to US")
+                countryCode = "US"
+                countryObj = results.optJSONObject("US")
+            }
+            if (countryObj == null) {
+                Log.d(TAG, "watch/providers: no US entry either for tmdbId=$tmdbId. Regions present: ${results.keys().asSequence().toList()}")
+                return null
+            }
+
+            // Merge flatrate/buy/rent (in that preference order) so a title still shows
+            // something if it isn't on a subscription tier yet. Same provider_id keeps
+            // whichever category it was first seen in (flatrate wins).
+            val merged = LinkedHashMap<Int, TMDBWatchProvider>()
+            for (category in listOf("flatrate", "buy", "rent")) {
+                val arr = countryObj.optJSONArray(category) ?: continue
+                for (i in 0 until arr.length()) {
+                    val p = arr.optJSONObject(i) ?: continue
+                    val id = p.optInt("provider_id", 0)
+                    if (id <= 0 || merged.containsKey(id)) continue
+                    val name = p.optString("provider_name", "")
+                    if (name.isBlank()) continue
+                    merged[id] = TMDBWatchProvider(
+                        id = id,
+                        name = name,
+                        logoPath = p.optString("logo_path", "").ifBlank { null }
+                    )
+                }
+            }
+
+            val justWatchLink = countryObj.optString("link").ifBlank { null }
+            val deduped = dedupeProvidersByBaseName(merged.values.toList())
+            Log.d(TAG, "watch/providers: tmdbId=$tmdbId region=$countryCode -> ${deduped.map { it.name }}, link=$justWatchLink")
+            TMDBWatchProviders(flatrate = deduped, justWatchLink = justWatchLink)
+        } catch (e: Exception) {
+            Log.d(TAG, "watch/providers: failed for tmdbId=$tmdbId: ${e.message}")
+            null
+        }
+    }
+
+    // Providers sharing a "base name" (first word — e.g. "Netflix" and "Netflix basic
+    // with Ads" both start with "Netflix") are the same platform in different tiers.
+    // Prefer the shortest/most canonical name for that base — a region-specific tier
+    // variant (e.g. "Netflix Standard with Ads") encountered before the plain "Netflix"
+    // entry from another region must NOT win and hide the canonical one. This was the
+    // likely cause of Netflix silently disappearing from the merged VN+US provider list.
+    // Logs every replacement/drop so an over-aggressive collapse is visible in logcat.
+    private fun dedupeProvidersByBaseName(providers: List<TMDBWatchProvider>): List<TMDBWatchProvider> {
+        val bestByBaseName = LinkedHashMap<String, TMDBWatchProvider>()
+        for (p in providers) {
+            val baseName = p.name.trim().split(" ").firstOrNull()?.lowercase(Locale.US) ?: continue
+            val existing = bestByBaseName[baseName]
+            when {
+                existing == null -> bestByBaseName[baseName] = p
+                p.name.trim().length < existing.name.trim().length -> {
+                    Log.d(TAG, "dedupeProvidersByBaseName: replacing '${existing.name}' (id=${existing.id}) with more canonical '${p.name}' (id=${p.id}), baseName='$baseName'")
+                    bestByBaseName[baseName] = p
+                }
+                else -> Log.d(TAG, "dedupeProvidersByBaseName: dropping '${p.name}' (id=${p.id}) as duplicate of '${existing.name}' (id=${existing.id}), baseName='$baseName'")
+            }
+        }
+        return bestByBaseName.values.toList()
+    }
+
+    // All streaming providers offered (movie + TV, deduped) in the device's region —
+    // used to populate the platform checklist in Settings.
+    fun fetchAvailableWatchProviders(): List<TMDBWatchProvider> {
+        val deviceCountry = Locale.getDefault().country.ifBlank { "US" }
+        // TMDB's regional coverage is uneven — some regions (e.g. VN) only have a
+        // couple of providers indexed even though the platforms themselves are widely
+        // available. Always merge in the US catalog too so the checklist stays useful
+        // regardless of device region.
+        val regions = listOf(deviceCountry, "US").distinct()
+
+        val merged = LinkedHashMap<Int, TMDBWatchProvider>()
+        for (region in regions) {
+            try {
+                for (endpoint in listOf("movie", "tv")) {
+                    val json = getJson("$BASE_URL/watch/providers/$endpoint?api_key=$API_KEY&watch_region=$region")
+                    val root = JSONObject(json)
+                    val results = root.optJSONArray("results")
+                    if (results == null) {
+                        Log.d(TAG, "fetchAvailableWatchProviders: region=$region endpoint=$endpoint had no 'results' array")
+                        continue
+                    }
+                    Log.d(TAG, "fetchAvailableWatchProviders: region=$region endpoint=$endpoint raw count=${results.length()}")
+                    for (i in 0 until results.length()) {
+                        val p = results.optJSONObject(i) ?: continue
+                        val id = p.optInt("provider_id", 0)
+                        if (id <= 0 || merged.containsKey(id)) continue
+                        val name = p.optString("provider_name", "")
+                        if (name.isBlank()) continue
+                        merged[id] = TMDBWatchProvider(
+                            id = id,
+                            name = name,
+                            logoPath = p.optString("logo_path", "").ifBlank { null }
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "fetchAvailableWatchProviders: region=$region failed: ${e.message}")
+            }
+        }
+
+        val deduped = dedupeProvidersByBaseName(merged.values.toList())
+            .sortedBy { it.name.lowercase(Locale.US) }
+
+        if (deduped.size < 5) {
+            Log.w(TAG, "fetchAvailableWatchProviders: suspiciously few providers — " +
+                "regions=$regions rawMergedCount=${merged.size} afterDedupCount=${deduped.size} " +
+                "names=${deduped.map { it.name }}")
+        }
+
+        return deduped
     }
 }

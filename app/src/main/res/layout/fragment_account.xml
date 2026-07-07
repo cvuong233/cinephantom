@@ -54,7 +54,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="Sign in to sync your watchlist and wishlist"
+                    android:text="Sign in to sync your watchlist"
                     android:textColor="@color/text_muted"
                     android:textSize="14sp"
                     android:gravity="center" />
@@ -224,9 +224,9 @@
                     android:orientation="vertical"
                     android:background="@drawable/bg_tv_stats_card">
 
-                    <!-- Wishlist row -->
+                    <!-- Watchlist row -->
                     <LinearLayout
-                        android:id="@+id/account_wishlist_row"
+                        android:id="@+id/account_watchlist_row"
                         android:layout_width="match_parent"
                         android:layout_height="56dp"
                         android:orientation="horizontal"
@@ -247,13 +247,13 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="12dp"
-                            android:text="Wishlist"
+                            android:text="Watchlist"
                             android:textColor="@color/text_primary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
                         <TextView
-                            android:id="@+id/account_wishlist_count"
+                            android:id="@+id/account_watchlist_count"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:background="@drawable/bg_tv_stats_card"
@@ -293,7 +293,7 @@
                         <ImageView
                             android:layout_width="20dp"
                             android:layout_height="20dp"
-                            android:src="@drawable/ic_notification_wishlist"
+                            android:src="@drawable/ic_notification_watchlist"
                             android:contentDescription="@null" />
 
                         <TextView
@@ -302,6 +302,47 @@
                             android:layout_weight="1"
                             android:layout_marginStart="12dp"
                             android:text="Notification Settings"
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="›"
+                            android:textColor="@color/text_muted"
+                            android:textSize="22sp" />
+
+                    </LinearLayout>
+
+                    <!-- Divider between rows -->
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/secondary_accent_dim" android:layout_marginHorizontal="16dp" />
+
+                    <!-- Streaming Platforms row -->
+                    <LinearLayout
+                        android:id="@+id/account_streaming_platforms_row"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_tab_tv"
+                            android:contentDescription="@null" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="12dp"
+                            android:text="Streaming Platforms"
                             android:textColor="@color/text_primary"
                             android:textSize="15sp"
                             android:textStyle="bold" />

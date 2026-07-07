@@ -10,7 +10,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class WishlistRefreshWorker(
+class WatchlistRefreshWorker(
     appContext: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
@@ -43,7 +43,7 @@ class WishlistRefreshWorker(
                     val nextEp = details.showDetails?.nextEpisode
                     val airDate = nextEp?.airDate
                     if (!airDate.isNullOrBlank()) {
-                        WishlistNotificationScheduler.schedule(
+                        WatchlistNotificationScheduler.schedule(
                             context = applicationContext,
                             imdbId = imdbId,
                             title = title,
@@ -57,7 +57,7 @@ class WishlistRefreshWorker(
                 } else {
                     val releaseDate = details.releaseDate
                     if (!releaseDate.isNullOrBlank()) {
-                        WishlistNotificationScheduler.schedule(
+                        WatchlistNotificationScheduler.schedule(
                             context = applicationContext,
                             imdbId = imdbId,
                             title = title,

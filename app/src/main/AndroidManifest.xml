@@ -53,11 +53,15 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
-            android:name=".ui.account.WishlistActivity"
+            android:name=".ui.account.WatchlistActivity"
             android:exported="false" />
 
         <activity
             android:name=".notifications.NotificationSettingsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.settings.StreamingPlatformsSettingsActivity"
             android:exported="false" />
 
         <!-- Small widget: search bar only -->
@@ -89,7 +93,7 @@
             android:exported="false" />
 
         <receiver
-            android:name=".notifications.WishlistNotificationReceiver"
+            android:name=".notifications.WatchlistNotificationReceiver"
             android:exported="false" />
     </application>
 

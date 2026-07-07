@@ -7,6 +7,7 @@ data class ImdbTitle(
     val year: String?,
     val cast: String?,
     val imageUrl: String?,
+    val backdropUrl: String? = null,
     val tmdbId: Int? = null,
     val rating: Float? = null,
     val ratingText: String? = null,
@@ -18,4 +19,10 @@ data class ImdbTitle(
 ) {
     val imdbUrl: String
         get() = "https://www.imdb.com/title/$id/"
+
+    // Landscape card art — only the real backdrop qualifies. Never fall back to the
+    // portrait poster here: a poster stretched/cropped into a 16:9 card reads as the
+    // "wrong orientation" bug. Callers show a dark placeholder while this is null.
+    val landscapeImageUrl: String?
+        get() = backdropUrl
 }

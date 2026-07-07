@@ -65,7 +65,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
-                        android:text="Notify when wishlisted titles air or release"
+                        android:text="Notify when watchlisted titles air or release"
                         android:textColor="@color/text_muted"
                         android:textSize="12sp" />
 
@@ -163,7 +163,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="10dp"
-                    android:text="How early to notify before a movie's release date"
+                    android:text="How early (or late) to notify around a movie's release date"
                     android:textColor="@color/text_muted"
                     android:textSize="12sp" />
 
@@ -291,6 +291,38 @@
 
                         <ImageView
                             android:id="@+id/notif_lead_1_week_check"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_check"
+                            android:contentDescription="@null"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/secondary_accent_dim" android:layout_marginHorizontal="16dp" />
+
+                    <LinearLayout
+                        android:id="@+id/notif_lead_1_day_after"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="1 day after"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+
+                        <ImageView
+                            android:id="@+id/notif_lead_1_day_after_check"
                             android:layout_width="18dp"
                             android:layout_height="18dp"
                             android:src="@drawable/ic_check"

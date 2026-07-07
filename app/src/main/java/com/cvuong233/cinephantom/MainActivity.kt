@@ -13,12 +13,15 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.cvuong233.cinephantom.data.FavoritesRepository
+import com.cvuong233.cinephantom.data.WatchProviderOverrides
 import com.cvuong233.cinephantom.databinding.ActivityMainBinding
-import com.cvuong233.cinephantom.notifications.WishlistNotificationScheduler
-import com.cvuong233.cinephantom.notifications.WishlistRefreshWorker
+import com.cvuong233.cinephantom.notifications.WatchlistNotificationScheduler
+import com.cvuong233.cinephantom.notifications.WatchlistRefreshWorker
 import com.cvuong233.cinephantom.ui.account.AccountFragment
 import com.cvuong233.cinephantom.ui.discover.DiscoverFragment
 import com.cvuong233.cinephantom.ui.search.SearchFragment
@@ -30,7 +33,9 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_OPEN_DISCOVER_TITLE = "cinephantom.intent.action.OPEN_DISCOVER_TITLE"
         const val EXTRA_DISCOVER_IMDB_ID = "extra_discover_imdb_id"
         const val EXTRA_DISCOVER_TYPE = "extra_discover_type"
-        private const val WORK_WISHLIST_REFRESH = "wishlist_refresh"
+        private const val WORK_WATCHLIST_REFRESH = "watchlist_refresh"
+        private const val PREFS_APP_FLAGS = "app_flags"
+        private const val KEY_NOTIFICATIONS_RESCHEDULED_V218 = "notifications_rescheduled_v218"
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -43,13 +48,15 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FavoritesRepository.init()
-        WishlistNotificationScheduler.createChannel(this)
+        WatchProviderOverrides.init()
+        WatchlistNotificationScheduler.createChannel(this)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         requestNotificationPermissionIfNeeded()
-        enqueueWishlistRefresh()
+        enqueueWatchlistRefresh()
+        rescheduleNotificationsIfNeededAfterUpdate()
 
         if (savedInstanceState == null) {
             // Skip SearchFragment creation if we're routing directly to another tab.
@@ -85,13 +92,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun enqueueWishlistRefresh() {
-        val request = PeriodicWorkRequestBuilder<WishlistRefreshWorker>(1, TimeUnit.DAYS).build()
+    private fun enqueueWatchlistRefresh() {
+        val request = PeriodicWorkRequestBuilder<WatchlistRefreshWorker>(1, TimeUnit.DAYS).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            WORK_WISHLIST_REFRESH,
+            WORK_WATCHLIST_REFRESH,
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
+    }
+
+    // One-time fix-up: alarms scheduled before v218 were never recomputed when settings
+    // changed, so they can be stuck on stale lead-time/hour values. Run the refresh
+    // worker once to bring them in line, then never again (it's not a recurring need —
+    // rescheduleWatchlistNotifications in NotificationSettingsActivity covers it from here).
+    private fun rescheduleNotificationsIfNeededAfterUpdate() {
+        val flags = getSharedPreferences(PREFS_APP_FLAGS, MODE_PRIVATE)
+        if (flags.getBoolean(KEY_NOTIFICATIONS_RESCHEDULED_V218, false)) return
+
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "reschedule_notifications",
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<WatchlistRefreshWorker>().build(),
+        )
+        flags.edit().putBoolean(KEY_NOTIFICATIONS_RESCHEDULED_V218, true).apply()
     }
 
     override fun onNewIntent(intent: Intent) {

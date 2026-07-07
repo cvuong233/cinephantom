@@ -26,6 +26,7 @@
                 android:layout_height="196dp"
                 android:contentDescription="@null"
                 android:scaleType="centerCrop"
+                android:transitionName="backdrop_transition"
                 android:alpha="0" />
 
             <View
@@ -72,6 +73,21 @@
                 android:src="@drawable/ic_back" />
 
             <ImageView
+                android:id="@+id/detail_favorite_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="12dp"
+                android:layout_marginEnd="60dp"
+                android:background="@drawable/bg_back_button"
+                android:clickable="true"
+                android:contentDescription="Add to Watchlist"
+                android:elevation="12dp"
+                android:focusable="true"
+                android:padding="8dp"
+                android:src="@drawable/ic_heart_outline" />
+
+            <ImageView
                 android:id="@+id/detail_share_button"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
@@ -86,6 +102,7 @@
                 android:src="@drawable/ic_share" />
 
             <LinearLayout
+                android:id="@+id/detail_poster_container"
                 android:layout_width="126dp"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|start"
@@ -108,8 +125,7 @@
                         android:layout_height="match_parent"
                         android:alpha="0"
                         android:contentDescription="@null"
-                        android:scaleType="centerCrop"
-                        android:transitionName="poster_transition" />
+                        android:scaleType="centerCrop" />
                 </FrameLayout>
 
                 <TextView
@@ -140,7 +156,9 @@
                 android:layout_marginStart="160dp"
                 android:layout_marginTop="206dp"
                 android:layout_marginEnd="20dp"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:clipChildren="false"
+                android:clipToPadding="false">
 
                 <LinearLayout
                     android:id="@+id/detail_title_row"
@@ -170,39 +188,46 @@
                     android:textSize="14sp"
                     android:visibility="gone" />
 
-                <LinearLayout
-                    android:id="@+id/detail_rating_row"
+                <HorizontalScrollView
+                    android:id="@+id/detail_streaming_scroll"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingTop="4dp"
-                    android:paddingBottom="4dp">
+                    android:clipChildren="false"
+                    android:clipToPadding="false"
+                    android:paddingVertical="8dp"
+                    android:scrollbars="none">
 
-                    <ImageView
-                        android:id="@+id/detail_stremio_button"
-                        android:layout_width="52dp"
-                        android:layout_height="52dp"
-                        android:layout_gravity="center_vertical"
-                        android:background="@drawable/bg_back_button"
-                        android:contentDescription="@string/stremio_open_button"
-                        android:elevation="12dp"
-                        android:padding="10dp"
-                        android:src="@drawable/ic_stremio_brand" />
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:clipChildren="false"
+                        android:clipToPadding="false">
 
-                    <ImageView
-                        android:id="@+id/detail_favorite_button"
-                        android:layout_width="52dp"
-                        android:layout_height="52dp"
-                        android:layout_gravity="center_vertical"
-                        android:layout_marginStart="8dp"
-                        android:background="@drawable/bg_back_button"
-                        android:contentDescription="Add to Wishlist"
-                        android:elevation="12dp"
-                        android:padding="10dp"
-                        android:src="@drawable/ic_heart_outline" />
-                </LinearLayout>
+                        <ImageView
+                            android:id="@+id/detail_stremio_button"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_gravity="center_vertical"
+                            android:layout_marginEnd="8dp"
+                            android:background="@drawable/bg_back_button"
+                            android:contentDescription="@string/stremio_open_button"
+                            android:elevation="12dp"
+                            android:padding="8dp"
+                            android:src="@drawable/ic_stremio_brand" />
+
+                        <LinearLayout
+                            android:id="@+id/detail_providers_container"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:clipChildren="false"
+                            android:clipToPadding="false"
+                            android:orientation="horizontal" />
+                    </LinearLayout>
+                </HorizontalScrollView>
             </LinearLayout>
         </FrameLayout>
 
