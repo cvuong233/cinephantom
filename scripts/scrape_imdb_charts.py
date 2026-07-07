@@ -62,6 +62,7 @@ def build_items(tmdb_items: list[dict], media_type: str) -> list[dict]:
         title = item.get("title") or item.get("name") or ""
         poster_path = item.get("poster_path") or ""
         poster = f"{POSTER_BASE}{poster_path}" if poster_path else ""
+        backdrop_path = item.get("backdrop_path") or ""
         rating = str(round(item.get("vote_average", 0.0), 1))
         votes_raw = item.get("vote_count", 0)
         if votes_raw >= 1_000_000:
@@ -79,6 +80,7 @@ def build_items(tmdb_items: list[dict], media_type: str) -> list[dict]:
             "imdb_id": imdb_id or "",
             "tmdb_id": tmdb_id,
             "poster": poster,
+            "backdropPath": backdrop_path,
             "rating": rating,
             "votes": votes,
             "source": "TMDB",

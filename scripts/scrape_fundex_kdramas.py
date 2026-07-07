@@ -220,6 +220,7 @@ def resolve_imdb_via_imdb_search(english_title: str | None, korean_title: str, y
         "tmdb_name": (item.get("l") or "").strip() or None,
         "original_name": None,
         "first_air_date": str(item.get("y") or "").strip() or None,
+        "backdrop_path": None,
         "match_confidence": confidence,
         "match_method": "imdb_suggestion_fallback",
         "match_notes": f"query={query} score={score:.1f}",
@@ -236,6 +237,7 @@ def resolve_imdb(english_title: str | None, korean_title: str, year: str | None,
             "tmdb_name": override.get("tmdb_name"),
             "original_name": override.get("original_name"),
             "first_air_date": override.get("first_air_date"),
+            "backdrop_path": override.get("backdrop_path"),
             "match_confidence": override.get("match_confidence", "manual"),
             "match_method": override.get("match_method", "override"),
             "match_notes": override.get("match_notes"),
@@ -289,6 +291,7 @@ def resolve_imdb(english_title: str | None, korean_title: str, year: str | None,
             "tmdb_name": (item.get("name") or "").strip() or None,
             "original_name": (item.get("original_name") or "").strip() or None,
             "first_air_date": (item.get("first_air_date") or "").strip() or None,
+            "backdrop_path": item.get("backdrop_path") or None,
             "match_confidence": confidence,
             "match_method": "tmdb_scored_search",
             "match_notes": f"query={item.get('__query')} score={score:.1f}",
@@ -300,6 +303,7 @@ def resolve_imdb(english_title: str | None, korean_title: str, year: str | None,
             imdb_fallback["tmdb_id"] = best_tmdb.get("id")
             imdb_fallback["original_name"] = (best_tmdb.get("original_name") or "").strip() or None
             imdb_fallback["first_air_date"] = (best_tmdb.get("first_air_date") or "").strip() or imdb_fallback.get("first_air_date")
+            imdb_fallback["backdrop_path"] = best_tmdb.get("backdrop_path") or None
         return imdb_fallback
     return None
 
@@ -351,6 +355,7 @@ def main():
             "imdb_id": (match or {}).get("imdb_id"),
             "tmdb_id": (match or {}).get("tmdb_id"),
             "tmdb_name": (match or {}).get("tmdb_name"),
+            "backdropPath": (match or {}).get("backdrop_path"),
             "original_title_ko": (match or {}).get("original_name"),
             "first_air_date": (match or {}).get("first_air_date"),
             "match_confidence": (match or {}).get("match_confidence"),
