@@ -13,13 +13,18 @@ import csv
 import gzip
 import io
 import json
+import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from urllib.request import Request, urlopen
 
-TMDB_API_KEY = "1f54bd990f1cdfb230adb312546d765d"
+TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
+if not TMDB_API_KEY:
+    print("Error: TMDB_API_KEY environment variable not set", file=sys.stderr)
+    sys.exit(1)
+
 TMDB_BASE = "https://api.themoviedb.org/3"
 POSTER_BASE = "https://image.tmdb.org/t/p/w500"
 IMDB_RATINGS_URL = "https://datasets.imdbws.com/title.ratings.tsv.gz"
