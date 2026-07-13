@@ -2,8 +2,8 @@ name: Refresh IMDb Charts
 
 on:
   schedule:
-    # Daily at 00:00 UTC
-    - cron: "0 0 * * *"
+    # Daily at 05:00 UTC (12:00 ICT)
+    - cron: "0 5 * * *"
   workflow_dispatch:
 
 permissions:
@@ -23,8 +23,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run IMDb scraper (TMDB-based, no browser needed)
-        run: python scripts/scrape_imdb_charts.py > /tmp/imdb_charts.json
+      - name: Run IMDb charts fetcher (TMDB ranking + IMDb dataset ratings)
+        run: python scripts/fetch_imdb_charts.py > /tmp/imdb_charts.json
 
       - name: Validate scraper output
         run: |

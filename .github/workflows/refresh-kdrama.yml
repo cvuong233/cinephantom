@@ -2,8 +2,8 @@ name: Refresh K-Drama Charts
 
 on:
   schedule:
-    # Daily at 00:00 UTC
-    - cron: "0 0 * * *"
+    # Daily at 05:00 UTC (12:00 ICT)
+    - cron: "0 5 * * *"
   workflow_dispatch:
 
 permissions:
