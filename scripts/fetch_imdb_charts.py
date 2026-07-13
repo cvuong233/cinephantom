@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""Fetch top-rated Movies and TV Shows, ranked by TMDB's top_rated lists, with real
-IMDb ratings and vote counts cross-referenced from IMDb's official non-commercial
-dataset (title.ratings.tsv.gz). Outputs top-100 movies and top-100 TV shows.
-Output: JSON to stdout.
+"""Fetch top-rated Movies and TV Shows, ranked directly from IMDb's official
+non-commercial dataset (title.ratings.tsv.gz + title.basics.tsv.gz).
+TMDB is used only for metadata lookup (poster, backdrop, title) via the
+/find/{imdb_id} endpoint. Output: JSON written to OUTPUT_PATH.
 
-IMDb's own chart pages (www.imdb.com/chart/...) sit behind an AWS WAF JS challenge
-and can't be scraped with plain HTTP requests, even from non-CI IPs. Ranking instead
-comes from TMDB's top_rated endpoint, and the imdb_id per title (via TMDB's
-external_ids) is used to look up the real rating/vote count in IMDb's own dataset.
+IMDb's own chart pages (www.imdb.com/chart/...) sit behind an AWS WAF JS
+challenge and can't be scraped with plain HTTP requests, even from non-CI
+IPs, so ranking comes from the raw dataset instead.
 """
-import csv
 import gzip
 import io
 import json
@@ -28,17 +26,29 @@ if not TMDB_API_KEY:
 TMDB_BASE = "https://api.themoviedb.org/3"
 POSTER_BASE = "https://image.tmdb.org/t/p/w500"
 IMDB_RATINGS_URL = "https://datasets.imdbws.com/title.ratings.tsv.gz"
+IMDB_BASICS_URL = "https://datasets.imdbws.com/title.basics.tsv.gz"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/147.0.0.0 Safari/537.36"
-TARGET_COUNT = 100
-MAX_PAGES = 10  # buffer beyond 5 pages (100 items) for titles missing an imdb_id/rating
+
+MIN_VOTES = 50_000
+CANDIDATE_POOL = 500
+TARGET_PER_TYPE = 100
 MAX_RETRIES = 4
 MAX_WORKERS = 10
+
+MOVIE_TYPES = {"movie"}
+TV_TYPES = {"tvSeries", "tvMiniSeries"}
+
+OUTPUT_PATH = os.environ.get(
+    "OUTPUT_PATH",
+    "/Users/cuongvuong/Developments/agent-presentation/imdb_charts.json"
+    if os.path.exists("/Users/cuongvuong/Developments/agent-presentation")
+    else "/tmp/imdb_charts_test.json",
+)
 
 
 def http_get_json(url: str):
     """GET + parse JSON, retrying with backoff since TMDB intermittently resets
-    connections under sustained request volume. A small pacing delay before every
-    call (not just retries) keeps request bursts from tripping rate limits."""
+    connections under sustained request volume."""
     time.sleep(0.25)
     last_error = None
     for attempt in range(MAX_RETRIES):
@@ -53,41 +63,72 @@ def http_get_json(url: str):
     raise last_error
 
 
-def fetch_imdb_ratings() -> dict:
-    """Download IMDb's official ratings dataset and index by tconst (imdb_id)."""
+def fetch_top_rated_ids() -> dict:
+    """Download IMDb's ratings dataset, filter to popular titles, and return
+    the top CANDIDATE_POOL tconst -> {rating, votes} sorted by rating desc."""
     req = Request(IMDB_RATINGS_URL, headers={"User-Agent": USER_AGENT})
-    with urlopen(req, timeout=60) as resp:
+    with urlopen(req, timeout=120) as resp:
         raw = resp.read()
-    text = gzip.decompress(raw).decode("utf-8")
-    ratings = {}
-    reader = csv.DictReader(io.StringIO(text), delimiter="\t")
-    for row in reader:
-        ratings[row["tconst"]] = {
-            "rating": row["averageRating"],
-            "votes": int(row["numVotes"]),
-        }
-    return ratings
+    text = gzip.decompress(raw).decode("utf-8", "ignore")
+
+    lines = io.StringIO(text)
+    header = lines.readline().rstrip("\n").split("\t")
+    idx = {name: i for i, name in enumerate(header)}
+
+    candidates = []
+    for line in lines:
+        line = line.rstrip("\n")
+        if not line:
+            continue
+        fields = line.split("\t")
+        num_votes = int(fields[idx["numVotes"]])
+        if num_votes < MIN_VOTES:
+            continue
+        candidates.append({
+            "tconst": fields[idx["tconst"]],
+            "rating": fields[idx["averageRating"]],
+            "votes": num_votes,
+        })
+
+    candidates.sort(key=lambda c: float(c["rating"]), reverse=True)
+    top = candidates[:CANDIDATE_POOL]
+    return {c["tconst"]: c for c in top}
 
 
-def get_imdb_id(media_type: str, tmdb_id: int) -> str | None:
-    url = f"{TMDB_BASE}/{media_type}/{tmdb_id}/external_ids?api_key={TMDB_API_KEY}"
-    try:
-        data = http_get_json(url)
-        return data.get("imdb_id") or None
-    except Exception:
-        return None
-
-
-def get_top_rated(media_type: str, max_pages: int) -> list[dict]:
-    items = []
-    for page in range(1, max_pages + 1):
-        url = f"{TMDB_BASE}/{media_type}/top_rated?api_key={TMDB_API_KEY}&language=en-US&page={page}"
-        try:
-            data = http_get_json(url)
-            items.extend(data.get("results", []))
-        except Exception as e:
-            print(f"Warning: {media_type} top_rated page {page} failed: {e}", file=sys.stderr)
-    return items
+def fetch_basics_for(wanted: dict) -> list[dict]:
+    """Stream-decompress IMDb's basics dataset and pull only rows matching
+    the wanted tconst set, merging in the rating/votes already known."""
+    req = Request(IMDB_BASICS_URL, headers={"User-Agent": USER_AGENT})
+    remaining = set(wanted.keys())
+    records = []
+    with urlopen(req, timeout=300) as resp:
+        with gzip.GzipFile(fileobj=resp) as gz:
+            header = gz.readline().decode("utf-8", "ignore").rstrip("\n").split("\t")
+            idx = {name: i for i, name in enumerate(header)}
+            for raw_line in gz:
+                if not remaining:
+                    break
+                line = raw_line.decode("utf-8", "ignore").rstrip("\n")
+                if not line:
+                    continue
+                fields = line.split("\t")
+                tconst = fields[idx["tconst"]]
+                if tconst not in remaining:
+                    continue
+                remaining.discard(tconst)
+                title_type = fields[idx["titleType"]]
+                if title_type not in MOVIE_TYPES and title_type not in TV_TYPES:
+                    continue
+                info = wanted[tconst]
+                records.append({
+                    "tconst": tconst,
+                    "titleType": title_type,
+                    "primaryTitle": fields[idx["primaryTitle"]],
+                    "startYear": fields[idx["startYear"]],
+                    "rating": info["rating"],
+                    "votes": info["votes"],
+                })
+    return records
 
 
 def format_votes(votes: int) -> str:
@@ -98,63 +139,78 @@ def format_votes(votes: int) -> str:
     return str(votes)
 
 
-def build_chart(media_type: str, imdb_ratings: dict, target: int, max_pages: int) -> list[dict]:
-    candidates = get_top_rated(media_type, max_pages)
-    print(f"{media_type}: got {len(candidates)} candidates, resolving imdb ids...", file=sys.stderr)
+def find_tmdb_match(tconst: str, is_movie: bool):
+    url = f"{TMDB_BASE}/find/{tconst}?api_key={TMDB_API_KEY}&external_source=imdb_id"
+    try:
+        data = http_get_json(url)
+    except Exception:
+        return None
+    results = data.get("movie_results" if is_movie else "tv_results") or []
+    return results[0] if results else None
 
-    imdb_ids_by_index = {}
+
+def build_chart(records: list[dict], is_movie: bool) -> list[dict]:
+    matches_by_tconst = {}
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {
-            executor.submit(get_imdb_id, media_type, item.get("id")): idx
-            for idx, item in enumerate(candidates)
+            executor.submit(find_tmdb_match, rec["tconst"], is_movie): rec["tconst"]
+            for rec in records
         }
-        done = 0
         for future in as_completed(futures):
-            idx = futures[future]
-            imdb_ids_by_index[idx] = future.result()
-            done += 1
-            if done % 20 == 0:
-                print(f"{media_type}: resolved {done}/{len(candidates)} imdb ids", file=sys.stderr)
+            tconst = futures[future]
+            matches_by_tconst[tconst] = future.result()
 
     results = []
-    for idx, item in enumerate(candidates):
-        if len(results) >= target:
-            break
-        imdb_id = imdb_ids_by_index.get(idx)
-        if not imdb_id:
+    for rec in records:
+        match = matches_by_tconst.get(rec["tconst"])
+        if not match:
             continue
-        rating_info = imdb_ratings.get(imdb_id)
-        if not rating_info:
-            continue
-
-        title = item.get("title") or item.get("name") or ""
-        poster_path = item.get("poster_path") or ""
+        poster_path = match.get("poster_path") or ""
         poster = f"{POSTER_BASE}{poster_path}" if poster_path else ""
-        backdrop_path = item.get("backdrop_path") or ""
-
         results.append({
             "rank": len(results) + 1,
-            "title": title,
-            "imdb_id": imdb_id,
-            "tmdb_id": item.get("id"),
+            "title": match.get("title") or match.get("name") or rec["primaryTitle"],
+            "imdb_id": rec["tconst"],
+            "tmdb_id": match.get("id"),
             "poster": poster,
-            "backdropPath": backdrop_path,
-            "rating": rating_info["rating"],
-            "votes": format_votes(rating_info["votes"]),
+            "backdropPath": match.get("backdrop_path") or "",
+            "rating": rec["rating"],
+            "votes": format_votes(rec["votes"]),
             "source": "IMDb",
         })
     return results
 
 
-imdb_ratings = fetch_imdb_ratings()
-movies = build_chart("movie", imdb_ratings, TARGET_COUNT, MAX_PAGES)
-tv = build_chart("tv", imdb_ratings, TARGET_COUNT, MAX_PAGES)
+print("Fetching IMDb ratings dataset...", file=sys.stderr)
+top_candidates = fetch_top_rated_ids()
+print(f"Got {len(top_candidates)} candidate titles (>= {MIN_VOTES} votes)", file=sys.stderr)
+
+print("Streaming IMDb basics dataset...", file=sys.stderr)
+basics_records = fetch_basics_for(top_candidates)
+print(f"Matched {len(basics_records)} titles in basics dataset", file=sys.stderr)
+
+movie_records = sorted(
+    (r for r in basics_records if r["titleType"] in MOVIE_TYPES),
+    key=lambda r: float(r["rating"]), reverse=True,
+)[:TARGET_PER_TYPE]
+tv_records = sorted(
+    (r for r in basics_records if r["titleType"] in TV_TYPES),
+    key=lambda r: float(r["rating"]), reverse=True,
+)[:TARGET_PER_TYPE]
+
+print(f"Resolving TMDB metadata for {len(movie_records)} movies + {len(tv_records)} TV shows...", file=sys.stderr)
+movies = build_chart(movie_records, is_movie=True)
+tv = build_chart(tv_records, is_movie=False)
 
 data = {
     "updated": datetime.now(timezone.utc).isoformat(),
-    "source": "TMDB Top Rated + IMDb Dataset",
+    "source": "IMDb Dataset",
     "movies": movies,
     "tv": tv,
 }
 
-print(json.dumps(data, indent=2))
+os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+with open(OUTPUT_PATH, "w") as f:
+    json.dump(data, f, indent=2)
+
+print(f"Wrote {len(movies)} movies + {len(tv)} TV shows to {OUTPUT_PATH}", file=sys.stderr)

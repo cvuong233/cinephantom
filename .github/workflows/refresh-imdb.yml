@@ -23,14 +23,20 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run IMDb charts fetcher (TMDB ranking + IMDb dataset ratings)
+      - name: Clone agent-presentation
+        env:
+          PAGES_TOKEN: ${{ secrets.PAGES_TOKEN }}
+        run: git clone https://x-access-token:${PAGES_TOKEN}@github.com/cvuong233/agent-presentation.git /tmp/agent-presentation
+
+      - name: Run IMDb charts fetcher (ranked by IMDb dataset, TMDB metadata)
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-        run: python scripts/fetch_imdb_charts.py > /tmp/imdb_charts.json
+          OUTPUT_PATH: /tmp/agent-presentation/imdb_charts.json
+        run: python scripts/fetch_imdb_charts.py
 
       - name: Validate scraper output
         run: |
-          MOVIES=$(python3 -c "import json; d=json.load(open('/tmp/imdb_charts.json')); print(len(d.get('movies', [])))")
+          MOVIES=$(python3 -c "import json; d=json.load(open('/tmp/agent-presentation/imdb_charts.json')); print(len(d.get('movies', [])))")
           echo "Scraper returned $MOVIES movies"
           if [ "$MOVIES" = "0" ]; then
             echo "ERROR: Scraper returned 0 movies — aborting push to protect existing data."
@@ -38,12 +44,8 @@ jobs:
           fi
 
       - name: Push to agent-presentation
-        env:
-          PAGES_TOKEN: ${{ secrets.PAGES_TOKEN }}
         run: |
-          git clone https://x-access-token:${PAGES_TOKEN}@github.com/cvuong233/agent-presentation.git /tmp/pages
-          cp /tmp/imdb_charts.json /tmp/pages/imdb_charts.json
-          cd /tmp/pages
+          cd /tmp/agent-presentation
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add imdb_charts.json
