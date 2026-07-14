@@ -23,12 +23,15 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install dependencies
+        run: pip install playwright && python -m playwright install chromium --with-deps
+
       - name: Clone agent-presentation
         env:
           PAGES_TOKEN: ${{ secrets.PAGES_TOKEN }}
         run: git clone https://x-access-token:${PAGES_TOKEN}@github.com/cvuong233/agent-presentation.git /tmp/agent-presentation
 
-      - name: Run IMDb charts fetcher (ranked by IMDb dataset, TMDB metadata)
+      - name: Run IMDb charts fetcher (scraped from IMDb Popularity Meter, TMDB metadata)
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           OUTPUT_PATH: /tmp/agent-presentation/imdb_charts.json
