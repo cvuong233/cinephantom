@@ -2,8 +2,8 @@ name: Refresh K-Drama Charts
 
 on:
   schedule:
-    # Daily at 05:00 UTC (12:00 ICT)
-    - cron: "0 5 * * *"
+    # Weekly Friday at 03:00 UTC (12:00 KST) — FUNdex publishes weekly on Fridays
+    - cron: "0 3 * * 5"
   workflow_dispatch:
 
 permissions:
