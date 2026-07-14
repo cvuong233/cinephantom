@@ -323,8 +323,15 @@ class DetailActivity : AppCompatActivity() {
             id = imdbId, title = title, typeLabel = type, year = year,
             cast = null, imageUrl = imageUrl,
             tmdbId = seedTmdbId.takeIf { it > 0 },
-            ratingSourceLabel = if (fundexRatingFromIntent != null) "FUNdex" else null
         )
+        // Rating actually shown on screen, kept in sync with revealFundexRating/revealRating
+        // below so a heart-tap saves the same score the user is looking at — previously
+        // titleObj never carried a rating at all, so every Watchlist save landed with a blank
+        // badge, and any later re-open without EXTRA_FUNDEX_RATING (e.g. from the Watchlist
+        // itself) could resolve a real IMDb decimal for what is actually a K-Drama.
+        var watchlistRating: Float? = null
+        var watchlistRatingText: String? = fundexRatingFromIntent
+        var watchlistRatingSourceLabel: String? = if (fundexRatingFromIntent != null) "FUNdex" else null
         // Populated by TMDB callbacks below so the heart click can schedule the notification
         var watchlistMovieReleaseDate: String? = null
         var watchlistNextEpisode: com.cvuong233.cinephantom.data.TMDBNextEpisode? = null
@@ -345,7 +352,14 @@ class DetailActivity : AppCompatActivity() {
             }
             val watchlistId = resolvedImdbId ?: imdbId
             val wasInWatchlist = FavoritesRepository.isFavorite(watchlistId)
-            FavoritesRepository.toggle(titleObj.copy(id = watchlistId))
+            FavoritesRepository.toggle(
+                titleObj.copy(
+                    id = watchlistId,
+                    rating = watchlistRating,
+                    ratingText = watchlistRatingText,
+                    ratingSourceLabel = watchlistRatingSourceLabel,
+                )
+            )
             refreshFavIcon()
             if (!wasInWatchlist) {
                 // Added — schedule notification if we already have the date
@@ -865,9 +879,17 @@ class DetailActivity : AppCompatActivity() {
 
                     if (effectiveFundexRating != null) {
                         revealFundexRating(effectiveFundexRating, 180)
+                        watchlistRating = null
+                        watchlistRatingText = effectiveFundexRating
+                        watchlistRatingSourceLabel = "FUNdex"
                     } else {
                         val preferredRating = preloadedRating.get() ?: chartRating ?: details?.rating
                         revealRating(preferredRating, 180)
+                        if (preferredRating != null && preferredRating > 0f) {
+                            watchlistRating = preferredRating
+                            watchlistRatingText = String.format(java.util.Locale.US, "%.1f", preferredRating)
+                            watchlistRatingSourceLabel = "IMDb"
+                        }
                     }
 
                     val genres = details?.genres.orEmpty()

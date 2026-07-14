@@ -6,6 +6,8 @@ import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityOptionsCompat
+import androidx.core.view.ViewCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -51,7 +53,7 @@ class WatchlistActivity : AppCompatActivity() {
         filterTv = findViewById(R.id.watchlist_filter_tv)
         applyTabSelectionStyling(currentFilter)
 
-        adapter = WatchlistGridAdapter(onClick = { openTitle(it) })
+        adapter = WatchlistGridAdapter(onClick = { view, title -> openTitle(view, title) })
         recycler.layoutManager = GridLayoutManager(this, 3)
         recycler.itemAnimator = null
         recycler.adapter = adapter
@@ -163,14 +165,29 @@ class WatchlistActivity : AppCompatActivity() {
         }
     }
 
-    private fun openTitle(title: ImdbTitle) {
-        startActivity(Intent(this, DetailActivity::class.java).apply {
+    private fun openTitle(posterView: View, title: ImdbTitle) {
+        val intent = Intent(this, DetailActivity::class.java).apply {
             putExtra(DetailActivity.EXTRA_IMDB_ID, title.id)
             putExtra(DetailActivity.EXTRA_TITLE, title.title)
             putExtra(DetailActivity.EXTRA_IMAGE_URL, title.imageUrl)
             putExtra(DetailActivity.EXTRA_YEAR, title.year)
             putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
             title.tmdbId?.takeIf { it > 0 }?.let { putExtra(DetailActivity.EXTRA_TMDB_ID, it) }
-        })
+            // Pass FUNdex rating for K-Drama items so DetailActivity knows this is a K-Drama
+            // up front — without this it falls back to its own IMDb rating fetch, which
+            // resolves a real IMDb decimal for a K-Drama's IMDb-linked ID and would get saved
+            // back into the Watchlist entry on the next heart-tap, overwriting the FUNdex %.
+            if (title.ratingSourceLabel == "FUNdex") {
+                title.ratingText?.takeIf { it.isNotBlank() }
+                    ?.let { putExtra(DetailActivity.EXTRA_FUNDEX_RATING, it) }
+            }
+            // Watchlist cards are vertical posters, not landscape backdrops — land the
+            // shared-element transition on DetailActivity's poster, not its backdrop.
+            putExtra(DetailActivity.EXTRA_TRANSITION_TARGET, DetailActivity.TRANSITION_TARGET_POSTER)
+        }
+        val transitionName = "poster_${title.id}"
+        ViewCompat.setTransitionName(posterView, transitionName)
+        val options = ActivityOptionsCompat.makeSceneTransitionAnimation(this, posterView, transitionName)
+        startActivity(intent, options.toBundle())
     }
 }
