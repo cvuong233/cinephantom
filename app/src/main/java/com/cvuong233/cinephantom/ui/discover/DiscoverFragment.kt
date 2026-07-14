@@ -90,8 +90,12 @@ class DiscoverFragment : Fragment() {
         if (!initialImdbId.isNullOrBlank()) {
             pendingFocusImdbId = initialImdbId
             pendingFocusType = initialType
-            currentTab = if (initialType.equals("series", ignoreCase = true) ||
-                initialType.equals("tv", ignoreCase = true)) "imdb_tv" else "imdb_movies"
+            currentTab = when {
+                initialType.equals("kdrama", ignoreCase = true) -> "kdrama"
+                initialType.equals("series", ignoreCase = true) ||
+                    initialType.equals("tv", ignoreCase = true) -> "imdb_tv"
+                else -> "imdb_movies"
+            }
             lastTab = currentTab
         }
     }
@@ -141,12 +145,17 @@ class DiscoverFragment : Fragment() {
         recyclerView = null
     }
 
-    // Called from MainActivity when a deep-link or widget targets a specific IMDb title.
+    // Called from MainActivity when a deep-link or widget targets a specific title. type is
+    // "kdrama" for K-Drama chart items (widget/back-stack round trip), or "series"/"tv" vs.
+    // anything else to distinguish the two IMDb tabs.
     fun focusOnTitle(imdbId: String, type: String?) {
         pendingFocusImdbId = imdbId
         pendingFocusType = type
-        val targetTab = if (type.equals("series", ignoreCase = true) ||
-            type.equals("tv", ignoreCase = true)) "imdb_tv" else "imdb_movies"
+        val targetTab = when {
+            type.equals("kdrama", ignoreCase = true) -> "kdrama"
+            type.equals("series", ignoreCase = true) || type.equals("tv", ignoreCase = true) -> "imdb_tv"
+            else -> "imdb_movies"
+        }
         if (currentTab != targetTab) {
             lastTab = currentTab
             currentTab = targetTab
@@ -155,7 +164,8 @@ class DiscoverFragment : Fragment() {
                 updateHeader(v, animate = false)
             }
         }
-        if (imdbLoaded) showContent() else loadImdbCharts()
+        val isLoaded = if (targetTab == "kdrama") kdramaLoaded else imdbLoaded
+        if (isLoaded) showContent() else if (targetTab == "kdrama") loadKdramaCharts() else loadImdbCharts()
     }
 
     // ── Tab switching ────────────────────────────────────────────────────────
@@ -167,9 +177,6 @@ class DiscoverFragment : Fragment() {
 
         applyTabUi(v, tab, animate = true)
         updateHeader(v, animate = true)
-
-        adapter.onRatingNeeded = if (tab == "kdrama") null
-            else { title -> loadVisibleRating(title) }
 
         val isLoaded = if (tab == "kdrama") kdramaLoaded else imdbLoaded
         if (isLoaded) {
@@ -392,6 +399,11 @@ class DiscoverFragment : Fragment() {
     // ── Rating fetch (IMDb tabs only) ────────────────────────────────────────
 
     private fun loadVisibleRating(title: ImdbTitle) {
+        // FUNdex-sourced (K-Drama) items already carry their display score in ratingText;
+        // this fetcher only ever resolves IMDb numeric ratings, and since these items' IMDb
+        // ID also resolves on IMDb, letting it run here would overwrite the FUNdex % with an
+        // IMDb rating in the shared adapter item — regardless of which tab is on screen.
+        if (title.ratingSourceLabel == "FUNdex") return
         if (!inFlightRatings.add(title.id)) return
         thread {
             try {
@@ -415,12 +427,19 @@ class DiscoverFragment : Fragment() {
 
     private fun applyPendingFocus() {
         val imdbId = pendingFocusImdbId ?: return
-        if (currentTab == "kdrama") return
-        val items = if (currentTab == "imdb_movies") allMovies else allTv
-        val expectedTab = if (pendingFocusType.equals("series", ignoreCase = true) ||
-            pendingFocusType.equals("tv", ignoreCase = true)) "imdb_tv" else "imdb_movies"
+        val expectedTab = when {
+            pendingFocusType.equals("kdrama", ignoreCase = true) -> "kdrama"
+            pendingFocusType.equals("series", ignoreCase = true) ||
+                pendingFocusType.equals("tv", ignoreCase = true) -> "imdb_tv"
+            else -> "imdb_movies"
+        }
         if (currentTab != expectedTab) return
-        val position = items.indexOfFirst { it.imdbId == imdbId }
+        val position = when (currentTab) {
+            "imdb_movies" -> allMovies.indexOfFirst { it.imdbId == imdbId }
+            "imdb_tv"     -> allTv.indexOfFirst { it.imdbId == imdbId }
+            "kdrama"      -> allKDramas.indexOfFirst { it.id == imdbId }
+            else          -> -1
+        }
         if (position < 0) return
 
         pendingFocusImdbId = null
