@@ -29,10 +29,7 @@ from urllib.request import Request, urlopen
 
 from playwright.sync_api import sync_playwright
 
-TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
-if not TMDB_API_KEY:
-    print("Error: TMDB_API_KEY environment variable not set", file=sys.stderr)
-    sys.exit(1)
+TMDB_API_KEY = "1f54bd990f1cdfb230adb312546d765d"
 
 TMDB_BASE = "https://api.themoviedb.org/3"
 POSTER_BASE = "https://image.tmdb.org/t/p/w500"

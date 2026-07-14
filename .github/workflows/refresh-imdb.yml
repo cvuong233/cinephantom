@@ -33,7 +33,6 @@ jobs:
 
       - name: Run IMDb charts fetcher (scraped from IMDb Popularity Meter, TMDB metadata)
         env:
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           OUTPUT_PATH: /tmp/agent-presentation/imdb_charts.json
         run: python scripts/fetch_imdb_charts.py
 
