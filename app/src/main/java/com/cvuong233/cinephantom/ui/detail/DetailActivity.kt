@@ -7,6 +7,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.transition.ChangeBounds
+import android.transition.ChangeImageTransform
+import android.transition.Fade
+import android.transition.TransitionSet
 import android.view.View
 import android.view.ViewOutlineProvider
 import android.view.animation.DecelerateInterpolator
@@ -22,6 +26,7 @@ import androidx.activity.addCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityOptionsCompat
 import androidx.core.view.ViewCompat
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.cvuong233.cinephantom.ui.FuturisticAnim
 import com.cvuong233.cinephantom.widget.WidgetDataFetcher
 import com.cvuong233.cinephantom.R
@@ -61,22 +66,92 @@ class DetailActivity : AppCompatActivity() {
         const val EXTRA_RETURN_DISCOVER_TYPE = "extra_return_discover_type"
         const val EXTRA_FUNDEX_RATING = "extra_fundex_rating"
         const val EXTRA_TMDB_ID = "extra_tmdb_id"
+        // Which ImageView the incoming shared-element transition should land on: "poster" or
+        // "backdrop". Callers that launch from a vertical poster card (Watchlist, widget) should
+        // pass "poster"; landscape backdrop cards (Discover, Search, K-Drama) can omit this.
+        const val EXTRA_TRANSITION_TARGET = "extra_transition_target"
+        const val TRANSITION_TARGET_POSTER = "poster"
+        const val TRANSITION_TARGET_BACKDROP = "backdrop"
+
+        private fun buildHeroSharedElementTransition(): TransitionSet =
+            TransitionSet()
+                .addTransition(ChangeBounds())
+                .addTransition(ChangeImageTransform())
+                .setDuration(300)
+                .setInterpolator(FastOutSlowInInterpolator())
+    }
+
+    // Backdrop loads that must wait until the incoming shared-element flight (poster -> hero)
+    // has finished, so the backdrop never flashes the poster's image mid-flight (see
+    // onEnterAnimationComplete below).
+    private var enterAnimationCompleted = false
+    private val pendingBackdropActions = mutableListOf<() -> Unit>()
+    private var enterTransitionStarted = false
+
+    private fun runAfterEnterTransition(action: () -> Unit) {
+        if (enterAnimationCompleted) action() else pendingBackdropActions.add(action)
+    }
+
+    private fun startPostponedEnterTransitionSafely() {
+        if (enterTransitionStarted) return
+        enterTransitionStarted = true
+        startPostponedEnterTransition()
+    }
+
+    // Runs the deferred entrance actions (backdrop ease-in, poster spring, streaming row) exactly
+    // once. Normally driven by onEnterAnimationComplete, but that callback only fires when there is
+    // an actual shared-element/window transition — launches without one (e.g. a recommendation tap)
+    // would otherwise never animate the hero companion in, so a Handler fallback also calls this.
+    private fun flushPendingEnterActions() {
+        if (enterAnimationCompleted) return
+        enterAnimationCompleted = true
+        val actions = pendingBackdropActions.toList()
+        pendingBackdropActions.clear()
+        actions.forEach { it() }
+    }
+
+    override fun onEnterAnimationComplete() {
+        super.onEnterAnimationComplete()
+        flushPendingEnterActions()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_detail)
 
-        val imdbId = intent?.getStringExtra(EXTRA_IMDB_ID) ?: run { finish(); return }
+        // Shared element (poster or backdrop, decided below) scales smoothly into place
+        // instead of snapping to its destination bounds; ChangeImageTransform keeps the
+        // bitmap itself scaling rather than stretching.
+        window.sharedElementEnterTransition = buildHeroSharedElementTransition()
+        window.sharedElementReturnTransition = buildHeroSharedElementTransition()
+        // The hero images arrive via the shared element (or load directly) — they must not
+        // also play the activity's own enter fade, or they'd double-animate.
+        window.enterTransition = Fade().apply {
+            duration = 220
+            excludeTarget(R.id.detail_backdrop, true)
+            excludeTarget(R.id.detail_hero, true)
+            excludeTarget(android.R.id.statusBarBackground, true)
+            excludeTarget(android.R.id.navigationBarBackground, true)
+        }
+        postponeEnterTransition()
+        Handler(Looper.getMainLooper()).postDelayed({ startPostponedEnterTransitionSafely() }, 500)
+        // Safety net: if no shared-element/window transition ever reports completion, run the
+        // deferred hero-companion + streaming-row entrance anyway so nothing is stuck hidden.
+        Handler(Looper.getMainLooper()).postDelayed({ flushPendingEnterActions() }, 600)
+
+        // EXTRA_TMDB_ID may be the only id a caller has (e.g. a chart item whose IMDb id
+        // failed to resolve at scrape time) — fall back to it before giving up on the intent.
+        val seedTmdbId = intent?.getIntExtra(EXTRA_TMDB_ID, -1)?.takeIf { it > 0 } ?: -1
+        val imdbId = intent?.getStringExtra(EXTRA_IMDB_ID)?.takeIf { it.isNotBlank() }
+            ?: seedTmdbId.takeIf { it > 0 }?.toString()
+            ?: run { finish(); return }
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Unknown"
         val type = intent?.getStringExtra(EXTRA_TYPE) ?: "Movie"
         val year = intent?.getStringExtra(EXTRA_YEAR) ?: ""
         val imageUrl = intent?.getStringExtra(EXTRA_IMAGE_URL) ?: ""
-        val backdropUrl = intent?.getStringExtra(EXTRA_BACKDROP_URL)?.ifBlank { null } ?: imageUrl
         val intentCast = intent?.getStringExtra(EXTRA_CAST)
         val launchedFromWidget = intent?.getBooleanExtra(EXTRA_FROM_WIDGET, false) == true
         val fundexRatingFromIntent = intent?.getStringExtra(EXTRA_FUNDEX_RATING)
-        val seedTmdbId = intent?.getIntExtra(EXTRA_TMDB_ID, -1)?.takeIf { it > 0 } ?: -1
         // True when opened from Search — only a TMDB ID is known, no real IMDb ID yet.
         // Real IMDb IDs always start with "tt"; numeric strings are TMDB IDs.
         val isTmdbOnly = !imdbId.startsWith("tt") && seedTmdbId > 0
@@ -96,7 +171,18 @@ class DetailActivity : AppCompatActivity() {
         val posterContainer = findViewById<LinearLayout>(R.id.detail_poster_container)
         val backdropImage = findViewById<ImageView>(R.id.detail_backdrop)
         val incomingTransitionName = intent?.getStringExtra(EXTRA_TRANSITION_NAME)
-        ViewCompat.setTransitionName(backdropImage, incomingTransitionName ?: "backdrop_$imdbId")
+        // Discover/Search/K-Drama launch with a landscape backdrop card, so the backdrop is the
+        // shared-element landing target by default. Callers with a vertical poster card (widget,
+        // Watchlist) pass EXTRA_TRANSITION_TARGET = "poster" so the poster is the target instead.
+        val transitionTarget = intent?.getStringExtra(EXTRA_TRANSITION_TARGET)
+            ?: if (launchedFromWidget) TRANSITION_TARGET_POSTER else TRANSITION_TARGET_BACKDROP
+        if (transitionTarget == TRANSITION_TARGET_POSTER) {
+            ViewCompat.setTransitionName(posterImage, incomingTransitionName ?: "poster_$imdbId")
+            ViewCompat.setTransitionName(backdropImage, "backdrop_$imdbId")
+        } else {
+            ViewCompat.setTransitionName(backdropImage, incomingTransitionName ?: "backdrop_$imdbId")
+            ViewCompat.setTransitionName(posterImage, "poster_$imdbId")
+        }
         val heroShimmer = findViewById<View>(R.id.detail_hero_shimmer)
         val titleView = findViewById<TextView>(R.id.detail_title)
         val titleRow = findViewById<LinearLayout>(R.id.detail_title_row)
@@ -165,7 +251,11 @@ class DetailActivity : AppCompatActivity() {
         }
 
         applyRating(null, null)
+        // The whole streaming row fades/slides in as part of the entrance choreography (see the
+        // runAfterEnterTransition below) — keep it laid out but transparent until then so it never
+        // flashes before the hero settles.
         streamingScroll.visibility = View.VISIBLE
+        streamingScroll.alpha = 0f
         ratingView.visibility = View.INVISIBLE
 
         val ratingFetcher = RatingFetcher()
@@ -262,17 +352,26 @@ class DetailActivity : AppCompatActivity() {
         // Set title early (will animate in after data loads)
         titleView.text = title
 
-        // Shared element target must exist immediately using the same image the card showed —
-        // the backdrop is now the shared element. TMDB's higher-res backdrop swaps in later.
-        posterImage.alpha = 1f
-        backdropImage.alpha = 1f
-        heroShimmer.visibility = View.GONE
-        if (backdropUrl.isNotBlank()) {
-            SimpleImageLoader.load(backdropUrl, backdropImage, onSuccess = {}, onError = {})
+        // Two hero images sit at the top: a landscape backdrop and a portrait poster. Exactly
+        // one of them is the incoming shared element (it flies in from the tapped card); the
+        // other has no counterpart on the previous screen, so it plays its own enter animation
+        // once the shared-element flight has landed (see runAfterEnterTransition).
+        //   • Case A — landscape card (Discover/Search/K-Drama): backdrop is the shared element;
+        //     the poster springs up from below on its own.
+        //   • Case B — portrait card (Watchlist/widget): poster is the shared element; the
+        //     backdrop eases down from the top + fades in on its own.
+        val isSharedPoster = transitionTarget == TRANSITION_TARGET_POSTER
+        // A portrait poster URL is NOT a valid landscape backdrop — Watchlist passes no
+        // EXTRA_BACKDROP_URL, so only an explicitly-provided one may go in the backdrop slot;
+        // otherwise the backdrop waits (shimmering) for TMDB to resolve a real one below.
+        val explicitBackdropUrl = intent?.getStringExtra(EXTRA_BACKDROP_URL)?.ifBlank { null }
+
+        fun stopHeroShimmer() {
+            heroShimmer.animate().cancel()
+            heroShimmer.visibility = View.GONE
         }
 
         var posterLoaded = false
-
         val posterIn = {
             if (!posterLoaded) {
                 posterLoaded = true
@@ -280,29 +379,106 @@ class DetailActivity : AppCompatActivity() {
             }
         }
 
-        if (imageUrl.isNotBlank()) {
-            SimpleImageLoader.load(imageUrl, posterImage,
-                onSuccess = { posterIn() },
-                onError = { posterIn() }
+        // Loads a landscape image into the backdrop slot. animateIn = true plays the backdrop's
+        // own entrance (ease down from above + fade) for Case B; false just reveals it because
+        // it's the shared element in Case A and the flight already moved it into place.
+        fun loadBackdropInto(url: String, animateIn: Boolean) {
+            if (url.isBlank()) {
+                stopHeroShimmer()
+                return
+            }
+            if (animateIn) backdropImage.alpha = 0f
+            SimpleImageLoader.load(url, backdropImage,
+                onSuccess = {
+                    stopHeroShimmer()
+                    if (animateIn) {
+                        backdropImage.translationY = -40f
+                        backdropImage.animate()
+                            .alpha(1f).translationY(0f)
+                            .setDuration(350)
+                            .setInterpolator(DecelerateInterpolator())
+                            .start()
+                    } else {
+                        backdropImage.alpha = 1f
+                    }
+                },
+                onError = {
+                    stopHeroShimmer()
+                    backdropImage.alpha = 1f
+                }
             )
-        } else {
-            posterIn()
         }
 
-        // Poster springs up from below the backdrop once the shared-element transition settles.
-        posterContainer.alpha = 0f
-        posterContainer.translationY = 140f
-        posterContainer.scaleX = 0.7f
-        posterContainer.scaleY = 0.7f
-        posterContainer.animate()
-            .alpha(1f)
-            .translationY(0f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(300)
-            .setStartDelay(260)
-            .setInterpolator(OvershootInterpolator(1.4f))
-            .start()
+        // The poster bitmap is loaded the same way in both cases; only its entrance differs.
+        fun loadPoster() {
+            if (imageUrl.isNotBlank()) {
+                SimpleImageLoader.load(imageUrl, posterImage,
+                    onSuccess = { posterIn() },
+                    onError = { posterIn() }
+                )
+            } else {
+                posterIn()
+            }
+        }
+
+        if (isSharedPoster) {
+            // CASE B — poster is the shared element. Keep its container at rest so the flight
+            // lands cleanly; any pre-set alpha/translation/scale here would fight ChangeBounds
+            // and make the flight invisible (the old bug).
+            posterImage.alpha = 1f
+            posterContainer.alpha = 1f
+            posterContainer.translationY = 0f
+            posterContainer.scaleX = 1f
+            posterContainer.scaleY = 1f
+            // The poster URL was just loaded by the source card, so it's already in Coil's
+            // memory cache — don't wait on the (always-async, even on a cache hit) load
+            // callback to release the transition. Start it after one frame instead, once the
+            // bitmap has had a chance to be set synchronously from cache.
+            loadPoster()
+            window.decorView.post { startPostponedEnterTransitionSafely() }
+
+            // Backdrop plays its own entrance after the flight lands. Hold a shimmer until then.
+            backdropImage.alpha = 0f
+            heroShimmer.visibility = View.VISIBLE
+            shimmerPulse(heroShimmer)
+            if (explicitBackdropUrl != null) {
+                runAfterEnterTransition {
+                    loadBackdropInto(explicitBackdropUrl, animateIn = true)
+                }
+            }
+            // else: no landscape URL yet — the TMDB landscapeUrl load below fades it in.
+        } else {
+            // CASE A — backdrop is the shared element: visible + loaded immediately so the
+            // flight has a bitmap. Same reasoning as above — don't gate the transition start on
+            // the async Coil callback; release it after one frame.
+            backdropImage.alpha = 1f
+            heroShimmer.visibility = View.GONE
+            loadBackdropInto(explicitBackdropUrl ?: imageUrl, animateIn = false)
+            window.decorView.post { startPostponedEnterTransitionSafely() }
+
+            // Poster springs up from below once the flight has landed. Load it now (hidden by
+            // the container's alpha) so the bitmap is ready by the time it animates in.
+            posterImage.alpha = 1f
+            posterContainer.alpha = 0f
+            posterContainer.translationY = 140f
+            posterContainer.scaleX = 0.7f
+            posterContainer.scaleY = 0.7f
+            loadPoster()
+            runAfterEnterTransition {
+                // A small startDelay keeps the poster spring visibly *after* the hero flight has
+                // landed — without it, a cache-fast transition finishes at the same instant and the
+                // poster appears to just snap into place instead of springing up.
+                posterContainer.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .setStartDelay(100)
+                    .setDuration(340)
+                    .setInterpolator(OvershootInterpolator(1.4f))
+                    .start()
+            }
+        }
 
         var currentCastForViewAll: List<TMDBCastMember> = emptyList()
 
@@ -634,7 +810,72 @@ class DetailActivity : AppCompatActivity() {
 
         val providersContainer = findViewById<LinearLayout>(R.id.detail_providers_container)
 
-        fun applyProvidersToUi(resolvedProviders: List<Pair<TMDBWatchProvider, String>>) {
+        // Provider buttons only ever get built from the real per-title TMDB response
+        // (applyProvidersToUi) — no optimistic pre-population from the cached global list, since
+        // that list isn't necessarily where THIS title is available and caused wrong/extra icons
+        // to flash before the real fetch resolved.
+        val providerButtons = mutableMapOf<Int, ImageView>()
+
+        fun openJustWatchSearchFallback() {
+            // Used until (or unless) a real per-platform deep link resolves — searches JustWatch for
+            // this title so the tap still does something useful.
+            val query = java.net.URLEncoder.encode(title, "UTF-8")
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://www.justwatch.com/us/search?q=$query")))
+            } catch (_: Exception) {
+                Toast.makeText(this, "Couldn't open JustWatch", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        fun openNetflixSearchFallback() {
+            // Netflix-specific fallback — a generic JustWatch search isn't useful for a title we
+            // already know is on Netflix but couldn't resolve an exact /title/{id} deep link for.
+            val query = java.net.URLEncoder.encode(title, "UTF-8")
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW,
+                    Uri.parse("https://www.netflix.com/search?q=$query")))
+            } catch (_: Exception) {
+                Toast.makeText(this, "Couldn't open Netflix", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        fun addProviderButton(provider: TMDBWatchProvider, onTap: () -> Unit): ImageView {
+            val item = layoutInflater.inflate(R.layout.item_provider_button, providersContainer, false) as ImageView
+            if (provider.id == WatchProviderPreferences.NETFLIX_PROVIDER_ID && provider.logoPath == null) {
+                item.setImageResource(R.drawable.ic_netflix_brand)
+            } else {
+                provider.logoUrl?.let { url -> SimpleImageLoader.load(url = url, imageView = item) }
+            }
+            item.contentDescription = provider.name
+            item.setOnClickListener { onTap() }
+            providerButtons[provider.id] = item
+            providersContainer.addView(item)
+            return item
+        }
+
+        // Fades + slides the whole streaming row (Stremio + provider buttons) into place, and gives
+        // Stremio its overshoot pop, all timed to land just after the hero companion animation.
+        fun animateStreamingRowIn() {
+            streamingScroll.visibility = View.VISIBLE
+            streamingScroll.alpha = 0f
+            streamingScroll.translationY = 30f * resources.displayMetrics.density
+            streamingScroll.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(250)
+                .setStartDelay(100)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+            if (stremioBtn.visibility == View.VISIBLE) {
+                stremioBtn.scaleX = 0f; stremioBtn.scaleY = 0f
+                stremioBtn.animate().scaleX(1f).scaleY(1f)
+                    .setStartDelay(160).setDuration(360)
+                    .setInterpolator(OvershootInterpolator(1.3f)).start()
+            }
+        }
+
+        fun applyProvidersToUi(resolvedProviders: List<Pair<TMDBWatchProvider, String?>>) {
             if (resolvedProviders.isEmpty()) {
                 // Only hide the whole row if Stremio isn't showing either — otherwise the
                 // row still needs to display the Stremio button on its own.
@@ -646,12 +887,15 @@ class DetailActivity : AppCompatActivity() {
             providersContainer.alpha = 0f
             providersContainer.translationX = 24f
             providersContainer.removeAllViews()
+            providerButtons.clear()
             for ((provider, platformUrl) in resolvedProviders) {
-                val item = layoutInflater.inflate(R.layout.item_provider_button, providersContainer, false) as ImageView
-                provider.logoUrl?.let { url -> SimpleImageLoader.load(url = url, imageView = item) }
-                item.contentDescription = provider.name
-                item.setOnClickListener { openWatchProvider(platformUrl) }
-                providersContainer.addView(item)
+                addProviderButton(provider) {
+                    when {
+                        platformUrl != null -> openWatchProvider(platformUrl)
+                        provider.id == WatchProviderPreferences.NETFLIX_PROVIDER_ID -> openNetflixSearchFallback()
+                        else -> openJustWatchSearchFallback()
+                    }
+                }
             }
             providersContainer.animate()
                 .translationX(0f)
@@ -662,6 +906,10 @@ class DetailActivity : AppCompatActivity() {
                 .start()
             animateHorizontalItems(providersContainer, 70)
         }
+
+        // The Stremio button (not per-title data) still enters with the hero choreography;
+        // provider buttons only appear once applyProvidersToUi resolves the real per-title fetch.
+        runAfterEnterTransition { animateStreamingRowIn() }
 
         val recsSection = findViewById<LinearLayout>(R.id.detail_more_like_this_section)
         val recsContainer = findViewById<LinearLayout>(R.id.detail_recommendations_container)
@@ -702,14 +950,24 @@ class DetailActivity : AppCompatActivity() {
                     }
                     val typeLabel = if (rec.mediaType == "tv") "TV Series" else "Movie"
                     val posterUrl = posterPath?.let { "https://image.tmdb.org/t/p/w185$it" } ?: ""
-                    startActivity(Intent(this@DetailActivity, DetailActivity::class.java).apply {
+                    val transName = "poster_$imdbIdForRec"
+                    ViewCompat.setTransitionName(poster, transName)
+                    val intent = Intent(this@DetailActivity, DetailActivity::class.java).apply {
                         putExtra(EXTRA_IMDB_ID, imdbIdForRec)
                         putExtra(EXTRA_TITLE, rec.title)
                         putExtra(EXTRA_IMAGE_URL, posterUrl)
                         putExtra(EXTRA_YEAR, yearText)
                         putExtra(EXTRA_TYPE, typeLabel)
                         putExtra(EXTRA_TMDB_ID, rec.id)
-                    })
+                        // Recommendation cards are vertical posters, not landscape backdrops —
+                        // land the shared-element transition on the poster, not the backdrop.
+                        putExtra(EXTRA_TRANSITION_TARGET, TRANSITION_TARGET_POSTER)
+                        putExtra(EXTRA_TRANSITION_NAME, transName)
+                    }
+                    val options = ActivityOptionsCompat.makeSceneTransitionAnimation(
+                        this@DetailActivity, poster, transName
+                    )
+                    startActivity(intent, options.toBundle())
                 }
 
                 recsContainer.addView(card)
@@ -748,18 +1006,46 @@ class DetailActivity : AppCompatActivity() {
                 runOnUiThread { applyCreditsToUi(tmdbCast, tmdbDirectors, tmdbShow) }
 
                 val watchProviders = tmdbApi.fetchWatchProviders(tmdbId, isSeries)
+                // TMDB's per-title watch/providers endpoint reliably includes major platforms
+                // (Netflix, Disney+, Apple TV+...) that the bulk catalog endpoint powering the
+                // Settings list sometimes omits. Feed every provider seen on a title back into
+                // the shared cache so Settings accumulates the real catalog over time.
+                if (watchProviders != null) watchProviderPrefs.mergeProviders(watchProviders.flatrate)
                 val justWatchLink = watchProviders?.justWatchLink
                 val resolvedPlatformUrls = if (!justWatchLink.isNullOrBlank())
                     JustWatchLinkResolver.resolvePlatformUrls(justWatchLink)
                 else emptyMap()
-                val resolvedProviders = watchProviders?.flatrate.orEmpty()
+                // A provider TMDB confirmed for this title still gets a button even when the
+                // JustWatch deep link fails to resolve (no match, resolver error, etc.) — the
+                // resolved link is a bonus tap target, not a requirement for showing the button.
+                val baseProviders = watchProviders?.flatrate.orEmpty()
                     .filter { watchProviderPrefs.isEnabled(it.id, it.name) }
-                    .mapNotNull { provider ->
+                    .map { provider ->
                         val url = resolvedPlatformUrls.entries
                             .firstOrNull { (key, _) -> provider.name.contains(key, ignoreCase = true) }
                             ?.value
-                        url?.let { provider to it }
+                        provider to url
                     }
+                // TMDB's watch-provider data (sourced from JustWatch) has dropped Netflix almost
+                // everywhere, so flatrate above essentially never has a real Netflix entry — even
+                // for titles that ARE on Netflix. Relying on the JustWatch HTML resolver to find a
+                // netflix.com link was unreliable (it depends on JustWatch's page still listing
+                // Netflix and the scrape pattern matching). Instead: if the user has Netflix enabled,
+                // always show the button — use TMDB's own confirmation (provider 8 present in
+                // flatrate) plus the per-title JustWatch link when we have it, and otherwise fall
+                // back to a Netflix title search deep link (see openNetflixSearchFallback) so the
+                // button always does something useful.
+                val hasNetflixAlready = baseProviders.any { it.first.id == WatchProviderPreferences.NETFLIX_PROVIDER_ID }
+                val netflixConfirmedByTmdb = watchProviders?.flatrate.orEmpty()
+                    .any { it.id == WatchProviderPreferences.NETFLIX_PROVIDER_ID }
+                val netflixUrl = resolvedPlatformUrls["netflix"]
+                    ?: justWatchLink?.takeIf { netflixConfirmedByTmdb }
+                val resolvedProviders = if (!hasNetflixAlready &&
+                    watchProviderPrefs.isEnabled(WatchProviderPreferences.NETFLIX_PROVIDER_ID, "Netflix")) {
+                    baseProviders + (TMDBWatchProvider(WatchProviderPreferences.NETFLIX_PROVIDER_ID, "Netflix", null) to netflixUrl)
+                } else {
+                    baseProviders
+                }
                 runOnUiThread { applyProvidersToUi(resolvedProviders) }
 
                 if (!recsFetched) {
@@ -846,24 +1132,45 @@ class DetailActivity : AppCompatActivity() {
                         !posterPath.isNullOrBlank() -> "https://image.tmdb.org/t/p/w780$posterPath"
                         else -> ""
                     }
-                    if (landscapeUrl.isNotBlank()) {
-                        SimpleImageLoader.load(landscapeUrl, backdropImage,
-                            onSuccess = {
-                                backdropImage.animate().alpha(1f).setDuration(350).start()
-                            },
-                            onError = {
-                                if (imageUrl.isNotBlank()) {
-                                    SimpleImageLoader.load(imageUrl, backdropImage,
-                                        onSuccess = { backdropImage.animate().alpha(1f).setDuration(350).start() },
-                                        onError = { backdropImage.alpha = 1f }
-                                    )
-                                } else {
-                                    backdropImage.alpha = 1f
+                    // If the source card already gave us a backdrop, keep it — TMDB's own
+                    // backdrop_path can point to a different image than the chart feed used,
+                    // which caused a visible mismatch/swap right after the detail API loaded.
+                    if (landscapeUrl.isNotBlank() && explicitBackdropUrl == null) {
+                        val loadHigherResBackdrop: () -> Unit = {
+                            SimpleImageLoader.load(landscapeUrl, backdropImage,
+                                onSuccess = {
+                                    stopHeroShimmer()
+                                    backdropImage.animate().alpha(1f).setDuration(350).start()
+                                },
+                                onError = {
+                                    if (imageUrl.isNotBlank()) {
+                                        SimpleImageLoader.load(imageUrl, backdropImage,
+                                            onSuccess = { stopHeroShimmer(); backdropImage.animate().alpha(1f).setDuration(350).start() },
+                                            onError = { stopHeroShimmer(); backdropImage.alpha = 1f }
+                                        )
+                                    } else {
+                                        stopHeroShimmer()
+                                        backdropImage.alpha = 1f
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
+                        // Same rule as the initial backdrop load above: if the poster is the
+                        // shared element, don't swap the backdrop until the flight animation
+                        // has landed, or this higher-res image causes the exact same flash.
+                        if (isSharedPoster) runAfterEnterTransition(loadHigherResBackdrop) else loadHigherResBackdrop()
                     }
-                    posterIn()
+
+                    // Poster extra missing (e.g. an older entry point) — fall back to TMDB's poster.
+                    if (imageUrl.isBlank() && !posterPath.isNullOrBlank()) {
+                        SimpleImageLoader.load(
+                            "https://image.tmdb.org/t/p/w342$posterPath", posterImage,
+                            onSuccess = { posterIn() },
+                            onError = { posterIn() }
+                        )
+                    } else {
+                        posterIn()
+                    }
 
                     val runtimeText = details?.runtimeMinutes?.takeIf { it > 0 }?.let { "$it min" }
                     val displayYear = details?.year ?: year
@@ -932,15 +1239,17 @@ class DetailActivity : AppCompatActivity() {
                     titleView.translationY = -60f; titleView.alpha = 0f
                     titleView.animate().translationY(0f).alpha(1f).setDuration(450).setStartDelay(50)
                         .setInterpolator(DecelerateInterpolator()).start()
-                    stremioBtn.scaleX = 0f; stremioBtn.scaleY = 0f
-                    stremioBtn.animate().scaleX(1f).scaleY(1f).setDuration(400).setStartDelay(300)
-                        .setInterpolator(OvershootInterpolator(1.3f)).start()
+                    // (Stremio + the rest of the streaming row now animate in with the entrance
+                    // choreography — see animateStreamingRowIn — instead of waiting for TMDB.)
                 }
 
                 details?.tmdbId?.takeIf { it > 0 }?.let { fetchCreditsAndUpdatePhotos(it) }
 
             } catch (_: Exception) {
                 runOnUiThread {
+                    // No TMDB data — if the backdrop is still shimmering (Case B with no explicit
+                    // backdrop URL), retire it once the flight lands so it doesn't pulse forever.
+                    runAfterEnterTransition { stopHeroShimmer() }
                     titleRow.visibility = View.VISIBLE
                     titleView.translationY = -60f; titleView.alpha = 0f
                     titleView.animate().translationY(0f).alpha(1f)

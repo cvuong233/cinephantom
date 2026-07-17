@@ -195,6 +195,9 @@ class CastDetailActivity : AppCompatActivity() {
                     putExtra(DetailActivity.EXTRA_YEAR, yearText)
                     putExtra(DetailActivity.EXTRA_TYPE, typeLabel)
                     putExtra(DetailActivity.EXTRA_TRANSITION_NAME, transName)
+                    // Known For cards are vertical posters, not landscape backdrops — land the
+                    // shared-element transition on DetailActivity's poster, not its backdrop.
+                    putExtra(DetailActivity.EXTRA_TRANSITION_TARGET, DetailActivity.TRANSITION_TARGET_POSTER)
                 }
                 val options = ActivityOptionsCompat.makeSceneTransitionAnimation(this, poster, transName)
                 startActivity(intent, options.toBundle())
