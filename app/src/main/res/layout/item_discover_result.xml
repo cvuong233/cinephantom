@@ -21,9 +21,9 @@
             android:id="@+id/backdrop_image"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="@drawable/search_poster_placeholder_bg"
             android:contentDescription="@null"
-            android:scaleType="centerCrop"
-            android:visibility="gone" />
+            android:scaleType="centerCrop" />
 
         <View
             android:id="@+id/backdrop_placeholder"

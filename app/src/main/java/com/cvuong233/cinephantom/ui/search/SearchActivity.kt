@@ -167,6 +167,7 @@ class SearchActivity : AppCompatActivity() {
             putExtra(DetailActivity.EXTRA_CAST, title.cast)
             putExtra(DetailActivity.EXTRA_YEAR, title.year)
             putExtra(DetailActivity.EXTRA_TYPE, title.typeLabel)
+            title.tmdbId?.takeIf { it > 0 }?.let { putExtra(DetailActivity.EXTRA_TMDB_ID, it) }
         }
         ViewCompat.setTransitionName(backdropView, "backdrop_${title.id}")
         val options = ActivityOptionsCompat.makeSceneTransitionAnimation(

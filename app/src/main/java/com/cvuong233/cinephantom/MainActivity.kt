@@ -25,6 +25,7 @@ import com.cvuong233.cinephantom.notifications.WatchlistRefreshWorker
 import com.cvuong233.cinephantom.ui.account.AccountFragment
 import com.cvuong233.cinephantom.ui.discover.DiscoverFragment
 import com.cvuong233.cinephantom.ui.search.SearchFragment
+import com.google.firebase.auth.FirebaseAuth
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
@@ -47,6 +48,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Search history and watch-provider settings are keyed by Firebase uid — without this,
+        // anyone who never taps "Sign in" gets no uid at all, so those Firestore writes silently
+        // no-op and nothing persists. Anonymous auth guarantees every install has a stable uid;
+        // AuthActivity links it to a Google account on sign-in instead of replacing it, so this
+        // data carries over rather than being orphaned under the old anonymous uid.
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            FirebaseAuth.getInstance().signInAnonymously()
+        }
         FavoritesRepository.init()
         WatchProviderOverrides.init()
         WatchlistNotificationScheduler.createChannel(this)

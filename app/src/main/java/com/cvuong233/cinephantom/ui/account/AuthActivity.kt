@@ -11,6 +11,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 
 class AuthActivity : AppCompatActivity() {
@@ -25,11 +26,29 @@ class AuthActivity : AppCompatActivity() {
                 .getResult(ApiException::class.java)
             setStatus("Signing in with Google…", isError = false)
             val credential = GoogleAuthProvider.getCredential(account.idToken, null)
-            auth.signInWithCredential(credential)
+            val anonymousUser = auth.currentUser?.takeIf { it.isAnonymous }
+            // Link rather than replace: MainActivity signs everyone in anonymously on launch, so
+            // by the time this runs there's almost always an anonymous uid already holding search
+            // history / watch-provider data. Linking carries that data over to the permanent
+            // Google account instead of orphaning it under the old anonymous uid.
+            val signInTask = anonymousUser?.linkWithCredential(credential)
+                ?: auth.signInWithCredential(credential)
+            signInTask
                 .addOnSuccessListener { finish() }
                 .addOnFailureListener { e ->
-                    setStatus(e.message ?: "Google sign-in failed", isError = true)
-                    resetGoogleBtn()
+                    if (e is FirebaseAuthUserCollisionException && anonymousUser != null) {
+                        // This Google account already has its own Firebase user — can't merge the
+                        // two, so just sign into the existing account (anonymous data is dropped).
+                        auth.signInWithCredential(credential)
+                            .addOnSuccessListener { finish() }
+                            .addOnFailureListener { e2 ->
+                                setStatus(e2.message ?: "Google sign-in failed", isError = true)
+                                resetGoogleBtn()
+                            }
+                    } else {
+                        setStatus(e.message ?: "Google sign-in failed", isError = true)
+                        resetGoogleBtn()
+                    }
                 }
         } catch (e: ApiException) {
             if (e.statusCode != 12501) { // 12501 = user cancelled
@@ -45,7 +64,9 @@ class AuthActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_auth)
 
-        if (auth.currentUser != null) { finish(); return }
+        // An anonymous uid (see MainActivity) doesn't count as "already signed in" — this screen
+        // must still offer Google sign-in so that account can be linked to it.
+        if (auth.currentUser?.isAnonymous == false) { finish(); return }
 
         val backBtn = findViewById<ImageView>(R.id.auth_back)
         val googleBtn = findViewById<TextView>(R.id.auth_google_btn)

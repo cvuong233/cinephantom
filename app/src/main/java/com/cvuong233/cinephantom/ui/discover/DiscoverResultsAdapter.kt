@@ -95,8 +95,10 @@ class DiscoverResultsAdapter(
 
     override fun onViewRecycled(holder: RecyclerView.ViewHolder) {
         if (holder is ResultViewHolder) {
-            holder.backdropPlaceholder.visibility = View.VISIBLE
-            holder.backdropImage.visibility = View.GONE
+            // Keep the shared-element ImageView laid out (its placeholder background shows through)
+            // so a tap on a recycled/reloading card still has a valid view for the hero transition.
+            holder.backdropPlaceholder.visibility = View.GONE
+            holder.backdropImage.visibility = View.VISIBLE
             holder.backdropImage.setImageDrawable(null)
         }
         super.onViewRecycled(holder)
@@ -151,25 +153,24 @@ class DiscoverResultsAdapter(
                 onRatingNeeded?.invoke(item)
             }
 
+            // The backdrop ImageView stays VISIBLE at all times (its placeholder-background shows
+            // while the bitmap loads). makeSceneTransitionAnimation captures the tapped view, and a
+            // GONE view has no bounds to fly — that was why some mid-load taps missed the hero
+            // transition. Keeping it laid out guarantees a valid shared element on every tap.
+            backdropPlaceholder.visibility = View.GONE
+            backdropImage.visibility = View.VISIBLE
+            backdropImage.setImageDrawable(null)
             val imageUrl = item.landscapeImageUrl
-            if (imageUrl.isNullOrBlank()) {
-                backdropImage.visibility = View.GONE
-                backdropPlaceholder.visibility = View.VISIBLE
-            } else {
-                backdropPlaceholder.visibility = View.VISIBLE
-                backdropImage.visibility = View.GONE
-                backdropImage.setImageDrawable(null)
+            if (!imageUrl.isNullOrBlank()) {
                 SimpleImageLoader.loadBackdrop(
                     url = imageUrl,
                     imageView = backdropImage,
-                    onSuccess = {
-                        backdropImage.visibility = View.VISIBLE
-                        backdropPlaceholder.visibility = View.GONE
-                    },
-                    onError = {
-                        backdropImage.visibility = View.GONE
-                        backdropPlaceholder.visibility = View.VISIBLE
-                    }
+                    // No crossfade on cards: a fade playing at the instant the user taps makes the
+                    // shared-element transition capture a half-faded frame, so the hero flight
+                    // starts from a blank/wrong state. The bitmap just appears (still animated in
+                    // by the card's own entrance/highlight animations).
+                    crossfade = false,
+                    onError = { backdropImage.setImageDrawable(null) }
                 )
             }
 

@@ -1,1 +1,4 @@
-# No external dependencies - all scrapers use Python stdlib only
+# fetch_imdb_charts.py uses Playwright to render IMDb's chart pages (behind
+# an AWS WAF JS challenge); after installing, also run:
+#   python -m playwright install chromium
+playwright

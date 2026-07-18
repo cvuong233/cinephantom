@@ -20,6 +20,7 @@ object WidgetDataFetcher {
         val type: String,   // "movie" or "series"
         val rank: Int,
         val posterUrl: String = "",
+        val backdropUrl: String = "",
         val ratingText: String = "",
         val source: String = "imdb",  // "imdb" or "kdrama"
     ) {
@@ -143,16 +144,22 @@ object WidgetDataFetcher {
             val limit = minOf(arr.length(), 20)
             for (i in 0 until limit) {
                 val item = arr.optJSONObject(i) ?: continue
+                val imdbId = item.optString("imdb_id", "")
+                // Skip items with no resolved IMDb id — the widget click intent has no
+                // TMDB id fallback, so a blank id here means a dead tap on the home screen.
+                if (imdbId.isBlank()) continue
                 val ratingStr = item.optString("rating", "")
                 // Skip IMDb items rated below 7.0
                 if (ratingStr.toFloatOrNull()?.let { it < 7.0f } == true) continue
+                val backdropPath = item.optString("backdropPath", "")
                 allItems.add(
                     Seed(
-                        id = item.optString("imdb_id", ""),
+                        id = imdbId,
                         title = item.optString("title", ""),
                         type = if (key == "tv") "series" else "movie",
                         rank = item.optInt("rank", i + 1),
                         posterUrl = item.optString("poster", ""),
+                        backdropUrl = if (backdropPath.isNotBlank()) "https://image.tmdb.org/t/p/w780$backdropPath" else "",
                         ratingText = ratingStr,
                         source = "imdb",
                     )
@@ -179,6 +186,7 @@ object WidgetDataFetcher {
             val item = arr.optJSONObject(i) ?: continue
             val imdbId = item.optString("imdb_id", "")
             if (imdbId.isBlank()) continue
+            val backdropPath = item.optString("backdropPath", "")
             allItems.add(
                 Seed(
                     id = imdbId,
@@ -188,6 +196,7 @@ object WidgetDataFetcher {
                     type = "series",
                     rank = item.optInt("rank", i + 1),
                     posterUrl = item.optString("poster", ""),
+                    backdropUrl = if (backdropPath.isNotBlank()) "https://image.tmdb.org/t/p/w780$backdropPath" else "",
                     ratingText = item.optString("fundex_score", ""),
                     source = "kdrama",
                 )

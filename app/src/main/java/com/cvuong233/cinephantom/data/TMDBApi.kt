@@ -610,28 +610,15 @@ class TMDBApi {
         }
     }
 
-    // Providers sharing a "base name" (first word — e.g. "Netflix" and "Netflix basic
-    // with Ads" both start with "Netflix") are the same platform in different tiers.
-    // Prefer the shortest/most canonical name for that base — a region-specific tier
-    // variant (e.g. "Netflix Standard with Ads") encountered before the plain "Netflix"
-    // entry from another region must NOT win and hide the canonical one. This was the
-    // likely cause of Netflix silently disappearing from the merged VN+US provider list.
-    // Logs every replacement/drop so an over-aggressive collapse is visible in logcat.
+    // Name-based prefix matching (either "first word" or "either direction") is too
+    // aggressive: "Netflix" is a prefix of "Netflix Standard with Ads" and collapsed one
+    // into the other, sometimes dropping the canonical "Netflix" entry entirely — same for
+    // Apple TV+ getting swallowed by "Apple TV channel" add-ons. TMDB's provider_id is
+    // already a stable per-provider key, so dedupe on that alone and stop guessing at name
+    // relationships. Showing separate tiers (e.g. "Netflix" and "Netflix Standard with Ads")
+    // is fine — better to show too many options than to hide a major platform.
     private fun dedupeProvidersByBaseName(providers: List<TMDBWatchProvider>): List<TMDBWatchProvider> {
-        val bestByBaseName = LinkedHashMap<String, TMDBWatchProvider>()
-        for (p in providers) {
-            val baseName = p.name.trim().split(" ").firstOrNull()?.lowercase(Locale.US) ?: continue
-            val existing = bestByBaseName[baseName]
-            when {
-                existing == null -> bestByBaseName[baseName] = p
-                p.name.trim().length < existing.name.trim().length -> {
-                    Log.d(TAG, "dedupeProvidersByBaseName: replacing '${existing.name}' (id=${existing.id}) with more canonical '${p.name}' (id=${p.id}), baseName='$baseName'")
-                    bestByBaseName[baseName] = p
-                }
-                else -> Log.d(TAG, "dedupeProvidersByBaseName: dropping '${p.name}' (id=${p.id}) as duplicate of '${existing.name}' (id=${existing.id}), baseName='$baseName'")
-            }
-        }
-        return bestByBaseName.values.toList()
+        return providers.distinctBy { it.id }
     }
 
     // All streaming providers offered (movie + TV, deduped) in the device's region —
@@ -648,7 +635,7 @@ class TMDBApi {
         for (region in regions) {
             try {
                 for (endpoint in listOf("movie", "tv")) {
-                    val json = getJson("$BASE_URL/watch/providers/$endpoint?api_key=$API_KEY&watch_region=$region")
+                    val json = getJson("$BASE_URL/watch/providers/$endpoint?api_key=$API_KEY&watch_region=$region&language=en-US")
                     val root = JSONObject(json)
                     val results = root.optJSONArray("results")
                     if (results == null) {

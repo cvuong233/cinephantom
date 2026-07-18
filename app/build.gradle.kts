@@ -12,7 +12,7 @@ android {
         applicationId = "com.cvuong233.cinephantom"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
+        versionCode = 244
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

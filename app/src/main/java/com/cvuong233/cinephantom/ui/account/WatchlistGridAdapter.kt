@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.cvuong233.cinephantom.R
@@ -14,7 +15,7 @@ import com.cvuong233.cinephantom.ui.search.SimpleImageLoader
 import java.util.Locale
 
 class WatchlistGridAdapter(
-    private val onClick: (ImdbTitle) -> Unit,
+    private val onClick: (View, ImdbTitle) -> Unit,
 ) : RecyclerView.Adapter<WatchlistGridAdapter.GridViewHolder>() {
 
     private val items = mutableListOf<ImdbTitle>()
@@ -112,10 +113,14 @@ class WatchlistGridAdapter(
 
             poster.setImageDrawable(null)
             if (!item.imageUrl.isNullOrBlank()) {
-                SimpleImageLoader.load(url = item.imageUrl, imageView = poster)
+                // No crossfade on cards: a fade mid-tap would make the shared-element hero
+                // transition capture a half-faded frame. The poster is animated in by the
+                // grid's own stagger entrance instead.
+                SimpleImageLoader.load(url = item.imageUrl, imageView = poster, crossfade = false)
             }
 
-            itemView.setOnClickListener { onClick(item) }
+            ViewCompat.setTransitionName(poster, "poster_${item.id}")
+            itemView.setOnClickListener { onClick(poster, item) }
         }
     }
 }

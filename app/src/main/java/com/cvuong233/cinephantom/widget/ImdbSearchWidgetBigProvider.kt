@@ -106,6 +106,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     put("type", seed.type)
                     put("rank", seed.rank)
                     put("posterUrl", seed.posterUrl)
+                    put("backdropUrl", seed.backdropUrl)
                     put("ratingText", seed.ratingText)
                     put("source", seed.source)
                 }.toString())
@@ -124,6 +125,7 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                     type = json.optString("type", ""),
                     rank = json.optInt("rank", 0),
                     posterUrl = json.optString("posterUrl", ""),
+                    backdropUrl = json.optString("backdropUrl", ""),
                     ratingText = json.optString("ratingText", ""),
                     source = json.optString("source", "imdb"),
                 )
@@ -152,10 +154,18 @@ class ImdbSearchWidgetBigProvider : AppWidgetProvider() {
                 putExtra(DetailActivity.EXTRA_IMDB_ID, seed.id)
                 putExtra(DetailActivity.EXTRA_TITLE, seed.title)
                 putExtra(DetailActivity.EXTRA_IMAGE_URL, seed.posterUrl)
+                putExtra(DetailActivity.EXTRA_BACKDROP_URL, seed.backdropUrl)
                 putExtra(DetailActivity.EXTRA_YEAR, "")
                 putExtra(DetailActivity.EXTRA_TYPE, if (seed.type == "movie") "Movie" else "Series")
                 putExtra(DetailActivity.EXTRA_FROM_WIDGET, true)
-                putExtra(DetailActivity.EXTRA_RETURN_DISCOVER_TYPE, seed.type)
+                // K-Drama seeds carry type="series" like any IMDb TV show, but they belong on
+                // a distinct Discover tab — pass "kdrama" here so the back-press round trip
+                // (navigateBackToDiscover -> MainActivity -> DiscoverFragment.focusOnTitle)
+                // lands on the KDrama tab instead of IMDb TV.
+                putExtra(
+                    DetailActivity.EXTRA_RETURN_DISCOVER_TYPE,
+                    if (seed.source == "kdrama") "kdrama" else seed.type
+                )
                 if (seed.source == "kdrama" && seed.ratingText.isNotBlank()) {
                     putExtra(DetailActivity.EXTRA_FUNDEX_RATING, seed.ratingText)
                 }

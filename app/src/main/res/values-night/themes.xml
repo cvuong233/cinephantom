@@ -6,5 +6,15 @@
         <item name="android:navigationBarColor">@color/screen_bg</item>
         <item name="android:windowBackground">@color/screen_bg</item>
         <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <!-- These MUST mirror the day theme: without windowActivityTransitions the whole
+             shared-element transition system is disabled in dark mode, so the hero backdrop
+             flight never runs (it just snaps). -->
+        <item name="android:windowActivityTransitions">true</item>
+        <item name="android:windowEnterTransition">@android:transition/fade</item>
+        <item name="android:windowReturnTransition">@android:transition/fade</item>
+        <item name="android:windowSharedElementEnterTransition">@android:transition/move</item>
+        <item name="android:windowSharedElementReturnTransition">@android:transition/move</item>
+        <item name="android:fontFamily">@font/inter</item>
+        <item name="fontFamily">@font/inter</item>
     </style>
 </resources>

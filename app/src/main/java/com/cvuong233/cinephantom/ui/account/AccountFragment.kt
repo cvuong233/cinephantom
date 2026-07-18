@@ -70,7 +70,9 @@ class AccountFragment : Fragment() {
     }
 
     private fun refreshUi(view: View) {
-        val user = auth.currentUser
+        // MainActivity signs everyone in anonymously on launch, so currentUser is never null —
+        // isAnonymous is what actually distinguishes "never signed in" from a real account.
+        val user = auth.currentUser?.takeUnless { it.isAnonymous }
         val signedOut = view.findViewById<LinearLayout>(R.id.account_signed_out)
         val signedIn = view.findViewById<LinearLayout>(R.id.account_signed_in)
 
@@ -115,6 +117,9 @@ class AccountFragment : Fragment() {
             val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
             GoogleSignIn.getClient(requireContext(), gso).signOut()
         } catch (_: Exception) {}
+        // Without this, search history / watch-provider writes would silently no-op again until
+        // the app is restarted (only MainActivity.onCreate re-establishes an anonymous uid).
+        auth.signInAnonymously()
         Toast.makeText(requireContext(), "Signed out", Toast.LENGTH_SHORT).show()
         refreshUi(view)
     }

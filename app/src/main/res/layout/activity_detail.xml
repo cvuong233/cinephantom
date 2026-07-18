@@ -16,7 +16,7 @@
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="370dp"
+            android:layout_height="wrap_content"
             android:clipChildren="false"
             android:clipToPadding="false">
 
@@ -188,46 +188,12 @@
                     android:textSize="14sp"
                     android:visibility="gone" />
 
-                <HorizontalScrollView
-                    android:id="@+id/detail_streaming_scroll"
+                <com.cvuong233.cinephantom.ui.detail.FlowLayout
+                    android:id="@+id/detail_genres_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
-                    android:clipChildren="false"
-                    android:clipToPadding="false"
-                    android:paddingVertical="8dp"
-                    android:scrollbars="none">
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:clipChildren="false"
-                        android:clipToPadding="false">
-
-                        <ImageView
-                            android:id="@+id/detail_stremio_button"
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:layout_gravity="center_vertical"
-                            android:layout_marginEnd="8dp"
-                            android:background="@drawable/bg_back_button"
-                            android:contentDescription="@string/stremio_open_button"
-                            android:elevation="12dp"
-                            android:padding="8dp"
-                            android:src="@drawable/ic_stremio_brand" />
-
-                        <LinearLayout
-                            android:id="@+id/detail_providers_container"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:gravity="center_vertical"
-                            android:clipChildren="false"
-                            android:clipToPadding="false"
-                            android:orientation="horizontal" />
-                    </LinearLayout>
-                </HorizontalScrollView>
+                    android:visibility="gone" />
             </LinearLayout>
         </FrameLayout>
 
@@ -244,12 +210,46 @@
                 android:layout_height="0dp"
                 android:visibility="gone" />
 
-            <com.cvuong233.cinephantom.ui.detail.FlowLayout
-                android:id="@+id/detail_genres_container"
+            <HorizontalScrollView
+                android:id="@+id/detail_streaming_scroll"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:visibility="gone" />
+                android:layout_marginTop="8dp"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:paddingVertical="8dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:clipChildren="false"
+                    android:clipToPadding="false">
+
+                    <ImageView
+                        android:id="@+id/detail_stremio_button"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/bg_back_button"
+                        android:contentDescription="@string/stremio_open_button"
+                        android:elevation="12dp"
+                        android:padding="10dp"
+                        android:src="@drawable/ic_stremio_brand" />
+
+                    <LinearLayout
+                        android:id="@+id/detail_providers_container"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
+                        android:orientation="horizontal" />
+                </LinearLayout>
+            </HorizontalScrollView>
 
             <View
                 android:id="@+id/detail_divider"

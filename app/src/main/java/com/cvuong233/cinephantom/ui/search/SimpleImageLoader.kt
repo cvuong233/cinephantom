@@ -16,6 +16,7 @@ object SimpleImageLoader {
     fun load(
         url: String,
         imageView: ImageView,
+        crossfade: Boolean = true,
         onLoading: () -> Unit = {},
         onSuccess: () -> Unit = {},
         onError: () -> Unit = {},
@@ -23,7 +24,7 @@ object SimpleImageLoader {
         if (url.isBlank()) return false
         onLoading()
         imageView.load(url) {
-            crossfade(true)
+            crossfade(crossfade)
             memoryCachePolicy(CachePolicy.ENABLED)
             size(300, 450)
             listener(
@@ -47,6 +48,7 @@ object SimpleImageLoader {
     fun loadBackdrop(
         url: String,
         imageView: ImageView,
+        crossfade: Boolean = true,
         onLoading: () -> Unit = {},
         onSuccess: () -> Unit = {},
         onError: () -> Unit = {},
@@ -54,7 +56,7 @@ object SimpleImageLoader {
         if (url.isBlank()) return false
         onLoading()
         imageView.load(url) {
-            crossfade(true)
+            crossfade(crossfade)
             memoryCachePolicy(CachePolicy.ENABLED)
             size(780, 439)
             scale(Scale.FILL)
