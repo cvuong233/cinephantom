@@ -147,31 +147,189 @@
 
                 </LinearLayout>
 
-                <!-- ── Reminder timing section ── -->
+                <!-- ── Movie lead time section ── -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="20dp"
                     android:layout_marginBottom="8dp"
-                    android:text="REMINDER TIMING"
+                    android:text="MOVIE LEAD TIME"
                     android:textColor="@color/text_muted"
                     android:textSize="10sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.12" />
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:text="How early (or late) to notify around a movie's release date"
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp" />
+
+                <!-- 4 lead-time option cards -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_tv_stats_card"
-                    android:padding="16dp"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_tv_stats_card">
 
-                    <TextView
+                    <LinearLayout
+                        android:id="@+id/notif_lead_day_of"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="You'll get a reminder 1 day before release and again on release day."
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp" />
+                        android:layout_height="52dp"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="On release day"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+
+                        <ImageView
+                            android:id="@+id/notif_lead_day_of_check"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_check"
+                            android:contentDescription="@null"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/secondary_accent_dim" android:layout_marginHorizontal="16dp" />
+
+                    <LinearLayout
+                        android:id="@+id/notif_lead_1_day"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="1 day before"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+
+                        <ImageView
+                            android:id="@+id/notif_lead_1_day_check"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_check"
+                            android:contentDescription="@null"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/secondary_accent_dim" android:layout_marginHorizontal="16dp" />
+
+                    <LinearLayout
+                        android:id="@+id/notif_lead_3_days"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="3 days before"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+
+                        <ImageView
+                            android:id="@+id/notif_lead_3_days_check"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_check"
+                            android:contentDescription="@null"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/secondary_accent_dim" android:layout_marginHorizontal="16dp" />
+
+                    <LinearLayout
+                        android:id="@+id/notif_lead_1_week"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="1 week before"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+
+                        <ImageView
+                            android:id="@+id/notif_lead_1_week_check"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_check"
+                            android:contentDescription="@null"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
+
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/secondary_accent_dim" android:layout_marginHorizontal="16dp" />
+
+                    <LinearLayout
+                        android:id="@+id/notif_lead_1_day_after"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="1 day after"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp" />
+
+                        <ImageView
+                            android:id="@+id/notif_lead_1_day_after_check"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:src="@drawable/ic_check"
+                            android:contentDescription="@null"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
 
                 </LinearLayout>
 

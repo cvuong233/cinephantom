@@ -4,6 +4,7 @@ import android.app.TimePickerDialog
 import android.os.Bundle
 import android.view.View
 import android.view.animation.DecelerateInterpolator
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
@@ -21,6 +22,11 @@ class NotificationSettingsActivity : AppCompatActivity() {
     private lateinit var settingsContent: LinearLayout
     private lateinit var timeDisplay: TextView
 
+    // Negative values mean "after" the release/air date (e.g. -1 = 1 day after).
+    private val leadOptions = listOf(0, 1, 3, 7, -1)
+    private lateinit var leadRows: List<LinearLayout>
+    private lateinit var leadChecks: List<ImageView>
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = 0xFF0D0011.toInt()
@@ -35,9 +41,25 @@ class NotificationSettingsActivity : AppCompatActivity() {
         settingsContent = findViewById(R.id.notif_settings_content)
         timeDisplay = findViewById(R.id.notif_time_display)
 
+        leadRows = listOf(
+            findViewById(R.id.notif_lead_day_of),
+            findViewById(R.id.notif_lead_1_day),
+            findViewById(R.id.notif_lead_3_days),
+            findViewById(R.id.notif_lead_1_week),
+            findViewById(R.id.notif_lead_1_day_after)
+        )
+        leadChecks = listOf(
+            findViewById(R.id.notif_lead_day_of_check),
+            findViewById(R.id.notif_lead_1_day_check),
+            findViewById(R.id.notif_lead_3_days_check),
+            findViewById(R.id.notif_lead_1_week_check),
+            findViewById(R.id.notif_lead_1_day_after_check)
+        )
+
         masterToggle.isChecked = prefs.masterEnabled
         updateSettingsContentAlpha(prefs.masterEnabled, animate = false)
         updateTimeDisplay(prefs.notificationHour, prefs.notificationMinute)
+        updateLeadSelection(prefs.movieLeadDays)
 
         masterToggle.setOnCheckedChangeListener { _, checked ->
             prefs.masterEnabled = checked
@@ -60,6 +82,16 @@ class NotificationSettingsActivity : AppCompatActivity() {
             ).show()
         }
 
+        leadRows.forEachIndexed { i, row ->
+            row.setOnClickListener {
+                if (!prefs.masterEnabled) return@setOnClickListener
+                val days = leadOptions[i]
+                prefs.movieLeadDays = days
+                updateLeadSelection(days)
+                rescheduleWatchlistNotifications()
+            }
+        }
+
         // Entrance animation
         settingsContent.alpha = 0f
         settingsContent.translationY = 30f
@@ -80,6 +112,17 @@ class NotificationSettingsActivity : AppCompatActivity() {
             else -> hour
         }
         timeDisplay.text = String.format(Locale.US, "%d:%02d %s", displayHour, minute, amPm)
+    }
+
+    private fun updateLeadSelection(selectedDays: Int) {
+        leadOptions.forEachIndexed { i, days ->
+            val isSelected = days == selectedDays
+            leadChecks[i].visibility = if (isSelected) View.VISIBLE else View.GONE
+            val labelView = leadRows[i].getChildAt(0) as? TextView
+            labelView?.setTextColor(
+                if (isSelected) getColor(R.color.secondary_link) else getColor(R.color.text_primary)
+            )
+        }
     }
 
     // Existing alarms were scheduled with whatever lead-time/hour was in effect at the
