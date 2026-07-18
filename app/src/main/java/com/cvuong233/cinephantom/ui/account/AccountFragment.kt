@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.cvuong233.cinephantom.R
 import com.cvuong233.cinephantom.data.FavoritesRepository
+import com.cvuong233.cinephantom.notifications.NotificationHistoryActivity
 import com.cvuong233.cinephantom.notifications.NotificationSettingsActivity
 import com.cvuong233.cinephantom.ui.settings.StreamingPlatformsSettingsActivity
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -44,6 +45,9 @@ class AccountFragment : Fragment() {
         }
         view.findViewById<LinearLayout>(R.id.account_notif_settings_row).setOnClickListener {
             startActivity(Intent(requireContext(), NotificationSettingsActivity::class.java))
+        }
+        view.findViewById<LinearLayout>(R.id.account_notif_history_row).setOnClickListener {
+            startActivity(Intent(requireContext(), NotificationHistoryActivity::class.java))
         }
         view.findViewById<LinearLayout>(R.id.account_streaming_platforms_row).setOnClickListener {
             startActivity(Intent(requireContext(), StreamingPlatformsSettingsActivity::class.java))

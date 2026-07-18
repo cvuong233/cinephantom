@@ -60,6 +60,7 @@ object WatchlistNotificationScheduler {
             putExtra(WatchlistNotificationReceiver.EXTRA_SEASON, season)
             putExtra(WatchlistNotificationReceiver.EXTRA_EPISODE, episode)
             putExtra(WatchlistNotificationReceiver.EXTRA_IMAGE_URL, imageUrl)
+            putExtra(WatchlistNotificationReceiver.EXTRA_LEAD_DAYS, leadDays.toInt())
         }
         val pi = PendingIntent.getBroadcast(
             context, imdbId.hashCode(), receiverIntent,

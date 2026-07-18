@@ -319,6 +319,47 @@
                     <View android:layout_width="match_parent" android:layout_height="1dp"
                         android:background="@color/secondary_accent_dim" android:layout_marginHorizontal="16dp" />
 
+                    <!-- Notification History row -->
+                    <LinearLayout
+                        android:id="@+id/account_notif_history_row"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_history"
+                            android:contentDescription="@null" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="12dp"
+                            android:text="Notification History"
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="›"
+                            android:textColor="@color/text_muted"
+                            android:textSize="22sp" />
+
+                    </LinearLayout>
+
+                    <!-- Divider between rows -->
+                    <View android:layout_width="match_parent" android:layout_height="1dp"
+                        android:background="@color/secondary_accent_dim" android:layout_marginHorizontal="16dp" />
+
                     <!-- Streaming Platforms row -->
                     <LinearLayout
                         android:id="@+id/account_streaming_platforms_row"

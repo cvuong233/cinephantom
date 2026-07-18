@@ -18,6 +18,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.cvuong233.cinephantom.data.FavoritesRepository
+import com.cvuong233.cinephantom.data.NotificationHistoryRepository
 import com.cvuong233.cinephantom.data.WatchProviderOverrides
 import com.cvuong233.cinephantom.databinding.ActivityMainBinding
 import com.cvuong233.cinephantom.notifications.WatchlistNotificationScheduler
@@ -57,6 +58,7 @@ class MainActivity : AppCompatActivity() {
             FirebaseAuth.getInstance().signInAnonymously()
         }
         FavoritesRepository.init()
+        NotificationHistoryRepository.init()
         WatchProviderOverrides.init()
         WatchlistNotificationScheduler.createChannel(this)
 
